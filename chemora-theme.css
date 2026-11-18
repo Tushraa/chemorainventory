@@ -1,9 +1,9 @@
 /* Chemora interface theme: dark grey workspace with a stacked left menu, square quick-action buttons,
    header-bar panels and compact tables. Loaded after inventory.css so it wins every conflict. */
 :root{
-  --ci-page:#393e41; --ci-panel:#2d3133; --ci-bar:#4e5659; --ci-input:#25292b; --ci-line:#1b1e22; --ci-row:#34393b;
-  --ci-btn:#536066; --ci-btn-hover:#62727a; --ci-green:#3e9475; --ci-green-hover:#47a784; --ci-red:#d9635d; --ci-blue:#46697f;
-  --ci-text:#ddd; --ci-muted:#9aa3a7; --ci-white:#fff;
+  --ci-page:#0f1b2d; --ci-panel:#14263d; --ci-bar:#1d3a5c; --ci-input:#0c1626; --ci-line:#091220; --ci-row:#132339;
+  --ci-btn:#24507a; --ci-btn-hover:#2e639a; --ci-green:#14a38b; --ci-green-hover:#1bbba0; --ci-red:#d9635d; --ci-blue:#2c7fb8;
+  --ci-text:#e3ecf5; --ci-muted:#8fa6bd; --ci-white:#fff;
 }
 html,html.ci-root{background:var(--ci-page) !important;color-scheme:dark}
 body.ci{
@@ -35,13 +35,13 @@ body.ci{
 .ci .ci-menu{position:static;display:flex;flex-direction:column;gap:5px;background:transparent;border:0;padding:0;margin:0;box-shadow:none}
 .ci .ci-menu>button,.ci .ci-menu .side-group-toggle{display:flex;align-items:center;gap:10px;width:100%;height:40px;padding:0 12px;background:var(--ci-bar);color:#fff;border:0;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.45);font-family:Cuprum,Arial,sans-serif;font-size:16px;font-weight:700;text-align:left;cursor:pointer}
 .ci .ci-menu>button i:first-child{width:18px;text-align:center;font-size:14px}
-.ci .ci-menu>button:hover{background:#5d676b}
+.ci .ci-menu>button:hover{background:#2e639a}
 .ci .ci-menu>button.active,.ci .ci-menu>button.open{background:var(--ci-green)}
 .ci .ci-menu .side-group-toggle .side-chevron{margin-left:auto;font-size:11px}
 .ci .ci-menu .side-sub{display:flex;flex-direction:column;margin:0 0 3px;background:var(--ci-panel);border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.45);overflow:hidden}
 .ci .ci-menu .side-sub.hide{display:none !important}
 .ci .ci-menu .side-sub button{display:flex;align-items:center;justify-content:space-between;width:100%;height:38px;padding:0 12px;background:transparent;color:#fff;border:0;border-radius:0;font-size:12px;font-weight:400;font-family:"Helvetica Neue",Arial,sans-serif;text-align:left;cursor:pointer}
-.ci .ci-menu .side-sub button:hover{background:#383e41}
+.ci .ci-menu .side-sub button:hover{background:#173050}
 .ci .ci-menu .side-sub button.active{background:var(--ci-blue)}
 .ci .ci-menu .side-sub button.active::after{content:"\203A";font-size:18px;line-height:1}
 .ci .ci-signed-in{margin-top:12px;padding:0 0 0 26px;color:#fff;font-size:12px}
@@ -62,12 +62,12 @@ body.ci{
 .ci .field input,.ci .field select,.ci .field textarea,.ci input[type=text],.ci input[type=search],.ci input[type=email],.ci input[type=number],.ci input[type=password],.ci input[type=date],.ci input[type=file],.ci select,.ci textarea{
   width:100%;background:var(--ci-input);color:var(--ci-text);border:1px solid var(--ci-line);border-radius:2px !important;padding:10px 10px;font-size:12px;box-shadow:none;margin-top:5px}
 .ci .field input:focus,.ci .field select:focus,.ci .field textarea:focus,.ci input:focus,.ci select:focus,.ci textarea:focus{outline:0;border-color:var(--ci-green);box-shadow:0 0 0 1px var(--ci-green)}
-.ci input::placeholder,.ci textarea::placeholder{color:#6d777b}
+.ci input::placeholder,.ci textarea::placeholder{color:#5f7893}
 .ci input[type=checkbox],.ci input[type=radio]{width:auto;margin:0 6px 0 0;accent-color:var(--ci-green)}
 .ci .row{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
 .ci .status{color:var(--ci-muted);min-height:0;margin:6px 0}
 .ci .status:empty{display:none}
-.ci .notice{background:#4a3f2c;color:#f3d9a4;border:1px solid #6b5a38;border-radius:2px;padding:10px 12px}
+.ci .notice{background:#1d3a5c;color:#e3ecf5;border:1px solid #2c7fb8;border-radius:2px;padding:10px 12px}
 .ci .hint{color:var(--ci-muted);font-size:11px;margin:-6px 0 12px 5px}
 .ci .dotted{border-bottom:1px dotted #fff;cursor:pointer;color:#fff;background:none;border-top:0;border-left:0;border-right:0;padding:0;font-size:inherit}
 
@@ -97,15 +97,15 @@ body.ci{
 .ci .table-wrap{overflow:auto;max-height:70vh}
 .ci table.inventory-data-table,.ci .inventory-data-table{width:100%;border-collapse:collapse;background:transparent;color:var(--ci-text);font-size:12px}
 .ci .inventory-data-table thead th{position:sticky;top:0;background:var(--ci-panel);color:#fff;font-weight:700;text-align:left;padding:12px 10px;border-bottom:1px solid var(--ci-line);white-space:nowrap}
-.ci .inventory-data-table td{padding:12px 10px;border-bottom:1px solid #3a4043;border-right:0;vertical-align:middle}
-.ci .inventory-data-table tbody tr:hover td{background:#32373a}
-.ci .inventory-data-table th[scope=row]{background:transparent;color:#fff;text-align:left;padding:10px;border-bottom:1px solid #3a4043;width:40%}
+.ci .inventory-data-table td{padding:12px 10px;border-bottom:1px solid #1f3552;border-right:0;vertical-align:middle}
+.ci .inventory-data-table tbody tr:hover td{background:#173050}
+.ci .inventory-data-table th[scope=row]{background:transparent;color:#fff;text-align:left;padding:10px;border-bottom:1px solid #1f3552;width:40%}
 .ci .row-actions{display:flex;gap:6px;white-space:nowrap}
 .ci .badge{display:inline-block;background:var(--ci-green);color:#fff;font-weight:700;font-size:11px;padding:3px 8px;border-radius:2px}
 
 /* ---------- dialogs ---------- */
 .ci dialog,.ci dialog.chemical-dialog{background:var(--ci-panel);color:var(--ci-text);border:1px solid rgba(0,0,0,.5);border-radius:3px;box-shadow:0 8px 40px rgba(0,0,0,.7);padding:0;max-width:min(96vw,1000px);width:100%}
-.ci dialog::backdrop{background:rgba(20,22,24,.62)}
+.ci dialog::backdrop{background:rgba(5,12,24,.7)}
 .ci .chemical-dialog-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:transparent;border:0}
 .ci .chemical-dialog-head h2{font-size:16px;margin:0}
 .ci .chemical-dialog-head button{background:none;border:0;color:#fff;font-size:20px;cursor:pointer;line-height:1}
@@ -164,17 +164,17 @@ html body.ci .inventory-topbar.ci-topbar{height:auto !important;min-height:94px 
 html body.ci .shell{margin-top:6px !important}
 html body.ci .ci-menu>button,html body.ci .ci-menu .side-group-toggle{min-height:40px !important;height:40px;padding:0 12px !important;background:var(--ci-bar) !important;color:#fff !important;border:0 !important;border-radius:3px !important;font-size:16px}
 html body.ci .ci-menu>button.active,html body.ci .ci-menu>button.open{background:var(--ci-green) !important}
-html body.ci .ci-menu>button:hover:not(.active){background:#5d676b !important}
+html body.ci .ci-menu>button:hover:not(.active){background:#2e639a !important}
 html body.ci .ci-menu .side-sub button{min-height:38px !important;height:38px;padding:0 12px !important;background:transparent !important;border:0 !important;color:#fff !important;font-size:12px}
 html body.ci .ci-menu .side-sub button.active{background:var(--ci-blue) !important}
-html body.ci .ci-menu .side-sub button:hover:not(.active){background:#383e41 !important}
+html body.ci .ci-menu .side-sub button:hover:not(.active){background:#173050 !important}
 html body.ci .inventory-sidebar.ci-menu{background:transparent !important;border:0 !important;padding:0 !important;border-radius:0 !important;position:static;top:auto}
 html body.ci .inventory-content .panel,html body.ci .tab-view .panel,html body.ci .panel{background:var(--ci-panel) !important;border:1px solid rgba(0,0,0,.35) !important;border-radius:2px !important;box-shadow:0 1px 4px rgba(0,0,0,.5) !important}
 html body.ci .panel>h2,html body.ci .tab-view .panel h2{background:var(--ci-bar) !important;color:#fff !important;border:0 !important;padding:0 14px !important;font-size:16px !important}
 html body.ci .field input,html body.ci .field select,html body.ci .field textarea,html body.ci .inventory-toolbar input,html body.ci .inventory-toolbar select,html body.ci input,html body.ci select,html body.ci textarea{background:var(--ci-input) !important;color:var(--ci-text) !important;border-color:var(--ci-line) !important;border-radius:2px !important}
 html body.ci input[type=checkbox],html body.ci input[type=radio]{background:transparent !important}
 html body.ci .inventory-data-table th{background:var(--ci-panel) !important;color:#fff !important;border-color:var(--ci-line) !important}
-html body.ci .inventory-data-table td{color:var(--ci-text) !important;border-color:#3a4043 !important}
+html body.ci .inventory-data-table td{color:var(--ci-text) !important;border-color:#1f3552 !important}
 html body.ci .btn,html body.ci .btn.secondary{background:var(--ci-btn) !important;color:#fff !important;border:0 !important;border-radius:2px !important}
 html body.ci .btn:hover,html body.ci .btn.secondary:hover{background:var(--ci-btn-hover) !important}
 html body.ci .btn.green{background:var(--ci-green) !important}
@@ -192,17 +192,17 @@ html body.ci .ci-menu>button,html body.ci .ci-menu .side-group-toggle{white-spac
 .ci dialog.ci-small{max-width:460px}
 .ci dialog.ci-wide{max-width:min(96vw,760px)}
 .ci .ci-label{margin:0 0 5px;color:var(--ci-text)}
-.ci .ci-box{background:#25292b;border:1px solid var(--ci-line);border-radius:2px;padding:12px 14px}
+.ci .ci-box{background:#0c1626;border:1px solid var(--ci-line);border-radius:2px;padding:12px 14px}
 .ci .ci-box p{margin:0 0 8px}
 .ci label.radio{display:flex;align-items:flex-start;gap:8px;margin:6px 0;cursor:pointer}
 .ci .ghs-list{max-height:300px;overflow:auto;padding:4px 8px}
-.ci .ghs-row{display:grid;grid-template-columns:28px 54px 1fr;align-items:center;gap:6px;padding:7px 4px;border-bottom:1px solid #30363a;cursor:pointer}
+.ci .ghs-row{display:grid;grid-template-columns:28px 54px 1fr;align-items:center;gap:6px;padding:7px 4px;border-bottom:1px solid #1f3552;cursor:pointer}
 .ci .ghs-row b{color:#fff}
 .ci .ghs-row input{margin:0;width:16px;height:16px}
-.ci .adv-group{background:#25292b;border:1px solid var(--ci-line);border-radius:2px;padding:8px;margin:8px 0}
+.ci .adv-group{background:#0c1626;border:1px solid var(--ci-line);border-radius:2px;padding:8px;margin:8px 0}
 .ci .adv-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.ci .adv-body{margin:8px 0 0 14px;padding-left:10px;border-left:2px solid #3a4043}
-.ci .adv-rule{display:grid;grid-template-columns:minmax(150px,1.4fr) minmax(110px,1fr) minmax(120px,1.4fr) auto;gap:8px;align-items:center;margin:6px 0;background:#2d3133;padding:6px}
+.ci .adv-body{margin:8px 0 0 14px;padding-left:10px;border-left:2px solid #1f3552}
+.ci .adv-rule{display:grid;grid-template-columns:minmax(150px,1.4fr) minmax(110px,1fr) minmax(120px,1.4fr) auto;gap:8px;align-items:center;margin:6px 0;background:#14263d;padding:6px}
 .ci .adv-rule select,.ci .adv-rule input{margin:0;width:100%}
 .ci .adv-rule select:only-of-type{grid-column:span 3}
 .ci .ghs-picts{display:flex;gap:8px;margin:8px 0}
@@ -229,9 +229,9 @@ html body.ci dialog{max-height:92vh;overflow:auto}
 .ci .row-actions{display:inline-flex;gap:4px}
 .ci .im-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
 .ci .im-menu{position:relative}
-.ci .im-list{position:absolute;z-index:20;top:100%;left:0;min-width:240px;background:var(--ci-panel,#2d3133);border:1px solid #1b1e22;box-shadow:0 6px 14px rgba(0,0,0,.4)}
+.ci .im-list{position:absolute;z-index:20;top:100%;left:0;min-width:240px;background:var(--ci-panel,#14263d);border:1px solid #091220;box-shadow:0 6px 14px rgba(0,0,0,.4)}
 .ci .im-list button{display:block;width:100%;text-align:left;padding:9px 12px;background:none;border:0;color:#ddd;font:inherit;cursor:pointer;white-space:nowrap}
-.ci .im-list button:hover{background:#4e5659;color:#fff}
+.ci .im-list button:hover{background:#1d3a5c;color:#fff}
 .ci .im-list button i{width:18px;margin-right:6px}
 .ci .im-list.hide{display:none}
 .ci #view-tools h4{margin:14px 0 6px}
@@ -253,12 +253,26 @@ html body.ci #view-tools label.muted{white-space:nowrap}
 .ci .ci-sponsors{display:flex;flex-direction:column;gap:10px;margin:18px 0 0;padding:0 0 0 26px;max-width:200px}
 .ci .ci-sponsor{display:block;text-decoration:none;color:var(--ci-muted,#aab);pointer-events:auto}
 .ci .ci-sponsor[href="#"]{cursor:default}
-.ci .ci-sponsor-label{display:block;font-size:11px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px;color:#9aa5a9}
-.ci .ci-sponsor-logo{position:relative;display:flex;align-items:center;justify-content:center;height:64px;background:#fff;border:1px solid #1b1e22;border-radius:2px;overflow:hidden}
+.ci .ci-sponsor-label{display:block;font-size:11px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px;color:#8fa6bd}
+.ci .ci-sponsor-logo{position:relative;display:flex;align-items:center;justify-content:center;height:64px;background:#fff;border:1px solid #091220;border-radius:2px;overflow:hidden}
 .ci .ci-sponsor-logo img{max-width:90%;max-height:52px;object-fit:contain;position:relative;z-index:1}
-.ci .ci-sponsor-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8a949a;font-size:11px;border:1px dashed #b9c1c5;margin:4px}
+.ci .ci-sponsor-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#7a8ea6;font-size:11px;border:1px dashed #b8c6d6;margin:4px}
 .ci .ci-sponsor-logo img+.ci-sponsor-ph{z-index:0}
 .ci .ci-sponsor-logo img:not([hidden])~.ci-sponsor-ph{visibility:hidden}
 @media (max-width:760px){.ci .ci-sponsors{padding-left:0;max-width:none}}
 html body.ci .ci-sponsors{padding-left:0 !important;max-width:none !important;width:200px;margin-left:0}
 html body.ci .ci-sponsor-label{padding-left:2px}
+
+/* navy + teal: override the remaining charcoal surfaces from inventory.css */
+html body.ci #chemicalDialog.chemical-dialog,html body.ci #chemicalDialog .chemical-dialog-head,html body.ci #chemicalDialog .chemical-dialog-body{background:var(--ci-panel) !important}
+html body.ci #chemicalDialog .chemora-detail-middle,html body.ci #chemicalDialog .chemora-detail-right,html body.ci #chemicalDialog .chemora-detail-column{border-color:#2b4a6b !important}
+html body.ci #chemicalDialog .chemora-ghs-summary a{background:#0f3d46 !important;border-color:#14a38b !important;color:#fff !important}
+html body.ci #chemicalDialog .chemora-ghs-summary a:hover{background:#14566a !important}
+html body.ci .chemora-detail-grid *{border-color:#2b4a6b}
+html body.ci .im-list{background:var(--ci-panel) !important;border-color:var(--ci-line) !important}
+html body.ci .im-list button{color:var(--ci-text) !important;background:transparent !important}
+html body.ci .im-list button:hover{background:var(--ci-bar) !important}
+html body.ci .inventory-data-table tbody tr:hover td{background:#173050 !important}
+html body.ci .ghs-row{border-bottom-color:#1f3552}
+html body.ci .notice{background:#1d3a5c;color:#e3ecf5;border-color:#2c7fb8}
+html body.ci .chemora-detail-grid .ghs-pict,html body.ci .chemora-detail-grid .ghs-pict *{border-color:#d42a2a}
