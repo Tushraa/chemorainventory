@@ -82,6 +82,7 @@ let lastChemicals = [], lastContainers = [], matchedContainerIds = null, lastSea
 let activeChemicalId = null, activeContainerId = null;
 let cachedOrders = [], cachedHistory = [], historyNames = {}, cachedUsers = [];
 let activeReceiveOrder = null, actionContainerId = null;
+let scanDestination = null, collectionRows = [];
 let importRows = [], importBusy = false, importSource = null;
 
 const isManager = () => role === 'manager' || role === 'admin';
@@ -158,7 +159,8 @@ function resetState() {
   cachedOrders = []; cachedHistory = []; historyNames = {}; cachedUsers = []; locations = []; ownerProfiles = [];
   importRows = []; importBusy = false; importSource = null; show($('importPanel'), false);
   document.querySelectorAll('dialog[open]').forEach(d => d.close());
-  for (const id of ['chemicalCards', 'orderList', 'historyList', 'userList', 'toolsResult', 'locationList']) $(id)?.replaceChildren();
+  for (const id of ['chemicalCards', 'orderList', 'historyList', 'userList', 'toolsResult', 'locationList', 'collectionList', 'scanLog']) $(id)?.replaceChildren();
+  scanDestination = null; collectionRows = [];
   $('chemoraResultsCount').textContent = '';
   show($('chemoraResultsPanel'), false);
   $('chemoraToastContainer')?.replaceChildren();
@@ -166,7 +168,7 @@ function resetState() {
   show($('labSwitcher'), false); show($('createLabPanel'), false);
 }
 function showLoggedOut() {
-  show($('auth'), true); show($('portal'), false); show($('profileCard'), false);
+  show($('auth'), true); show($('portal'), false); show($('profileCard'), false); show($('topActions'), false);
   $('who').textContent = '';
 }
 async function rejectSession(message) {
@@ -200,7 +202,7 @@ async function initSession() {
   }
   if (!user) { resetState(); showLoggedOut(); return; }
 
-  show($('auth'), false); show($('portal'), true); show($('profileCard'), true);
+  show($('auth'), false); show($('portal'), true); show($('profileCard'), true); show($('topActions'), true);
   $('who').textContent = displayName;
   $('profileRole').textContent = (role === 'admin' ? 'Administrator' : role === 'manager' ? 'Chemical Manager' : 'Member') + (labContext?.lab_name ? ' · ' + labContext.lab_name : '');
   $('profileAvatar').textContent = displayName.trim().split(/\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase() || 'HG';
@@ -250,19 +252,30 @@ $('labForm').addEventListener('submit', async e => {
     if (await switchLab(data)) status('Lab "' + name + '" created. You are now working in it.');
   } finally { submit.disabled = false; }
 });
+const TAB_GROUPS = { orders: ['orders', 'requests'], admin: ['users', 'history', 'tools'] };
+function setGroup(group, open) {
+  document.querySelectorAll(`[data-group-body="${group}"]`).forEach(el => show(el, open));
+  document.querySelectorAll(`.side-group-toggle[data-group="${group}"]`).forEach(b => { b.setAttribute('aria-expanded', String(open)); b.classList.toggle('open', open); });
+}
 function setTab(name) {
   if (!$('view-' + name)) name = 'home';
-  if ((name === 'history' && !isManager()) || (['users', 'tools'].includes(name) && !isAdmin())) return;
+  if ((['history', 'scan'].includes(name) && !isManager()) || (['users', 'tools'].includes(name) && !isAdmin())) return;
   document.querySelectorAll('.tab-view').forEach(el => show(el, el.id === 'view-' + name));
   $('portal').dataset.activeTab = name;
-  if ($('mobileModule')) $('mobileModule').value = name;
-  document.querySelectorAll('#tabs button[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  if ($('mobileModule')) $('mobileModule').value = name === 'tools' ? 'users' : name;
+  // 'tools' is the page behind the Inventory Management menus, so it highlights Inventory Management.
+  const menuName = name === 'tools' ? 'users' : name;
+  document.querySelectorAll('#tabs button[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === menuName));
+  for (const [group, tabs] of Object.entries(TAB_GROUPS)) if (tabs.includes(name)) setGroup(group, true);
   if (name === 'requests') loadOrders();
   if (name === 'locations') loadLocations();
   if (name === 'history') loadHistory();
   if (name === 'users') loadUsers();
   if (name === 'add') loadContainerOwners();
+  if (name === 'collection') loadCollection();
+  if (name === 'scan') initScan();
 }
+document.querySelectorAll('.side-group-toggle').forEach(b => b.addEventListener('click', () => setGroup(b.dataset.group, b.getAttribute('aria-expanded') !== 'true')));
 $('mobileModule')?.addEventListener('change', e => setTab(e.target.value));
 $('login').addEventListener('submit', async e => {
   e.preventDefault();
@@ -296,7 +309,7 @@ db.auth.onAuthStateChange(event => {
     status('Your session has ended. Please sign in again.', 'loginError');
   }
 });
-document.querySelectorAll('#tabs button[data-tab]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+document.querySelectorAll('#tabs button[data-tab], .top-action[data-tab]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
 document.querySelectorAll('[data-open-tab]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.openTab)));
 
 /* ---------- locations ---------- */
@@ -953,17 +966,42 @@ $('saveOrderSettings').addEventListener('click', () => {
 });
 
 /* ---------- history ---------- */
-function renderHistory() {
+const SUBJECT_LABELS = { inventory_containers: 'Container', inventory_chemicals: 'Substance', inventory_locations: 'Location', inventory_orders: 'Order' };
+const EVENT_LABELS = { insert: 'Creation', update: 'Edit', delete: 'Deletion' };
+const historySubject = x => SUBJECT_LABELS[x.table_name] || x.table_name;
+const historyEvent = x => EVENT_LABELS[x.action] || x.action;
+const historyUser = x => historyNames[x.performed_by] || x.performed_by || 'Unknown';
+const historyText = x => x.description || `${historySubject(x)} ${String(x.action || '').toLowerCase()} (record ${String(x.record_id || '').slice(0, 8)})`;
+const historyStamp = x => String(x.created_at || '').replace('T', ' ').slice(0, 19);
+function filteredHistory() {
   const q = $('historyFilter').value.trim().toLowerCase(), from = $('historyFrom').value, to = $('historyTo').value;
-  const items = cachedHistory.filter(x => {
+  const who = $('historyUser').value, subject = $('historySubject').value;
+  return cachedHistory.filter(x => {
     const day = String(x.created_at || '').slice(0, 10);
-    return (!from || day >= from) && (!to || day <= to) && (!q || [x.table_name, x.action, historyNames[x.performed_by], x.performed_by].some(v => String(v || '').toLowerCase().includes(q)));
+    return (!from || day >= from) && (!to || day <= to) && (!who || x.performed_by === who) && (!subject || x.table_name === subject)
+      && (!q || [historyEvent(x), historyText(x)].some(v => String(v).toLowerCase().includes(q)));
   });
-  $('historyList').innerHTML = '<table class="inventory-data-table"><thead><tr><th>Timestamp (UTC)</th><th>Subject</th><th>Event</th><th>Performed by</th></tr></thead><tbody>' + items.map(x => `<tr><td>${esc(x.created_at)}</td><td>${esc(x.table_name)}</td><td>${esc(x.action)}</td><td>${esc(historyNames[x.performed_by] || x.performed_by || 'Unknown')}</td></tr>`).join('') + '</tbody></table>';
 }
+function renderHistory() {
+  const items = filteredHistory();
+  $('historyList').innerHTML = '<table class="inventory-data-table"><thead><tr><th>Timestamp (UTC)</th><th>User</th><th>Subject</th><th>Event</th><th>Description</th></tr></thead><tbody>' +
+    (items.length ? items.map(x => `<tr><td>${esc(historyStamp(x))}</td><td>${esc(historyUser(x))}</td><td>${esc(historySubject(x))}</td><td>${esc(historyEvent(x))}</td><td>${esc(historyText(x))}</td></tr>`).join('') : '<tr><td colspan="5" class="muted">No activity matches these filters.</td></tr>') + '</tbody></table>';
+}
+function fillHistoryUsers() {
+  const keep = $('historyUser').value;
+  const people = [...new Set(cachedHistory.map(x => x.performed_by).filter(Boolean))].map(id => [id, historyNames[id] || id]).sort((a, b) => a[1].localeCompare(b[1]));
+  $('historyUser').replaceChildren(new Option('All users', ''), ...people.map(([id, name]) => new Option(name, id)));
+  $('historyUser').value = people.some(([id]) => id === keep) ? keep : '';
+}
+function isoDay(d) { return d.toISOString().slice(0, 10); }
 async function loadHistory() {
   if (!isManager()) return;
-  const { data, error } = await db.from('inventory_activity_logs').select('created_at,table_name,action,performed_by').order('created_at', { ascending: false }).limit(1000);
+  if (!$('historyFrom').value && !$('historyTo').value) { $('historyFrom').value = isoDay(new Date(Date.now() - 30 * 864e5)); $('historyTo').value = isoDay(new Date()); }
+  let { data, error } = await db.from('inventory_activity_logs').select('created_at,table_name,record_id,action,performed_by,description').order('created_at', { ascending: false }).limit(2000);
+  if (error && /description/i.test(error.message)) {
+    // Database not upgraded with sql/04_activity_descriptions.sql yet: fall back to generated descriptions.
+    ({ data, error } = await db.from('inventory_activity_logs').select('created_at,table_name,record_id,action,performed_by').order('created_at', { ascending: false }).limit(2000));
+  }
   if (error) { status(error.message); return; }
   cachedHistory = data || [];
   const ids = [...new Set(cachedHistory.map(x => x.performed_by).filter(Boolean))];
@@ -981,13 +1019,135 @@ async function loadHistory() {
       } catch (_e) { /* names are optional */ }
     }
   }
+  fillHistoryUsers();
   renderHistory();
 }
-for (const id of ['historyFilter', 'historyFrom', 'historyTo']) $(id).addEventListener('input', renderHistory);
+for (const id of ['historyFilter', 'historyFrom', 'historyTo', 'historyUser', 'historySubject']) $(id).addEventListener('input', renderHistory);
 $('historyExport').addEventListener('click', () => {
   if (!isManager()) return;
-  downloadCSV('hari-history.csv', [['Timestamp', 'Table', 'Action', 'User name'], ...cachedHistory.map(x => [x.created_at, x.table_name, x.action, historyNames[x.performed_by] || x.performed_by])]);
+  downloadCSV('hari-history.csv', [['Timestamp (UTC)', 'User', 'Subject', 'Event', 'Description'], ...filteredHistory().map(x => [historyStamp(x), historyUser(x), historySubject(x), historyEvent(x), historyText(x)])]);
 });
+
+/* ---------- my collection ---------- */
+async function loadCollection() {
+  status('Loading your containers…', 'collectionStatus');
+  try {
+    const rows = (await getContainerRows()).filter(x => isActiveContainer(x) && x.owner_id === user.id);
+    collectionRows = rows;
+    status(rows.length ? '' : 'You do not own any containers yet.', 'collectionStatus');
+    renderCollection();
+  } catch (e) { status(errorText(e), 'collectionStatus'); }
+}
+function renderCollection() {
+  const q = $('collectionFilter').value.trim().toLowerCase();
+  const rows = collectionRows.filter(x => !q || [x.chemical?.name, x.chemical?.cas, x.barcode, x.location_name].some(v => String(v || '').toLowerCase().includes(q)));
+  $('collectionList').innerHTML = rows.length ? '<table class="inventory-data-table"><thead><tr><th>Name</th><th>CAS</th><th>Barcode</th><th>Remaining</th><th>Location</th></tr></thead><tbody>' +
+    rows.map(x => `<tr><td>${esc(x.chemical?.name)}</td><td>${esc(x.chemical?.cas || '—')}</td><td>${esc(x.barcode)}</td><td>${esc(x.remaining_amount ?? x.container_size)} / ${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td></tr>`).join('') + '</tbody></table>' : '';
+}
+$('collectionFilter').addEventListener('input', renderCollection);
+$('collectionExport').addEventListener('click', () => {
+  downloadCSV('my-collection.csv', [['Name', 'CAS', 'Barcode', 'Size', 'Remaining', 'Unit', 'Location'], ...collectionRows.map(x => [x.chemical?.name, x.chemical?.cas, x.barcode, x.container_size, x.remaining_amount, x.unit, x.location_name])]);
+});
+
+/* ---------- scan to move ---------- */
+function setScanDestination(loc) {
+  scanDestination = loc || null;
+  $('scanDestination').textContent = loc ? 'Destination: ' + locationPath(loc) + (loc.barcode ? ' (' + loc.barcode + ')' : '') : 'No destination selected.';
+  $('scanContainerCode').disabled = !loc;
+  if (loc) $('scanContainerCode').focus();
+}
+function initScan() {
+  const sorted = [...locations].filter(l => l.active !== false).sort((a, b) => locationPath(a).localeCompare(locationPath(b)));
+  $('scanLocationSelect').replaceChildren(new Option('Select location', ''), ...sorted.map(l => new Option(locationPath(l), l.id)));
+  if (scanDestination) $('scanLocationSelect').value = scanDestination.id;
+  setScanDestination(scanDestination);
+  status('', 'scanStatus');
+}
+$('scanLocationSelect').addEventListener('change', e => setScanDestination(locations.find(l => l.id === e.target.value)));
+$('scanLocationCode').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const code = e.target.value.trim().toUpperCase();
+  if (!code) return;
+  const loc = locations.find(l => String(l.barcode || '').toUpperCase() === code && l.active !== false);
+  if (!loc) { setScanDestination(null); status('No active location has barcode ' + code + '.', 'scanStatus'); return; }
+  $('scanLocationSelect').value = loc.id; e.target.value = '';
+  status('', 'scanStatus'); setScanDestination(loc);
+});
+function logScan(code, outcome, ok) {
+  const row = document.createElement('tr');
+  for (const text of [new Date().toLocaleTimeString(), code, outcome]) { const td = document.createElement('td'); td.textContent = text; row.appendChild(td); }
+  row.className = ok ? 'scan-ok' : 'scan-fail';
+  let table = $('scanLog').querySelector('table');
+  if (!table) { $('scanLog').innerHTML = '<table class="inventory-data-table"><thead><tr><th>Time</th><th>Barcode</th><th>Result</th></tr></thead><tbody></tbody></table>'; table = $('scanLog').querySelector('table'); }
+  table.tBodies[0].prepend(row);
+}
+$('scanContainerCode').addEventListener('keydown', async e => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  if (!isManager() || !scanDestination) return;
+  const input = e.target, code = input.value.trim().toUpperCase();
+  if (!code) return;
+  input.disabled = true;
+  try {
+    const { data, error } = await db.from('inventory_containers').select('id,location_id,status').eq('barcode', code).maybeSingle();
+    if (error) { logScan(code, error.message, false); return; }
+    if (!data) { logScan(code, 'No container with this barcode.', false); return; }
+    if (data.status === 'disposed') { logScan(code, 'Container is disposed and cannot be moved.', false); return; }
+    if (data.location_id === scanDestination.id) { logScan(code, 'Already at ' + scanDestination.name + '.', false); return; }
+    const res = await db.rpc('inventory_container_action_phase3', { p_id: data.id, p_action: 'move', p: { location_id: scanDestination.id } });
+    logScan(code, res.error ? res.error.message : 'Moved to ' + locationPath(scanDestination), !res.error);
+  } finally { input.value = ''; input.disabled = !scanDestination; input.focus(); }
+});
+
+/* ---------- inventory management menus ---------- */
+document.querySelectorAll('.im-toolbar-slot').forEach(slot => slot.appendChild($('imToolbarTpl').content.cloneNode(true)));
+function closeImMenus(except) {
+  document.querySelectorAll('.im-menu').forEach(m => {
+    if (m === except) return;
+    show(m.querySelector('.im-list'), false); m.querySelector('.im-toggle').setAttribute('aria-expanded', 'false');
+  });
+}
+document.addEventListener('click', e => {
+  const toggle = e.target.closest('.im-toggle');
+  if (toggle) {
+    const menu = toggle.closest('.im-menu'), list = menu.querySelector('.im-list'), opening = list.classList.contains('hide');
+    closeImMenus(menu); show(list, opening); toggle.setAttribute('aria-expanded', String(opening));
+    return;
+  }
+  closeImMenus();
+  const item = e.target.closest('[data-im]');
+  if (item && isAdmin()) runImAction(item.dataset.im);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeImMenus(); });
+async function runImAction(action) {
+  if (action === 'users') return setTab('users');
+  setTab('tools');
+  $('toolsResult').replaceChildren(); show($('importPanel'), false);
+  if (action === 'import') $('importHelp').click();
+  else if (action === 'export') $('exportInventory').click();
+  else if (action === 'labels') $('printLabels').click();
+  else if (action === 'recent') $('recentContainers').click();
+  else if (action === 'deleted') await showDeletedContainers();
+  else if (action === 'settings') await showLabSettings();
+}
+async function showDeletedContainers() {
+  try {
+    const rows = (await getContainerRows()).filter(x => !isActiveContainer(x));
+    rows.sort((a, b) => String(b.disposed_at || b.updated_at || '').localeCompare(String(a.disposed_at || a.updated_at || '')));
+    $('toolsResult').innerHTML = rows.length ? '<h3>Deleted Containers</h3><table class="inventory-data-table"><thead><tr><th>Chemical</th><th>Barcode</th><th>Size</th><th>Last location</th><th>Disposed</th></tr></thead><tbody>' +
+      rows.map(x => `<tr><td>${esc(x.chemical?.name)}</td><td>${esc(x.barcode)}</td><td>${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td><td>${esc(String(x.disposed_at || x.updated_at || '').slice(0, 10))}</td></tr>`).join('') + '</tbody></table><p class="muted">Disposed containers are archived here with their history until the chemical record is deleted.</p>' : '<p class="muted">No deleted containers.</p>';
+  } catch (e) { status(errorText(e)); }
+}
+async function showLabSettings() {
+  try {
+    const rows = await getContainerRows();
+    const active = rows.filter(isActiveContainer).length;
+    const roleName = role === 'admin' ? 'Administrator' : role === 'manager' ? 'Chemical Manager' : 'Member';
+    const items = [['Lab', labContext?.lab_name || '—'], ['Your role', roleName + (labContext?.platform_admin ? ' (platform administrator)' : '')], ['Active containers', active], ['Archived containers', rows.length - active], ['Locations', locations.length], ['Labs you belong to', (labContext?.labs || []).length || 1]];
+    $('toolsResult').innerHTML = '<h3>License &amp; Settings</h3><table class="inventory-data-table"><tbody>' + items.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('') + '</tbody></table>';
+  } catch (e) { status(errorText(e)); }
+}
 
 /* ---------- structure search (JSME editor + PubChem identity lookup) ---------- */
 // JSME (free, BSD licence) is loaded on demand from the "jsme" folder next to inventory.html.
@@ -1182,7 +1342,7 @@ $('printLabels').addEventListener('click', async () => {
 });
 /* ---------- bulk CSV import ---------- */
 const IMPORT_MAX_ROWS = 500;
-const IMPORT_UNITS = { g: 'g', mg: 'mg', kg: 'kg', ml: 'mL', l: 'L' };
+const IMPORT_UNITS = { g: 'g', mg: 'mg', kg: 'kg', ml: 'mL', l: 'L', mmol: 'mmol', mol: 'mol', units: 'units', rxns: 'rxns', 'cu ft': 'cu ft' };
 const IMPORT_COLUMNS = ['name', 'cas', 'formula', 'supplier', 'catalog_number', 'lot_number', 'purity', 'container_size', 'remaining_amount', 'unit', 'location', 'received_at', 'expires_at', 'notes'];
 const IMPORT_REQUIRED = ['name', 'container_size', 'unit', 'location'];
 const IMPORT_ALIASES = { chemical_name: 'name', chemical: 'name', container_name: 'name', cas_number: 'cas', cas_no: 'cas', substance_cas: 'cas', molecular_formula: 'formula', size: 'container_size', remaining: 'remaining_amount', remaining_quantity: 'remaining_amount', catalog: 'catalog_number', catalog_no: 'catalog_number', lot: 'lot_number', lot_no: 'lot_number', storage_location: 'location', location_path: 'location', date_received: 'received_at', received: 'received_at', date_acquired: 'received_at', expiry: 'expires_at', expiry_date: 'expires_at', expires: 'expires_at', comments: 'notes', note: 'notes' };
