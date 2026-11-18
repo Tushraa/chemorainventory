@@ -1400,3 +1400,30 @@ html body dialog::backdrop {
 #jsmeContainer{height:auto!important;min-height:0!important;overflow:hidden;}
 #labSwitcher{margin-top:4px;max-width:100%;font-size:12px;padding:2px 4px;border:1px solid #cbd5d0;border-radius:4px;background:#fff;color:#25332b;}
 .inventory-dark #labSwitcher{background:#1e2724;color:#dbe7df;border-color:#3b4a43;}
+
+/* ---------- grouped side menu, quick actions, management toolbar ---------- */
+.inventory-sidebar .side-chevron{margin-left:auto;font-size:11px;transition:transform .15s}
+.inventory-sidebar .side-group-toggle.open .side-chevron{transform:rotate(180deg)}
+.inventory-sidebar .side-sub{display:flex;flex-direction:column;gap:2px;margin:0 0 4px 18px;padding-left:10px;border-left:2px solid var(--inv-border)}
+.inventory-sidebar .side-sub.hide{display:none}
+.inventory-sidebar .side-sub button{padding:8px 10px;font-size:12.5px}
+.inventory-top-actions{display:flex;align-items:center;gap:8px}
+.inventory-top-actions.hide{display:none}
+.top-action{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--inv-border);background:transparent;color:inherit;border-radius:6px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer}
+.top-action:hover{background:#f0f3f1}
+.top-action.hide{display:none}
+.inventory-dark .top-action:hover{background:#25352c}
+.im-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;margin:0 0 18px}
+.im-menu{position:relative}
+.im-list{position:absolute;z-index:30;top:calc(100% + 4px);left:0;min-width:220px;background:#fff;border:1px solid var(--inv-border);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:4px}
+.im-list.hide{display:none}
+.im-list button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;border:0;padding:9px 12px;font-size:13px;color:#202d25;cursor:pointer;border-radius:4px}
+.im-list button:hover{background:#eaf7ef}
+.inventory-dark .im-list{background:#1d2a22;border-color:#344139}
+.inventory-dark .im-list button{color:#d6e4db}
+.inventory-dark .im-list button:hover{background:#25352c}
+.history-filters{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.history-filters .field{margin:0;min-width:150px;flex:1 1 150px}
+tr.scan-ok td:last-child{color:#187347;font-weight:600}
+tr.scan-fail td:last-child{color:#b42318;font-weight:600}
+@media(max-width:850px){.inventory-sidebar .side-sub{margin-left:0;border-left:0;padding-left:0;flex-direction:row;flex-wrap:wrap}.inventory-top-actions .top-action span{display:none}}
