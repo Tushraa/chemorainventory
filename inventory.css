@@ -1,0 +1,1399 @@
+/* Hari Group team.html-inspired light navy/amber inventory theme */
+:root{font-family:Inter,system-ui,Arial,sans-serif;color:#1e293b;background:#f8fafc}
+*{box-sizing:border-box}
+body{margin:0;background:#f8fafc;color:#1e293b}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.inventory-hero{background:#fff;color:#fff;padding:34px 20px}
+.inventory-hero-inner{max-width:1280px;margin:auto}
+.inventory-eyebrow{color:#fbbf24;letter-spacing:.16em;font-size:12px;font-weight:700;margin:0 0 9px}
+.inventory-hero h1{font-size:clamp(28px,4vw,38px);font-weight:800;margin:0}
+.inventory-hero p:last-child{color:#cbd5e1;font-size:14px;margin:9px 0 0}
+.inventory-account{max-width:1280px;width:100%;margin:0 auto;padding:12px 20px 0;display:flex;justify-content:flex-end;align-items:center;gap:12px;font-size:13px}
+.shell{width:100%;max-width:1280px;margin:12px auto 45px;padding:0 20px;flex:1}
+.panel{background:#fff;border:1px solid #e2e8f0;border-radius:0 !important;overflow:hidden;box-shadow:0 2px 6px #1B1D1F}
+.panel h2{background:#f1f5f9;border-bottom:1px solid #e2e8f0;color:#0f203c;margin:0;padding:15px 18px;font-size:18px;font-weight:700}
+.pad{padding:20px}
+.layout{display:grid;grid-template-columns:minmax(210px,1fr) minmax(0,3fr);gap:18px;align-items:start}
+.field{display:block;margin-bottom:15px;font-size:14px;color:#334155;font-weight:600}
+.field input,.field select,.field textarea{display:block;margin-top:7px;width:100%;background:#fff;border:1px solid #cbd5e1;border-radius:0 !important;padding:11px;color:#0f172a;min-width:0;font-weight:400}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid #fbbf24;outline-offset:1px}
+.field input::placeholder{color:#94a3b8}
+.btn{background:#eab308;color:#0f172a;border:0;padding:11px 18px;border-radius:0 !important;font-weight:700}
+.btn:hover{background:#facc15}
+.btn.secondary{background:#e2e8f0;color:#334155}
+.btn.secondary:hover{background:#cbd5e1}
+.btn:disabled{opacity:.55}
+.actions{display:flex;gap:9px;flex-wrap:wrap}
+.status{min-height:22px;color:#64748b;margin:10px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:0 !important;padding:16px}
+.card h3{margin:0 0 8px;font-size:17px;color:#0f203c}
+.muted{color:#64748b;font-size:13px}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.nav button{border:1px solid #e2e8f0;border-radius:0 !important;background:#fff;color:#334155;padding:11px 15px;font-weight:600}
+.nav button.active{background:#0f203c;color:#fff;border-color:#0f203c}
+.hide{display:none!important}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:11px;text-align:left;border-bottom:1px solid #e2e8f0}
+th{background:#f1f5f9;color:#334155}
+.notice{background:#fffbeb;color:#92400e;padding:12px;margin-bottom:14px;border-radius:0 !important;border:1px solid #fde68a}
+#login-panel{max-width:460px;margin:45px auto}
+.wide{max-width:900px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+a{color:#1d4ed8}
+.order-list{display:grid;gap:14px;margin-top:16px}
+.order-card{padding:16px;border:1px solid #e2e8f0;border-radius:0 !important;background:#fff}
+.order-card-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.order-badge{border-radius:0 !important;padding:5px 9px;background:#e2e8f0;color:#475569;font-size:12px;white-space:nowrap}
+.order-badge.ordered{background:#fef3c7;color:#92400e}
+.order-badge.received{background:#dcfce7;color:#166534}
+.order-comments{white-space:pre-wrap;overflow-wrap:anywhere}
+.receive-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px;margin-top:14px;padding:14px;background:#f8fafc}
+.receive-controls .btn{align-self:end}
+.order-card .btn{margin-top:8px}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.row{grid-template-columns:1fr}.cards{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}}
+@media(max-width:750px){.receive-controls{grid-template-columns:1fr}}
+/* Inventory page controls and mobile refinements */
+#portal{padding-bottom:20px}
+#chemicalCards .card img{display:block;margin:0 auto 12px;min-height:95px}
+#chemicalCards .card{overflow-wrap:anywhere}
+#globalStatus:empty{display:none}
+#orderList .actions{margin-top:12px}
+@media(max-width:700px){.layout,.row{grid-template-columns:1fr}.shell{padding:0 14px}.inventory-account{padding-right:14px}.inventory-hero{padding:26px 14px}}
+
+/* Inventory dashboard: left navigation (25%) and content (75%) */
+.inventory-workspace{display:grid;grid-template-columns:minmax(200px,1fr) minmax(0,3fr);gap:18px;align-items:start}
+.inventory-sidebar{display:flex;flex-direction:column;align-items:stretch;gap:6px;background:#fff;border:1px solid #e2e8f0;padding:12px;margin:0;border-radius:0 !important;position:sticky;top:80px}
+.inventory-sidebar button{text-align:left;width:100%;border:0;border-radius:0 !important;padding:13px 14px}
+.inventory-content{min-width:0}
+.inventory-search-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto;align-items:end;gap:14px;margin-bottom:14px}
+.inventory-search-form .field{margin:0}
+.inventory-search-form .actions{padding-bottom:1px}
+.inventory-search-form .actions .btn{white-space:nowrap}
+.chemical-result{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:215px;text-align:center;cursor:pointer;width:100%;transition:box-shadow .2s,border-color .2s,transform .2s}
+.chemical-result:hover,.chemical-result:focus-visible{border-color:#eab308;box-shadow:0 5px 18px #0f172a20;transform:translateY(-2px)}
+.chemical-result img{height:145px;width:100%;object-fit:contain}
+.chemical-result h3{font-size:15px;margin:0;overflow-wrap:anywhere}
+.inventory-account{gap:8px}
+.inventory-user-name{color:#334155;font-weight:600}
+.inventory-signout{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;background:transparent;color:#0f203c;border:1px solid #cbd5e1;border-radius:0 !important;font-size:17px}
+.inventory-signout:hover{background:#f1f5f9;color:#b45309}
+.chemical-dialog{width:min(650px,calc(100vw - 32px));max-height:85vh;border:1px solid #e2e8f0;border-radius:0 !important;padding:0;box-shadow:0 24px 65px #0f172a55;color:#1e293b}
+.chemical-dialog::backdrop{background:#0f172a99}
+.chemical-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:14px;background:#0f203c;color:white;padding:16px 20px}
+.chemical-dialog-head h2{font-size:19px;font-weight:700;margin:0}
+.chemical-dialog-head button{border:0;background:transparent;color:white;font-size:20px;cursor:pointer}
+.chemical-dialog-body{padding:20px;overflow-y:auto;max-height:calc(85vh - 65px)}
+.chemical-detail-summary{display:grid;grid-template-columns:190px 1fr;gap:18px;align-items:center}
+.chemical-detail-summary img{width:190px;height:190px;object-fit:contain}
+.chemical-container{border:1px solid #e2e8f0;border-radius:0 !important;padding:14px;margin:12px 0}
+.chemical-container p{margin:5px 0;font-size:13px}
+@media(max-width:850px){.inventory-workspace{grid-template-columns:1fr}.inventory-sidebar{position:static}.inventory-search-form{grid-template-columns:1fr}.chemical-detail-summary{grid-template-columns:1fr}.chemical-detail-summary img{margin:auto}}
+
+
+/* Supabase-inspired inventory workspace: design only, existing JS preserved */
+:root{--inv-green:#3ecf8e;--inv-ink:#18231e;--inv-border:#e5e7eb;--inv-muted:#667085}
+body{background:#fafafa;color:var(--inv-ink)}
+.inventory-topbar{height:62px;background:#fff;border-bottom:1px solid var(--inv-border);display:flex;align-items:center;justify-content:space-between;padding:0 clamp(16px,3vw,40px);gap:16px;position:sticky;top:0;z-index:50}
+.inventory-brand{display:flex;align-items:center;gap:11px;color:#26342c;text-decoration:none;font-size:14px;font-weight:600}
+.inventory-brand:hover{color:#111827}
+.inventory-brand-mark{width:32px;height:32px;display:grid;place-items:center;background:#e5f8ee;border:1px solid #b7e6cd;color:#21865c;border-radius:7px}
+.inventory-brand-divider{padding:0 7px;color:#b5b9bf;font-weight:400}
+.inventory-topbar-right{display:flex;align-items:center;gap:22px;font-size:12px}
+.inventory-project-pill{display:inline-flex;align-items:center;gap:8px;color:#58645d}
+.inventory-live-dot{height:7px;width:7px;background:var(--inv-green);border-radius:0 !important;box-shadow:0 0 0 3px #dff7e9}
+.inventory-home-link{color:#475467;text-decoration:none}
+.inventory-home-link:hover{color:#198653}
+.inventory-page-heading{max-width:1440px;margin:auto;padding:30px 30px 17px}
+.inventory-breadcrumb{color:#86918a;font-size:12px;margin:0 0 16px}
+.inventory-breadcrumb span{padding:0 9px;color:#c4cac5}
+.inventory-page-heading h1{font-size:clamp(24px,3vw,30px);font-weight:650;letter-spacing:-.045em;color:#1f2b23;margin:0}
+.inventory-subheading{font-size:13px;color:#7b857e;margin:9px 0 0}
+.inventory-account{max-width:1440px;padding:0 30px 8px}
+.inventory-user-name{font-size:12px}
+.inventory-signout{width:32px;height:32px;border-radius:0 !important;color:#667085}
+.shell{max-width:1440px;padding:0 30px;margin:8px auto 50px}
+.inventory-workspace{grid-template-columns:238px minmax(0,1fr);gap:24px;align-items:stretch}
+.inventory-sidebar{position:sticky;top:80px;align-self:start;background:transparent;border:0;border-right:1px solid var(--inv-border);box-shadow:none;padding:0 15px 0 0;border-radius:0 !important;gap:3px}
+.inventory-sidebar button{display:flex;align-items:center;gap:12px;background:transparent;border:1px solid transparent;padding:11px 12px;font-size:13px;color:#606d64;font-weight:550;border-radius:6px}
+.inventory-sidebar button i{width:17px;text-align:center;font-size:13px;color:#8b9890}
+.inventory-sidebar button:hover{background:#f0f3f1;color:#202d25}
+.inventory-sidebar button.active{background:#eaf7ef;border-color:#d7ecdf;color:#187347}
+.inventory-sidebar button.active i{color:#228759}
+.inventory-content{min-height:460px}
+.panel{border:1px solid var(--inv-border);border-radius:0 !important;box-shadow:0 1px 2px #10182808;background:white}
+.panel h2{background:#fff;border-bottom:1px solid #edf0ed;color:#26352b;font-size:15px;font-weight:650;padding:18px 21px;letter-spacing:-.015em}
+.pad{padding:21px}
+.field{font-size:12px;color:#49564e;font-weight:600}
+.field input,.field select,.field textarea{border:1px solid #d9e0db;border-radius:0 !important;padding:10px 12px;font-size:13px;box-shadow:0 1px 2px #00000005}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid #9ce3bb;outline-offset:0;border-color:#38b878}
+.btn{background:#2fba7d;color:#fff;border:1px solid #28a96f;border-radius:0 !important;padding:10px 16px;font-size:12px;font-weight:650;box-shadow:0 1px 2px #0000000b}
+.btn:hover{background:#25a96f}
+.btn.secondary{background:#fff;color:#44534a;border:1px solid #dce3dd}
+.btn.secondary:hover{background:#f6f9f7}
+.status{font-size:12px;color:#748078}
+.notice{border-radius:6px}
+.cards{grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:13px}
+.card{border-radius:0 !important;border-color:#e3e8e4}
+.chemical-result:hover,.chemical-result:focus-visible{border-color:#72d7a5;box-shadow:0 5px 18px #11633c16}
+.chemical-dialog{border-radius:10px}
+.chemical-dialog-head{background:#f8faf9;border-bottom:1px solid #e5ebe6;color:#26382d}
+.chemical-dialog-head button{color:#4c5d51}
+#auth{max-width:420px!important;margin:35px auto!important}
+#auth .panel{border-radius:8px}
+#auth h2{font-size:18px}
+.order-card{border-radius:7px}
+th{background:#f7faf8}
+@media(max-width:850px){.inventory-workspace{grid-template-columns:1fr;gap:16px}.inventory-sidebar{position:static;border-right:0;border-bottom:1px solid var(--inv-border);display:flex;flex-direction:row;flex-wrap:wrap;padding:0 0 12px}.inventory-sidebar button{width:auto;flex:0 0 auto}.inventory-page-heading,.shell{padding-left:18px;padding-right:18px}.inventory-account{padding-right:18px}}
+@media(max-width:520px){.inventory-topbar{padding:0 14px}.inventory-project-pill{display:none}.inventory-home-link{font-size:0}.inventory-home-link i{font-size:14px}.inventory-brand{font-size:12px}.inventory-page-heading{padding-top:22px}.inventory-sidebar button{font-size:11px;padding:9px}.inventory-sidebar button i{display:none}.pad{padding:15px}}
+
+/* Appearance switch and account card */
+.inventory-topbar-right{gap:14px}
+.inventory-theme-switch{display:flex;align-items:center;gap:3px;padding:3px;border:1px solid #e1e6e3;border-radius:0 !important;background:#f3f5f4}
+.inventory-theme-switch button{width:34px;height:34px;border:0;border-radius:0 !important;background:transparent;color:#68776e;display:grid;place-items:center;font-size:15px}
+.inventory-theme-switch button[aria-pressed="true"]{background:#fff;color:#1d7b51;box-shadow:0 1px 4px #00000016}
+.inventory-profile{display:flex;align-items:center;gap:11px;min-width:220px;padding:6px 8px;border:1px solid #dbe2dd;border-radius:0 !important;background:#fff}
+.inventory-avatar{width:39px;height:39px;flex:0 0 39px;display:grid;place-items:center;border-radius:0 !important;background:#2563eb;color:#fff;font-size:14px;font-weight:700;letter-spacing:.02em}
+.inventory-profile-info{display:flex;flex:1;flex-direction:column;min-width:0;gap:2px;line-height:1.2}
+.inventory-profile-info strong{font-size:13px;font-weight:700;color:#25332b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inventory-profile-info span{font-size:12px;color:#748078}
+.inventory-profile-logout{border:0;background:transparent;color:red;width:29px;height:34px;display:grid;place-items:center;border-radius:0 !important;font-size:16px}
+.inventory-profile-logout:hover{background:#f1f5f2;color:#146c46}
+/* Dark theme: override existing dashboard and form colors without changing behavior */
+html.inventory-dark,html.inventory-dark body{background:#111713!important;color:#dbe5de!important;color-scheme:dark}
+.inventory-dark .inventory-topbar,.inventory-dark .panel,.inventory-dark .card,.inventory-dark .order-card,.inventory-dark .inventory-profile,.inventory-dark .chemical-dialog{background:#1b2420!important;border-color:#344139!important;color:#dbe5de!important}
+.inventory-dark .inventory-page-heading h1,.inventory-dark .inventory-brand,.inventory-dark .panel h2,.inventory-dark .card h3,.inventory-dark .inventory-profile-info strong,.inventory-dark .chemical-dialog-head h2{color:#edf5ef!important}
+.inventory-dark .inventory-breadcrumb,.inventory-dark .inventory-subheading,.inventory-dark .status,.inventory-dark .muted,.inventory-dark .inventory-profile-info span{color:#9cafa2!important}
+.inventory-dark .inventory-sidebar{border-color:#344139}
+.inventory-dark .inventory-sidebar button{color:#b3c1b8}
+.inventory-dark .inventory-sidebar button i{color:#9aaea1}
+.inventory-dark .inventory-sidebar button:hover{background:#25352c;color:#e6f2e9}
+.inventory-dark .inventory-sidebar button.active{background:#1b3a2b;border-color:#2d6546;color:#8be0b0}
+.inventory-dark .inventory-sidebar button.active i{color:#8be0b0}
+.inventory-dark .panel h2,.inventory-dark .chemical-dialog-head{background:#1b2420!important;border-color:#344139!important}
+.inventory-dark .field{color:#cad8ce}
+.inventory-dark .field input,.inventory-dark .field select,.inventory-dark .field textarea{background:#141c17;color:#edf5ef;border-color:#415247}
+.inventory-dark .field input::placeholder{color:#7d9184}
+.inventory-dark .btn.secondary{background:#27342c;color:#d6e6da;border-color:#46574b}
+.inventory-dark .btn.secondary:hover{background:#334638}
+.inventory-dark .inventory-theme-switch{background:#202c24;border-color:#3d5043}
+.inventory-dark .inventory-theme-switch button{color:#a7b9ad}
+.inventory-dark .inventory-theme-switch button[aria-pressed="true"]{background:#3a4c40;color:#a6e9c0}
+.inventory-dark .inventory-profile-logout{color:#c6d6ca}
+.inventory-dark .inventory-profile-logout:hover{background:#314237}
+.inventory-dark .chemical-container,.inventory-dark .receive-controls{background:#1b2420;border-color:#344139}
+.inventory-dark th{background:#26342b;color:#dcebe0}
+.inventory-dark td{border-color:#344139}
+.inventory-dark .notice{background:#3b3019;color:#f7d58e;border-color:#765b25}
+.inventory-dark .order-badge{background:#314338;color:#d2e3d7}
+@media(max-width:640px){.inventory-topbar{height:auto;min-height:64px;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}.inventory-topbar-right{margin-left:auto;gap:7px}.inventory-profile{min-width:0;max-width:205px;gap:7px;padding:4px}.inventory-avatar{width:32px;height:32px;flex-basis:32px;font-size:11px}.inventory-profile-info strong{font-size:11px}.inventory-profile-info span{font-size:10px}.inventory-theme-switch button{width:28px;height:30px}.inventory-profile-logout{width:24px}}
+
+/* Extended ChemInventory-inspired management features */
+.inventory-sidebar-caption{font-size:10px;letter-spacing:.11em;font-weight:700;color:#8a978e;padding:17px 12px 6px}
+.inventory-toolbar{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-bottom:16px}
+.inventory-toolbar input,.inventory-toolbar select{min-height:36px;border:1px solid #dce3dd;border-radius:0 !important;background:#fff;color:#29372f;padding:8px 11px;font-size:12px}
+.inventory-toolbar input[type=search]{flex:1;min-width:190px}
+.inventory-toolbar input[type=date]{max-width:155px}
+.inventory-data-table{width:100%;border-collapse:collapse;min-width:690px}
+.inventory-data-table th{font-size:11px;white-space:nowrap}
+.inventory-data-table td{font-size:12px;vertical-align:middle}
+.inventory-data-table td .btn{padding:6px 9px;margin:2px;font-size:11px}
+.inventory-data-table .order-name{font-weight:600;color:inherit}
+.inventory-data-table .row-actions{white-space:nowrap}
+.location-tree{max-width:650px;display:grid;gap:5px}
+.location-item{padding:11px 13px;border:1px solid #e4eae6;border-radius:0 !important;background:#fff}
+.location-item summary{cursor:pointer;font-weight:600;font-size:13px}
+.location-item p{margin:10px 0 0;font-size:12px;color:#718077}
+.tool-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:13px}
+.tool-tile{border:1px solid #e0e8e2;border-radius:0 !important;padding:18px;text-align:left;background:#fff;display:flex;flex-direction:column;gap:9px;color:#293b30}
+.tool-tile:hover{border-color:#43c486;background:#f4fbf7}
+.tool-tile i{font-size:22px;color:#279767}.tool-tile strong{font-size:13px}.tool-tile span{font-size:11px;color:#748078}
+.inventory-dark .inventory-toolbar input,.inventory-dark .inventory-toolbar select,.inventory-dark .location-item,.inventory-dark .tool-tile{background:#1b2420;border-color:#344139;color:#e0e9e2}
+.inventory-dark .tool-tile:hover{background:#24372b}.inventory-dark .tool-tile span,.inventory-dark .location-item p{color:#a1b4a6}
+@media(max-width:750px){.inventory-toolbar input[type=search]{flex-basis:100%}}
+
+/* Consistent small-radius corners and management actions */
+.panel,.card,.order-card,.chemical-dialog,.chemical-container,.inventory-profile,.inventory-brand-mark,.inventory-theme-switch,.inventory-sidebar button,.field input,.field select,.field textarea,.btn,.inventory-toolbar input,.inventory-toolbar select,.tool-tile,.location-item{border-radius:4px!important}
+.chemical-dialog-actions{display:flex;gap:10px;flex-wrap:wrap;padding:12px 20px;border-top:1px solid #e5e7eb;background:#fff}
+.btn.danger{background:#fff;color:#b42318;border:1px solid #f5b6b0}
+.btn.danger:hover{background:#fef3f2}
+.user-edit-form{margin-top:12px}
+.inventory-dark .chemical-dialog-actions{background:#1b2420;border-color:#344139}
+.inventory-dark .btn.danger{background:#392523;color:#ffb4ad;border-color:#8b4541}
+
+/* Compact corners */
+.panel,.card,.order-card,.chemical-dialog,.inventory-profile,.inventory-sidebar button,.btn,.field input,.field select,.field textarea,.inventory-toolbar input,.inventory-toolbar select{border-radius:3px!important}
+
+/* Phase 1: container-level search cards */
+.container-card-details{display:grid;grid-template-columns:1fr;gap:5px;text-align:left;width:100%;font-size:12px;color:#64748b;line-height:1.5}.container-card-details b{color:#475569}.chemical-result{justify-content:flex-start;min-height:0}.chemical-result img{height:100px}.inventory-search-form{grid-template-columns:minmax(130px,1fr) minmax(180px,2fr) minmax(140px,1fr) auto}@media(max-width:1050px){.inventory-search-form{grid-template-columns:1fr 1fr}}@media(max-width:650px){.inventory-search-form{grid-template-columns:1fr}}.inventory-dark .container-card-details,.inventory-dark .container-card-details b{color:#b7c8bd}
+
+/* Hari Group workspace redesign — original branding and role-aware modules */
+.workspace-side-brand{display:flex;align-items:center;gap:10px;padding:12px 11px 19px;margin-bottom:10px;border-bottom:1px solid #34363b;color:#f4f4f5;font-size:16px}
+.workspace-side-brand i{color:#73a6ff;font-size:19px}
+.workspace-side-brand span{margin-left:auto;font-size:9px;letter-spacing:.12em;color:#8f939e}
+.workspace-side-label{font-size:10px;letter-spacing:.15em;font-weight:800;color:#92939a;margin:20px 12px 9px}
+.workspace-home{padding:12px 4px 45px;max-width:1250px}
+.workspace-kicker{color:#77a8ff;font-size:11px;letter-spacing:.19em;font-weight:800;margin:6px 0 17px}
+.workspace-home h2{font-size:clamp(29px,3.8vw,49px);font-weight:800;letter-spacing:-.045em;line-height:1.12;margin:0;color:inherit}
+.workspace-home h2 em{font-style:normal;color:#6d9cf5}
+.workspace-lead{font-size:15px;color:#8c959e;margin:18px 0 30px}
+.workspace-home-rule{height:1px;background:#35363a;margin:30px 0 25px}
+.workspace-group-title{font-size:11px;letter-spacing:.18em;font-weight:800;color:#a6a7ac;margin:0 0 18px}
+.workspace-modules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.workspace-module{--accent:#73a6ff;--tint:#12283b;appearance:none;display:flex;align-items:flex-start;gap:15px;min-height:167px;padding:22px 18px;border:1px solid #393a3e;border-radius:0 !important;background:#202023;color:#f2f2f4;text-align:left;cursor:pointer;transition:background-color .2s ease,border-color .2s ease,box-shadow .2s ease}
+.workspace-module:hover,.workspace-module:focus-visible{background:var(--tint);border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 12%,transparent)}
+.workspace-module:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.workspace-module-icon{flex:0 0 48px;width:48px;height:48px;display:grid;place-items:center;border:0px solid color-mix(in srgb,var(--accent) 48%,transparent);color:var(--accent);font-size:19px}
+.workspace-module-copy{display:flex;flex-direction:column;gap:15px;min-width:0;padding-top:6px;flex:1}
+.workspace-module-copy strong{font-size:15px;line-height:1.4;font-weight:800;letter-spacing:-.01em}
+.workspace-module-copy>span{color:#b4b5bc;font-size:13px;line-height:1.65}
+.workspace-module-arrow{flex:0 0 32px;height:32px;display:grid;place-items:center;border:1px solid #3b3d41;border-radius:0 !important;color:#8b8d93;transition:color .2s,border-color .2s}
+.workspace-module:hover .workspace-module-arrow,.workspace-module:focus-visible .workspace-module-arrow{color:var(--accent);border-color:var(--accent)}
+.workspace-accent-blue{--accent:#73a6ff;--tint:#12263a}.workspace-accent-green{--accent:#48d5a3;--tint:#102c26}.workspace-accent-amber{--accent:#f5bf57;--tint:#302616}.workspace-accent-purple{--accent:#c18af4;--tint:#291d37}.workspace-accent-cyan{--accent:#46d3dd;--tint:#102c32}.workspace-accent-rose{--accent:#f18aa4;--tint:#321c28}.workspace-accent-indigo{--accent:#a5b4fc;--tint:#232541}.workspace-accent-orange{--accent:#fb9b5a;--tint:#342519}.workspace-accent-teal{--accent:#55d5c6;--tint:#102f2c}
+/* Dark workspace colors, while retaining the existing light/dark toggle */
+.inventory-dark .workspace-home-rule{background:#36383d}
+.inventory-dark .workspace-module{background:#202023;border-color:#393a3e;color:#f2f2f4}
+.inventory-dark .workspace-module:hover,.inventory-dark .workspace-module:focus-visible{background:var(--tint);border-color:var(--accent)}
+.inventory-dark .workspace-module-copy>span{color:#b4b5bc}
+.inventory-dark .inventory-sidebar{background:#202023!important;border:1px solid #393a3e!important;padding:12px!important;border-radius:5px!important}
+.inventory-dark .workspace-side-brand{border-bottom-color:#393a3e}
+/* Light theme gets the same distinct accent identity with softer tints */
+html:not(.inventory-dark) .workspace-module{background:#fff;color:#25332b;border-color:#e0e4e7}
+html:not(.inventory-dark) .workspace-module:hover,html:not(.inventory-dark) .workspace-module:focus-visible{background:color-mix(in srgb,var(--accent) 11%,white);border-color:var(--accent)}
+html:not(.inventory-dark) .workspace-module-copy>span{color:#667085}
+html:not(.inventory-dark) .workspace-module-icon{background:color-mix(in srgb,var(--accent) 12%,white)}
+html:not(.inventory-dark) .workspace-side-brand{color:#25332b;border-bottom-color:#e5e7eb}
+html:not(.inventory-dark) .workspace-side-label{color:#748078}
+html:not(.inventory-dark) .workspace-home-rule{background:#e5e7eb}
+@media(max-width:1250px){.workspace-modules{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.workspace-modules{grid-template-columns:1fr}.workspace-module{min-height:130px}.workspace-side-brand{display:none}.workspace-home{padding-top:4px}}
+@media(prefers-reduced-motion:reduce){.workspace-module,.workspace-module-arrow{transition:none}}
+
+/* Unified workspace UI across every inventory module; no legacy heading/blank band. */
+.inventory-page-heading{display:none!important}
+.shell{max-width:none;width:100%;padding:0 clamp(14px,2vw,30px);margin:0 auto 28px}
+.inventory-workspace{gap:clamp(12px,1.6vw,24px);align-items:start}
+.inventory-content{min-width:0;padding-top:0}
+.inventory-content>.status:empty{display:none}
+.inventory-content>.status:not(:empty){margin:0 0 12px;padding:10px 13px;border:1px solid #53606b;border-radius:0 !important;background:rgba(100,116,139,.10)}
+.workspace-home{padding-top:8px}
+.workspace-section-head{--accent:#73a6ff;margin:0 0 19px;padding:10px 0 20px;border-bottom:1px solid #373a40}
+.workspace-section-head .workspace-kicker{margin:0 0 14px;font-size:10px;letter-spacing:.16em;color:var(--accent)}
+.workspace-section-heading{display:flex;align-items:center;gap:15px}
+.workspace-section-icon{width:47px;height:47px;flex:0 0 47px;display:grid;place-items:center;color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent);border:1px solid color-mix(in srgb,var(--accent) 48%,transparent);border-radius:0 !important;font-size:19px}
+.workspace-section-heading h1{margin:0;font-size:clamp(20px,2.2vw,29px);font-weight:800;line-height:1.2;letter-spacing:-.025em}
+.workspace-section-heading p{margin:6px 0 0;color:#a5aab3;font-size:13px;line-height:1.5}
+/* All modules use the same charcoal surface, compact spacing, and accent-driven hover. */
+.inventory-dark .tab-view .panel{background:#202023!important;border:1px solid #383a40!important;border-radius:0 !important;box-shadow:none!important}
+.inventory-dark .tab-view .panel h2{background:#202023!important;color:#f1f2f4!important;border-bottom:1px solid #383a40!important;font-size:14px;font-weight:750}
+.inventory-dark .tab-view .card,.inventory-dark .tab-view .order-card{background:#202023!important;border-color:#3c3e44!important;border-radius:4px!important}
+.inventory-dark .tab-view .order-card:hover,.inventory-dark .tab-view .chemical-result:hover{border-color:var(--section-accent,#73a6ff)!important;background:color-mix(in srgb,var(--section-accent,#73a6ff) 9%,#202023)!important}
+.inventory-dark .tab-view input,.inventory-dark .tab-view select,.inventory-dark .tab-view textarea{border-radius:4px}
+.inventory-dark .tab-view .btn{border-radius:4px}
+#view-chemicals{--section-accent:#73a6ff}#view-add{--section-accent:#48d5a3}#view-orders{--section-accent:#f5bf57}#view-requests{--section-accent:#c18af4}#view-locations{--section-accent:#46d3dd}#view-files{--section-accent:#f18aa4}#view-users{--section-accent:#a5b4fc}#view-history{--section-accent:#fb9b5a}#view-tools{--section-accent:#55d5c6}
+.inventory-dark .inventory-sidebar button.active{background:#303035!important;border-color:#484a50!important;color:#f4f4f5!important}
+.inventory-dark .inventory-sidebar button:hover:not(.active){background:#29292e!important}
+html:not(.inventory-dark) .workspace-section-head{border-bottom-color:#e4e7eb}
+html:not(.inventory-dark) .workspace-section-heading p{color:#667085}
+html:not(.inventory-dark) .tab-view .panel{border-radius:0 !important;box-shadow:none}
+html:not(.inventory-dark) .tab-view .card:hover{border-color:var(--section-accent,#73a6ff)}
+@media(max-width:850px){.shell{padding:0 14px}.inventory-workspace{gap:10px}.workspace-section-head{margin-top:5px}}
+@media(max-width:520px){.workspace-section-heading{gap:10px}.workspace-section-icon{width:38px;height:38px;flex-basis:38px;font-size:16px}.workspace-section-heading p{font-size:12px}}
+
+
+
+
+/* Edit Chemical Request modal — scoped to this dialog only */
+#editOrderDialog.order-edit-modal {
+  width: min(680px, calc(100vw - 32px));
+  max-width: 680px;
+  max-height: calc(100dvh - 40px);
+  margin: auto;
+  padding: 28px;
+  overflow-y: auto;
+  border: 1px solid #3c3e44;
+  border-radius: 0 !important;
+  background: #202023;
+  color: #f1f2f4;
+  box-shadow: 0 24px 80px rgba(0,0,0,.5);
+  box-sizing: border-box;
+}
+#editOrderDialog.order-edit-modal::backdrop { background: rgba(0,0,0,.72); }
+#editOrderDialog.order-edit-modal * { box-sizing: border-box; }
+#editOrderDialog .order-edit-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 20px; padding-bottom: 19px; margin-bottom: 22px;
+  border-bottom: 1px solid #3c3e44;
+}
+#editOrderDialog .order-edit-header h2 { margin: 0 0 8px; font-size: 21px; line-height: 1.3; }
+#editOrderDialog .order-edit-description { margin: 0; font-size: 13px; font-weight: 400; line-height: 1.55; color: #FFFFFF; }
+#editOrderDialog .order-edit-close {
+  flex: 0 0 34px; width: 34px; height: 34px; border: 1px solid #484a50;
+  border-radius: 0 !important; background: #2b2b30; color: #d9dbe0;
+  font-size: 22px; line-height: 1; cursor: pointer;
+}
+#editOrderDialog .order-edit-close:hover { background: #38383e; }
+#editOrderDialog .order-edit-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 20px;
+}
+#editOrderDialog .order-edit-field {
+  display: flex; flex-direction: column; gap: 8px;
+  min-width: 0; margin: 0; color: #dce0e5; font-size: 13px; font-weight: 600;
+}
+#editOrderDialog .order-edit-field input,
+#editOrderDialog .order-edit-field select,
+#editOrderDialog .order-edit-field textarea {
+  width: 100%; min-width: 0; margin: 0; padding: 11px 12px;
+  background: #151b18; color: #edf5ef; border: 1px solid #48564d;
+  border-radius: 0 !important; font-size: 14px;
+}
+#editOrderDialog .order-edit-field textarea { min-height: 90px; resize: vertical; }
+#editOrderDialog .order-edit-full { grid-column: 1 / -1; }
+#editOrderDialog #editOrderStatus { margin: 12px 0 0; min-height: 0; }
+#editOrderDialog #editOrderStatus:empty { display: none; }
+
+
+/* =========================================
+   CHEMORA - VIEW/EDIT ORDER BUTTON ALIGNMENT
+   ========================================= */
+
+#editOrderDialog .order-edit-footer {
+    display: flex; /* [Keep buttons in one row] */
+    justify-content: flex-start; /* [Align buttons to the left] */
+    align-items: center; /* [Vertically align buttons] */
+    gap: 10px; /* [Spacing between buttons] */
+    margin-top: 20px; /* [Space above buttons] */
+    margin-bottom: 0; /* [Remove bottom margin] */
+    padding-top: 0; /* [Remove space reserved above buttons] */
+    padding-bottom: 0; /* [Remove extra internal bottom spacing] */
+    border-top: none !important; /* [Remove horizontal line above buttons] */
+}
+
+
+
+
+#editOrderDialog .order-edit-footer .btn { min-width: 112px; }
+html:not(.inventory-dark) #editOrderDialog.order-edit-modal {
+  background: #fff; color: #26352b; border-color: #dce3dd;
+}
+html:not(.inventory-dark) #editOrderDialog .order-edit-header,
+html:not(.inventory-dark) #editOrderDialog .order-edit-footer { border-color: #e5e7eb; }
+html:not(.inventory-dark) #editOrderDialog .order-edit-description { color: #FFFFFF; }
+html:not(.inventory-dark) #editOrderDialog .order-edit-field { color: #475467; }
+html:not(.inventory-dark) #editOrderDialog .order-edit-field input,
+html:not(.inventory-dark) #editOrderDialog .order-edit-field select,
+html:not(.inventory-dark) #editOrderDialog .order-edit-field textarea {
+  background: #fff; color: #18231e; border-color: #cbd5e1;
+}
+html:not(.inventory-dark) #editOrderDialog .order-edit-close {
+  background: #f8fafc; color: #334155; border-color: #e2e8f0;
+}
+@media (max-width: 600px) {
+  #editOrderDialog.order-edit-modal { padding: 20px; width: calc(100vw - 24px); }
+  #editOrderDialog .order-edit-grid { grid-template-columns: 1fr; gap: 15px; }
+  #editOrderDialog .order-edit-header h2 { font-size: 18px; }
+  #editOrderDialog .order-edit-footer .btn { min-width: 0; }
+}
+
+/* Phase 7: chemical safety references and printable labels */
+.phase7-safety{padding:15px;margin:16px 0;border:1px solid #dce3dd;border-radius:0 !important;background:#f7faf8}
+.phase7-safety h3{margin:0 0 8px}.phase7-safety p{line-height:1.55}
+.phase7-safety .btn{display:inline-flex;text-decoration:none;margin:6px 0}
+.inventory-dark .phase7-safety{background:#222d27;border-color:#415247}
+.phase7-print-label{background:white;color:#111;border:1px solid #ddd;padding:18px;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;overflow-wrap:anywhere}
+.phase7-print-label svg{max-width:100%;height:70px}.phase7-print-label strong:first-child{font-size:17px}
+@media print{body *{visibility:hidden!important}#phase7LabelDialog,#phase7LabelDialog *,#phase7PrintableLabel,#phase7PrintableLabel *{visibility:visible!important}#phase7LabelDialog{position:fixed!important;inset:0!important;width:100%!important;max-width:none!important;max-height:none!important;margin:0!important;padding:0!important;border:0!important;box-shadow:none!important;background:#fff!important}#phase7LabelDialog .chemical-dialog-head,#phase7LabelDialog .actions,#phase7LabelWarning{display:none!important}#phase7LabelDialog .chemical-dialog-body{padding:0!important;max-height:none!important;overflow:visible!important}#phase7PrintableLabel{width:80mm;min-height:40mm;border:1px solid #000;margin:8mm auto;padding:4mm;break-inside:avoid} }
+
+/* Chemora interface refinements — November 2026 */
+.inventory-topbar{min-height:72px;height:72px}
+.chemora-brand{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;min-width:210px;height:65px;position:relative;overflow:hidden}
+.chemora-logo-crop{display:block;position:relative;width:250px;height:37px;overflow:hidden}
+.chemora-logo-crop img{display:block;width:250px;height:auto;max-width:none}
+.chemora-subtitle{font-size:10px;letter-spacing:.22em;color:#6e9bc2;font-weight:600;margin-left:60px;line-height:15px;white-space:nowrap}
+.inventory-topbar-right{gap:10px;align-items:center}
+.inventory-theme-switch,.inventory-profile{height:52px;box-sizing:border-box}
+.inventory-theme-switch{padding:5px;gap:2px}
+.inventory-theme-switch button{height:40px;width:40px}
+.inventory-profile{gap:6px;padding:5px 7px;min-width:205px}
+.inventory-profile-info{flex:1;min-width:0}
+.inventory-profile-logout{width:25px;flex:0 0 25px;margin-left:0}
+.inventory-sidebar button{padding:7px 11px!important;min-height:34px;gap:9px;line-height:1.3}
+.workspace-side-label{margin-top:12px;margin-bottom:6px}
+.workspace-side-brand{padding-bottom:12px;margin-bottom:4px}
+.workspace-home{padding-top:2px}
+.workspace-home h2{margin-top:0}
+.inventory-content>.tab-view:not(#view-home){padding-top:0}
+.inventory-content>.tab-view:not(#view-home)>.panel{margin-top:0!important}
+.inventory-content>.tab-view:not(#view-home)>.panel h2{display:flex;align-items:center;gap:10px}
+.module-title-icon{color:#73a6ff;font-size:17px;flex:0 0 auto}
+.inventory-content{min-height:360px}
+@media(max-width:640px){.inventory-topbar{height:auto;min-height:72px}.chemora-brand{min-width:165px;height:54px}.chemora-logo-crop{width:190px;height:29px}.chemora-logo-crop img{width:190px}.chemora-subtitle{margin-left:46px;font-size:8px;letter-spacing:.14em}.inventory-theme-switch,.inventory-profile{height:44px}.inventory-theme-switch button{height:32px;width:30px}.inventory-profile{min-width:0;gap:4px}.inventory-profile-logout{width:22px;flex-basis:22px}}
+
+/* Chemora inline SVG brand: no image asset required */
+.inventory-topbar{background:#102b46}
+.chemora-brand{display:inline-flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:10px;min-width:0;height:auto;overflow:visible;color:#fff;text-decoration:none;font-family:Helvetica,Arial,sans-serif;letter-spacing:1px}
+.chemora-brand:hover{color:#fff}
+.chemora-brand svg{width:42px;height:42px;flex:0 0 42px}
+.chemora-brand-copy{display:flex;flex-direction:column;gap:1px;line-height:1.1}
+.chemora-brand-copy strong{font-size:24px;font-weight:700;color:#fff}
+.chemora-brand .chemora-subtitle{margin:0;color:#9bc4dd;font-size:10px;font-weight:600;letter-spacing:.17em;line-height:1.4}
+.inventory-dark .inventory-topbar{background:#102b46!important}
+@media(max-width:640px){.chemora-brand{min-width:0;height:auto;gap:7px}.chemora-brand svg{width:34px;height:34px;flex-basis:34px}.chemora-brand-copy strong{font-size:19px}.chemora-brand .chemora-subtitle{margin:0;font-size:8px;letter-spacing:.08em}}
+
+/* Chemora permanent slate-900 / Roboto Mono theme */
+html,html body,html.inventory-dark,html.inventory-dark body{background:#1B1D1F!important;color:#e2e8f0!important;color-scheme:dark}
+html body,html body button,html body input,html body select,html body textarea,html body table,html body dialog{font-family:'Inter',monospace!important;font-weight:700}
+.inventory-topbar,.inventory-dark .inventory-topbar{height:60px!important;min-height:60px!important;background:#1B1D1F!important;border-bottom:1px solid #334155!important}
+.chemora-brand svg{width:35px;height:35px;flex-basis:35px}
+.chemora-brand-copy strong{font-size:21px}
+.chemora-brand .chemora-subtitle{font-size:9px}
+.inventory-profile{height:43px;min-height:43px;background:#1e293b!important;border-color:#475569!important}
+.inventory-profile-info strong{color:#f8fafc!important}
+.inventory-profile-info span{color:#cbd5e1!important}
+.inventory-profile-logout{margin-left:0;width:23px;flex-basis:23px}
+.shell{margin-top:18px!important}
+.inventory-sidebar{top:77px}
+.inventory-sidebar button{min-height:31px!important;padding:6px 10px!important}
+.inventory-content .panel,.inventory-dark .inventory-content .panel,.inventory-dark .order-card,.inventory-dark .card{background:#1e293b!important;border-color:#334155!important}
+.inventory-dark .panel h2,.inventory-dark .chemical-dialog-head{background:#1e293b!important}
+.inventory-dark .field input,.inventory-dark .field select,.inventory-dark .field textarea,.inventory-dark .inventory-toolbar input,.inventory-dark .inventory-toolbar select{background:#1B1D1F!important;color:#f8fafc!important;border-color:#475569!important}
+.inventory-dark .inventory-sidebar button.active{background:#243b56!important;border-color:#47658b!important;color:#dbeafe!important}
+.inventory-dark .inventory-sidebar button:hover{background:#1e293b!important}
+.inventory-dark .inventory-sidebar,.inventory-dark .workspace-home,.inventory-dark .workspace-module{border-color:#334155}
+.inventory-dark .workspace-home h2,.inventory-dark .workspace-module-copy strong,.inventory-dark .workspace-group-title{color:#f8fafc!important}
+.inventory-dark .workspace-module{background:#1e293b!important}
+.inventory-dark .inventory-data-table th{background:#273449!important;color:#f8fafc!important}
+.inventory-dark .inventory-data-table td{color:#e2e8f0!important;border-color:#334155!important}
+.chemora-user-table{min-width:660px}
+.chemora-user-table .user-edit-row td{padding:18px;background:#172337!important}
+.chemora-user-table .user-edit-form{max-width:100%;padding:5px}
+.chemora-user-table td:last-child{white-space:nowrap}
+.mobile-module-select{display:none}
+@media(max-width:850px){
+ .inventory-workspace{display:block!important}
+ .inventory-sidebar{display:none!important}
+ .mobile-module-select{display:flex;align-items:center;gap:10px;margin:0 0 14px;color:#cbd5e1;font-size:12px}
+ .mobile-module-select select{flex:1;min-width:0;padding:9px;border-radius:0 !important;border:1px solid #475569;background:#1e293b;color:#f8fafc}
+ .shell{margin-top:16px!important}
+ .inventory-content{min-height:0}
+}
+@media(max-width:640px){.inventory-topbar{height:auto!important;min-height:56px!important;padding:7px 12px!important}.chemora-brand-copy strong{font-size:18px}.chemora-brand .chemora-subtitle{font-size:7px}.inventory-profile{height:39px;min-height:39px}.inventory-avatar{width:29px;height:29px;flex-basis:29px}.inventory-profile-info strong{font-size:10px}.inventory-profile-info span{font-size:9px}}
+
+
+/* Remove header bottom border in all themes */
+html .inventory-topbar,
+html.inventory-dark .inventory-topbar {
+    border: none !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+}
+
+/* Increase space between header and workspace */
+.shell {
+    margin-top: 40px !important;
+}
+
+/* Remove logged-in user box border and background */
+html .inventory-profile,
+html.inventory-dark .inventory-profile {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+
+/* Make user information more compact */
+.inventory-profile {
+    gap: 6px !important;
+    padding: 0 !important;
+    min-width: auto !important;
+}
+
+/* Reduce gap between username and logout button */
+.inventory-profile-logout {
+    margin-left: 10px !important;
+}
+
+
+/* Target the Approved users panel */
+#view-users .panel:has(#userList) {
+    margin-top: 40px !important;
+}
+
+
+
+
+
+
+/* =========================================
+   CHEMORA FLOATING TOAST NOTIFICATIONS
+   ========================================= */
+
+.chemora-toast-container {
+    position: fixed;
+    top: 75px;
+    right: 20px;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    width: min(380px, calc(100vw - 32px));
+    pointer-events: none;
+}
+
+.chemora-toast {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    padding: 15px 16px;
+    background: #1e293b;
+    color: #f8fafc;
+    border: 1px solid #334155;
+    border-left: 4px solid #2dd4bf;
+    border-radius: 0 !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+    animation: chemoraToastIn 0.25s ease-out;
+}
+
+.chemora-toast.success {
+    border-left-color: #2dd4bf;
+}
+
+.chemora-toast.error {
+    border-left-color: #f87171;
+}
+
+.chemora-toast.info {
+    border-left-color: #60a5fa;
+}
+
+.chemora-toast-icon {
+    flex-shrink: 0;
+    font-size: 18px;
+    margin-top: 1px;
+    color: #2dd4bf;
+}
+
+.chemora-toast.error .chemora-toast-icon {
+    color: #f87171;
+}
+
+.chemora-toast.info .chemora-toast-icon {
+    color: #60a5fa;
+}
+
+.chemora-toast-message {
+    flex: 1;
+    min-width: 0;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.chemora-toast-close {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.chemora-toast-close:hover {
+    color: #ffffff;
+}
+
+.chemora-toast.removing {
+    animation: chemoraToastOut 0.2s ease-in forwards;
+}
+
+@keyframes chemoraToastIn {
+    from {
+        opacity: 0;
+        transform: translateX(25px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes chemoraToastOut {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(25px);
+    }
+}
+
+/* Hide the old workspace status area */
+#globalStatus {
+    display: none !important;
+}
+
+@media (max-width: 650px) {
+    .chemora-toast-container {
+        top: 65px;
+        right: 12px;
+        width: calc(100vw - 24px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chemora-toast,
+    .chemora-toast.removing {
+        animation: none;
+    }
+}
+
+
+
+/* Workspace card title letter spacing */
+.workspace-module-copy strong {
+    letter-spacing: 1px !important;
+}
+
+/* Add space above header */
+.inventory-topbar {
+    margin-top: 10px !important;
+}
+
+
+.workspace-side-brand {
+    margin-top: -15px !important;
+}
+
+/* =====================================================
+   SEARCH CHEMICALS - ONLY THIS MODULE IS MODIFIED
+   Original theme colors, buttons, and result cards retained
+   ===================================================== */
+#view-chemicals .chemora-search-split {
+    display: grid; /* [Search and results appear side by side] */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); /* [25% search, 75% results] */
+    gap: 18px; /* [Space between search and results panels] */
+    align-items: start; /* [Keep both panels aligned at top] */
+}
+#view-chemicals .chemora-search-panel,
+#view-chemicals .chemora-results-panel {
+    min-width: 0; /* [Prevent horizontal overflow] */
+}
+#view-chemicals .chemora-search-fields {
+    display: flex; /* [Stack all search fields vertically] */
+    flex-direction: column; /* [One field per row] */
+    gap: 15px; /* [Spacing between fields] */
+}
+#view-chemicals .chemora-search-fields .field {
+    margin-bottom: 0; /* [Avoid duplicate vertical spacing] */
+}
+#view-chemicals .chemora-search-actions {
+    display: flex; /* [Place both search buttons together] */
+    flex-wrap: wrap; /* [Allow wrapping on narrow screens] */
+    gap: 9px; /* [Space between buttons] */
+}
+#view-chemicals .chemora-search-actions .btn {
+    flex: 1 1 auto; /* [Buttons use available width] */
+}
+#view-chemicals .chemora-results-panel .cards {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 185px), 1fr)); /* [Responsive existing chemical cards] */
+}
+@media (max-width: 1050px) {
+    #view-chemicals .chemora-search-split {
+        grid-template-columns: minmax(0, 1fr); /* [Stack search above results on narrow screens] */
+    }
+}
+
+
+
+/* =========================================
+   CHEMORA - GLOBAL SQUARE CORNERS
+   ========================================= */
+
+html body *,
+html body *::before,
+html body *::after,
+html body dialog,
+html body input,
+html body select,
+html body textarea,
+html body button {
+    border-radius: 0 !important; /* [Remove all rounded corners] */
+}
+
+.inventory-avatar {
+    border-radius: 0 !important; /* [Keep user initials circular] */
+}
+
+/* =====================================================
+   CHEMORA - ALL CORNERS SQUARE, EXCEPT USER AVATAR
+   [High-specificity fallback for external stylesheets]
+   ===================================================== */
+html body :not(#chemora-radius-override):not(#chemora-radius-override-2):not(#chemora-radius-override-3),
+html body :not(#chemora-radius-override):not(#chemora-radius-override-2):not(#chemora-radius-override-3)::before,
+html body :not(#chemora-radius-override):not(#chemora-radius-override-2):not(#chemora-radius-override-3)::after {
+    border-radius: 0 !important; /* [All corners square] */
+}
+
+html body #profileAvatar.inventory-avatar:not(#chemora-avatar-override):not(#chemora-avatar-override-2):not(#chemora-avatar-override-3) {
+    border-radius: 50% !important; /* [Only user initials avatar remains circular] */
+}
+
+
+/* =====================================================
+   CHEMORA - SEARCH RESULTS AND CONTAINER DETAIL VIEW
+   [Scoped additions; all existing modules remain unchanged]
+   ===================================================== */
+#view-chemicals .chemora-results-panel.hide {
+    display: none !important; /* [Keep results panel closed until Search is clicked] */
+}
+#view-chemicals .chemora-results-panel h2 {
+    display: flex; /* [Place search count inside the header] */
+    align-items: center; /* [Vertically align heading and count] */
+    flex-wrap: wrap; /* [Wrap long counts on small screens] */
+    gap: 8px; /* [Space between heading and count] */
+}
+#view-chemicals .chemora-results-count {
+    font-size: 12px; /* [Compact result count] */
+    color: #cbd5e1; /* [Original Chemora slate text] */
+    font-weight: 600; /* [Readable secondary header text] */
+}
+#view-chemicals .chemora-structure-card {
+    align-items: stretch; /* [Use full card width] */
+    gap: 9px; /* [Separate structure and name] */
+    padding: 10px; /* [Compact chemical cards] */
+    text-align: left; /* [Left-align chemical name] */
+}
+#view-chemicals .chemora-structure-frame {
+    display: flex; /* [Center chemical structure] */
+    align-items: center; /* [Vertically center structure] */
+    justify-content: center; /* [Horizontally center structure] */
+    width: 100%; /* [Fill card width] */
+    aspect-ratio: 1 / 1; /* [Square chemical structure area] */
+    background: #f5f5f5; /* [White structure background from reference] */
+    overflow: hidden; /* [Keep structure inside card] */
+}
+#view-chemicals .chemora-structure-frame img {
+    width: 100%; /* [Fit structure to frame] */
+    height: 100%; /* [Fit structure to frame] */
+    min-height: 0; /* [Override previous image minimum height] */
+    margin: 0; /* [Remove previous image margin] */
+    object-fit: contain; /* [Show complete chemical structure] */
+}
+#view-chemicals .chemora-card-name {
+    font-size: 13px; /* [Compact name caption] */
+    color: #e2e8f0; /* [Original Chemora foreground] */
+    overflow-wrap: anywhere; /* [Allow long chemical names] */
+}
+#chemicalDialog.chemical-dialog {
+    width: min(1500px, calc(100vw - 36px)); /* [Wide reference-style detail popup] */
+    max-width: 1500px; /* [Maximum detail width] */
+    max-height: 92vh; /* [Keep popup within viewport] */
+    background: #303538 !important; /* [Reference charcoal surface] */
+    color: #e2e8f0 !important; /* [Readable detail text] */
+}
+#chemicalDialog .chemical-dialog-head {
+    padding: 10px 18px; /* [Compact detail popup header] */
+    background: #303538 !important; /* [Match popup surface] */
+}
+#chemicalDialog .chemical-dialog-body {
+    max-height: calc(92vh - 110px); /* [Scroll details without overflowing] */
+    padding: 14px 20px; /* [Detail popup spacing] */
+}
+#chemicalDialog .chemora-detail-grid {
+    display: grid; /* [Reference three-column detail layout] */
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr); /* [Structure, container, metadata] */
+    gap: 22px; /* [Space between detail columns] */
+}
+#chemicalDialog .chemora-detail-column {
+    min-width: 0; /* [Prevent long chemical names from overflowing] */
+}
+#chemicalDialog .chemora-detail-middle,
+#chemicalDialog .chemora-detail-right {
+    border-left: 1px solid #4a5055; /* [Reference column dividers] */
+    padding-left: 22px; /* [Space after dividers] */
+}
+#chemicalDialog .chemora-detail-structure {
+    display: grid; /* [Center enlarged chemical structure] */
+    place-items: center; /* [Center image] */
+    background: #f5f5f5; /* [Reference white image panel] */
+    aspect-ratio: 1 / 1; /* [Square structure image] */
+    width: 100%; /* [Fill structure column] */
+}
+#chemicalDialog .chemora-detail-structure img {
+    width: 100%; /* [Full-width structure image] */
+    height: 100%; /* [Full-height structure image] */
+    object-fit: contain; /* [Preserve molecule proportions] */
+}
+#chemicalDialog .chemora-ghs-summary {
+    margin-top: 18px; /* [Space below structure] */
+    line-height: 1.55; /* [Readable safety summary] */
+    font-size: 13px; /* [Compact safety text] */
+}
+#chemicalDialog .chemora-ghs-summary h3 {
+    margin: 0 0 8px; /* [Safety heading spacing] */
+    font-size: 15px; /* [Safety heading size] */
+}
+#chemicalDialog .chemora-ghs-summary a {
+    color: #cbd5e1; /* [Readable safety link] */
+}
+#chemicalDialog .chemora-detail-row {
+    margin-bottom: 20px; /* [Vertical spacing between properties] */
+    font-size: 14px; /* [Detail text size] */
+}
+#chemicalDialog .chemora-detail-label {
+    display: flex; /* [Place edit action alongside label] */
+    align-items: center; /* [Align label and action] */
+    justify-content: space-between; /* [Right-align edit action] */
+    gap: 8px; /* [Label/action spacing] */
+    margin-bottom: 5px; /* [Space above property value] */
+}
+#chemicalDialog .chemora-detail-value {
+    color: #d1d5db; /* [Secondary property text] */
+    overflow-wrap: anywhere; /* [Wrap long values] */
+}
+#chemicalDialog .chemora-detail-edit {
+    background: transparent; /* [Unobtrusive edit action] */
+    border: 0; /* [No edit action border] */
+    color: #e2e8f0; /* [Match reference action color] */
+    padding: 2px; /* [Compact edit action] */
+    font-size: 12px; /* [Small edit label] */
+    cursor: pointer; /* [Indicate clickable edit action] */
+}
+#chemicalDialog .chemora-molecular-details {
+    border-top: 1px solid #4a5055; /* [Separate molecular information] */
+    border-bottom: 1px solid #4a5055; /* [Separate metadata from actions] */
+    padding: 13px 0; /* [Information section spacing] */
+}
+#chemicalDialog .chemora-molecular-details summary {
+    cursor: pointer; /* [Expandable molecular information] */
+    font-weight: 700; /* [Emphasize summary heading] */
+}
+#chemicalDialog .chemora-detail-links {
+    display: flex; /* [Arrange existing container actions] */
+    flex-wrap: wrap; /* [Wrap actions on narrow screens] */
+    gap: 8px; /* [Action spacing] */
+    margin-top: 18px; /* [Space above actions] */
+}
+#chemicalDialog .chemora-all-containers {
+    border-top: 1px solid #4a5055; /* [Separate additional containers] */
+    margin-top: 22px; /* [Spacing above container list] */
+    padding-top: 14px; /* [Container list spacing] */
+}
+#chemicalDialog .chemora-all-containers summary {
+    cursor: pointer; /* [Expand other container records] */
+}
+#chemicalDialog .chemora-all-containers-list {
+    display: grid; /* [Arrange container summaries] */
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); /* [Responsive container list] */
+    gap: 12px; /* [Space between containers] */
+}
+@media (max-width: 950px) {
+    #chemicalDialog .chemora-detail-grid {
+        grid-template-columns: 1fr; /* [Stack popup sections on mobile] */
+    }
+    #chemicalDialog .chemora-detail-middle,
+    #chemicalDialog .chemora-detail-right {
+        border-left: 0; /* [Remove vertical dividers on mobile] */
+        border-top: 1px solid #4a5055; /* [Add horizontal dividers on mobile] */
+        padding-left: 0; /* [Remove left indentation] */
+        padding-top: 18px; /* [Space after divider] */
+    }
+    #chemicalDialog .chemora-detail-structure {
+        max-width: 480px; /* [Limit structure size on mobile] */
+        margin: 0 auto; /* [Center structure on mobile] */
+    }
+}
+
+
+/* =========================================
+   SEARCH RESULTS - REDUCE TOP SPACING
+   ========================================= */
+
+#view-chemicals .chemora-results-panel .pad {
+    padding-top: 12px !important; /* [Reduce space below header] */
+}
+
+#view-chemicals #chemicalCards {
+    margin-top: 8px !important; /* [Remove extra space above cards] */
+    align-content: start; /* [Keep cards aligned at the top] */
+}
+
+#view-chemicals #searchStatus {
+    margin: 0 !important; /* [Remove status paragraph spacing] */
+    min-height: 0 !important; /* [Remove reserved status height] */
+}
+
+
+
+
+/* =========================================
+   CHEMORA - COMPACT CONTAINER DETAILS POPUP
+   ========================================= */
+
+#chemicalDialog {
+    width: min(1050px, 94vw) !important; /* [Overall popup width] */
+    max-width: 1050px !important; /* [Maximum popup width] */
+}
+
+#chemicalDialog .chemora-detail-grid {
+    grid-template-columns: 35% 35% 30%; /* [Left, middle, right column widths] */
+    gap: 14px; /* [Spacing between columns] */
+}
+
+
+
+
+/* =========================================
+   CHEMORA - CONTAINER POPUP FIELD STYLING
+   ========================================= */
+
+/* [Keep field names bold] */
+#chemicalDialog .chemora-detail-label strong {
+    font-weight: 700 !important; /* [Bold field names] */
+}
+
+/* [Make field values normal weight] */
+#chemicalDialog .chemora-detail-value,
+#chemicalDialog .chemora-detail-value * {
+    font-weight: 300 !important; /* [Normal weight for values] */
+}
+
+/* [Reduce spacing between fields] */
+#chemicalDialog .chemora-detail-row {
+    margin-bottom: 10px !important; /* [Space between consecutive fields] */
+}
+
+/* [Reduce spacing between name and value] */
+#chemicalDialog .chemora-detail-label {
+    margin-bottom: 3px !important; /* [Gap between label and value] */
+}
+
+/* [Improve readability] */
+#chemicalDialog .chemora-detail-value {
+    line-height: 1.45 !important; /* [Value line spacing] */
+}
+
+
+
+/* =========================================
+   CHEMORA - GHS SAFETY SUMMARY
+   ========================================= */
+
+/* [Keep GHS heading bold] */
+#chemicalDialog .chemora-ghs-summary h3 {
+    font-weight: 700 !important; /* [Heading font weight] */
+}
+
+/* [Make GHS description light] */
+#chemicalDialog .chemora-ghs-summary p {
+    font-weight: 300 !important; /* [Description font weight] */
+    line-height: 1.5 !important; /* [Description line spacing] */
+}
+
+/* [Display PubChem link as a button] */
+#chemicalDialog .chemora-ghs-summary a {
+    display: inline-flex !important; /* [Button layout] */
+    align-items: center; /* [Center text vertically] */
+    justify-content: center; /* [Center text horizontally] */
+    background: #26382d !important; /* [Button background] */
+    color: #ffffff !important; /* [Button text color] */
+    border: 1px solid #46574b !important; /* [Button border] */
+    padding: 10px 16px !important; /* [Button padding] */
+    font-weight: 600 !important; /* [Button text weight] */
+    text-decoration: none !important; /* [Remove link underline] */
+    border-radius: 0 !important; /* [Square corners] */
+    margin-top: 8px; /* [Space above button] */
+    cursor: pointer; /* [Pointer cursor] */
+}
+
+/* [PubChem button hover] */
+#chemicalDialog .chemora-ghs-summary a:hover {
+    background: #334638 !important; /* [Hover background] */
+}
+/* =========================================
+   CHEMORA - TARGETED POPUP INLINE EDITING
+   ========================================= */
+/* [Molecular properties always visible with consistent label/value weights] */
+#chemicalDialog .chemora-molecular-details .chemora-detail-label strong {
+    font-weight: 700 !important;
+}
+#chemicalDialog .chemora-molecular-details .chemora-detail-value {
+    font-weight: 300 !important;
+}
+/* [Place container actions and chemical deletion vertically] */
+#chemicalDialog .chemora-detail-links {
+    flex-direction: column;
+    align-items: flex-start;
+}
+/* [Inline editor in the existing popup] */
+#chemicalDialog .chemora-inline-input {
+    display: block;
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    color: #f8fafc;
+    background: #22292d;
+    border: 1px solid #64748b;
+    border-radius: 0;
+    font-weight: 300;
+}
+#chemicalDialog .chemora-inline-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+/* [Chemical popup: molecular labels and values] */
+#chemicalDialog .chemora-molecular-details .chemora-detail-label strong {
+    font-weight: 700 !important;
+}
+#chemicalDialog .chemora-molecular-details .chemora-detail-value {
+    font-weight: 300 !important;
+}
+/* [Chemical popup: action buttons in right column] */
+#chemicalDialog .chemora-detail-links {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+}
+#chemicalDialog .chemora-detail-links [data-delete-chemical-inline] {
+    margin-top: 0 !important;
+}
+
+/* =========================================
+   CHEMORA - POPUP WIDTH AND ACTION BUTTON FIX
+   ========================================= */
+
+/* [Set popup column widths] */
+#chemicalDialog .chemora-detail-grid {
+    grid-template-columns: minmax(0, 30fr) minmax(0, 40fr) minmax(0, 30fr) !important; /* [Left 35%, middle 35%, right 30%] */
+    gap: 14px !important; /* [Space between columns] */
+    width: 100% !important; /* [Use available popup width] */
+}
+
+/* [Keep every action button the same width] */
+#chemicalDialog .chemora-detail-links {
+    align-items: stretch !important;
+    width: 100% !important;
+}
+
+#chemicalDialog .chemora-detail-links > button {
+    width: 100% !important;
+    min-height: 44px !important;
+    box-sizing: border-box !important;
+    text-align: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+}
+
+/* [Ensure editing inputs fit within each column] */
+#chemicalDialog .chemora-inline-input {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+
+
+/* [Remove horizontal line above Formula] */
+#chemicalDialog .chemora-molecular-details {
+    border-top: none !important;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+
+
+/* =========================================
+   CHEMORA - GLOBAL POPUP BACKGROUND COLOR
+   ========================================= */
+
+/* [Apply Slate 800 to all popup dialogs] */
+html.inventory-dark dialog,
+html.inventory-dark dialog.chemical-dialog {
+    background-color: #1e293b !important;
+    color: #e2e8f0 !important;
+}
+
+/* [Apply same color to popup headers] */
+html.inventory-dark dialog .chemical-dialog-head {
+    background-color: #1e293b !important;
+}
+
+/* [Apply same color to popup content areas] */
+html.inventory-dark dialog .chemical-dialog-body,
+html.inventory-dark dialog .chemora-detail-column,
+html.inventory-dark dialog .chemora-detail-grid {
+    background-color: #1e293b !important;
+}
+
+/* =========================================
+   CHEMORA - PERMANENT WEBPAGE BODY COLOR
+   [Only the page background is changed]
+   ========================================= */
+html,
+body,
+html.inventory-dark,
+html.inventory-dark body {
+    background-color: #1B1D1F !important; /* [Exact color from attached image] */
+}
+
+
+
+/* =========================================
+   CHEMORA - ALL POPUP BACKDROP TRANSPARENCY
+   ========================================= */
+
+html body dialog::backdrop {
+    background-color: rgba(0, 0, 0, 0.40) !important; /* [40% black opacity for all popups] */
+}
+
+
+
+/* =========================================
+   CHEMORA - ACTIONS COLUMN ALIGNMENT
+   ========================================= */
+
+/* [Keep the Actions column at the far right] */
+#view-requests .inventory-data-table th:last-child,
+#view-requests .inventory-data-table td:last-child {
+    width: 1% !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+}
+
+/* [Preserve the table structure] */
+#view-requests .inventory-data-table td.row-actions {
+    display: table-cell !important;
+    text-align: left !important;
+    vertical-align: middle !important;
+}
+
+/* [Keep action buttons left-aligned inside the cell] */
+#view-requests .inventory-data-table td.row-actions .btn {
+    display: inline-block !important;
+    margin: 2px 6px 2px 0 !important;
+}
+
+/* =========================================
+   CHEMORA - MANAGE REQUESTS TABLE ONLY
+   ========================================= */
+
+/* [Continuous outer border and vertical cell separators] */
+#view-requests .chemora-orders-table {
+    border: 1px solid #475569 !important;
+    border-collapse: collapse !important;
+    width: 100% !important;
+}
+
+/* [Uniform borders on every table cell, including header cells] */
+#view-requests .chemora-orders-table th,
+#view-requests .chemora-orders-table td {
+    border: 1px solid #475569 !important;
+    padding: 8px 14px !important;
+    vertical-align: middle !important;
+    text-align: left !important;
+}
+
+/* [Data rows have regular-weight text; header weight remains unchanged] */
+#view-requests .chemora-orders-table tbody td,
+#view-requests .chemora-orders-table tbody td strong,
+#view-requests .chemora-orders-table tbody td .muted {
+    font-weight: 400 !important;
+}
+
+/* [CAS numbers remain on one line] */
+#view-requests .chemora-orders-table th:nth-child(2),
+#view-requests .chemora-orders-table td:nth-child(2) {
+    white-space: nowrap !important;
+}
+
+/* [Actions stays a table cell at the far right] */
+#view-requests .chemora-orders-table td.row-actions {
+    display: table-cell !important;
+    width: 1% !important;
+    white-space: nowrap !important;
+}
+
+/* [Keep icon buttons left-aligned inside the Actions cell] */
+#view-requests .chemora-orders-table .chemora-order-actions {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 7px !important;
+}
+
+/* [Uniform square icon buttons] */
+#view-requests .chemora-orders-table .chemora-order-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    font-size: 14px !important;
+}
+
+
+
+
+/* =========================================
+   CHEMORA - COMPACT MANAGE REQUESTS TABLE
+   ========================================= */
+
+/* [Reduce table row height and cell spacing] */
+#view-requests table th,
+#view-requests table td {
+    padding: 7px 9px !important; /* [Vertical 7px, horizontal 9px] */
+    line-height: 1.3 !important;
+    vertical-align: middle !important;
+}
+
+/* [Reduce action button dimensions] */
+#view-requests table td:last-child .btn {
+    width: 28px !important; /* [Button width] */
+    height: 28px !important; /* [Button height] */
+    min-width: 28px !important;
+    min-height: 28px !important;
+    padding: 0 !important;
+    font-size: 12px !important; /* [Icon size] */
+    line-height: 1 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* [Reduce gap between action buttons] */
+#view-requests table td:last-child {
+    white-space: nowrap !important;
+}
+
+#view-requests table td:last-child .btn + .btn {
+    margin-left: -5px !important; /* [Gap between buttons] */
+}
+
+/* [Keep the Actions column compact] */
+#view-requests table th:last-child,
+#view-requests table td:last-child {
+    width: 1% !important;
+    white-space: nowrap !important;
+}
+
+/* =========================================
+   CHEMORA - RECEIPT POPUP SPACING
+   ========================================= */
+
+/* [Control spacing inside receipt popup] */
+#receiveOrderDialog .chemical-dialog-body {
+    padding-top: 8px !important; /* [Decrease space above chemical name] */
+    padding-bottom: 25px !important; /* [Increase space below confirmation button] */
+}
+
+/* [Remove extra margin above chemical information] */
+#receiveOrderDialog .chemical-dialog-body > p:first-child {
+    margin-top: 0 !important;
+}
+
+/* [Control receipt form spacing] */
+#receiveOrderForm {
+    margin-top: 10px !important;
+    margin-bottom: 0 !important;
+}
+
+/* [Control confirmation button bottom margin] */
+#receiveOrderForm > button[type="submit"] {
+    margin-bottom: 0 !important;
+}
+
+/* [Remove spacing from empty status message] */
+#receiveOrderStatus:empty {
+    display: none !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+}
+
+/* =========================================
+   CHEMORA - NO ORDERS MESSAGE STYLING
+   ========================================= */
+
+#view-requests .chemora-no-orders {
+    display: block !important; /* [Full-width message] */
+    width: 100% !important; /* [Use available width] */
+    margin-top: 25px !important; /* [Space above message] */
+    margin-bottom: 1px !important; /* [Space below message] */
+    padding: 1px 0 !important; /* [Internal vertical spacing] */
+    text-align: center !important; /* [Center text horizontally] */
+    font-size: 15px !important; /* [Increase text size] */
+    font-weight: 500 !important; /* [Semibold text] */
+    color: #93c5fd !important; /* [Light blue highlight] */
+}
+
+
+
+/* =========================================
+   CHEMORA - KETCHER STRUCTURE SEARCH DIALOG
+   ========================================= */
+.chemora-structure-dialog{width:min(1050px,calc(100vw - 28px))!important;max-width:none!important;}
+.chemora-structure-dialog .chemical-dialog-body{max-height:calc(90vh - 65px);overflow-y:auto;}
+.chemora-editor-toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0;}
+#chemoraKetcherFrame{display:none;width:100%;height:min(530px,60vh);border:1px solid #475569;background:#fff;margin-bottom:12px;}
+.chemora-structure-dialog #structureSmiles{font-family:monospace;}
+.chemora-structure-dialog .status{min-height:0;}
+@media(max-width:600px){#chemoraKetcherFrame{height:380px}.chemora-structure-dialog .chemical-dialog-body{padding:14px;}}
+
+/* [Chemora structure editor: auto-loaded drawing surface and search actions.] */
+#chemoraKetcherFrame{display:block!important;width:100%;height:min(560px,65vh);border:1px solid #475569;background:#fff;margin:0 0 14px;}
+.chemora-structure-actions{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 12px;}
+.chemora-structure-dialog .chemical-dialog-body{padding-top:14px;}
+@media(max-width:600px){#chemoraKetcherFrame{height:420px}.chemora-structure-actions .btn{flex:1 1 100%;}}
+
+
+/* =========================================
+   CHEMORA - BATCH BARCODE LABEL SHEET (Inventory Tools > Barcode labels)
+   The global print rules hide the whole page, so batch labels print from a dedicated sheet.
+   ========================================= */
+#batchLabelSheet { display: none; }
+.batch-label { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; overflow-wrap: anywhere; padding: 4mm; background: #fff; color: #000; border: 1px solid #000; }
+.batch-label svg { max-width: 100%; height: 50px; }
+@media print {
+  body.print-batch header,
+  body.print-batch main { display: none !important; }
+  body.print-batch #batchLabelSheet { display: grid !important; position: absolute; left: 0; top: 0; width: 100%; grid-template-columns: repeat(auto-fill, minmax(70mm, 1fr)); gap: 4mm; padding: 6mm; background: #fff !important; }
+  body.print-batch #batchLabelSheet,
+  body.print-batch #batchLabelSheet * { visibility: visible !important; color: #000 !important; }
+  body.print-batch .batch-label { break-inside: avoid; }
+}
+
+/* Container action dialog: keep the notice readable inside the dark dialog */
+#containerActionDialog .notice { margin: 0 0 14px; }
+
+
+/* Bulk CSV import */
+.import-error { color: #f87171; }
+#importPanel code { font-size: 12px; }
+
+
+/* Ketcher dialog: the frame must be hideable when the editor files are missing (same specificity as the display rule above, later wins) */
+#chemoraKetcherFrame.hide { display: none !important; }
+#chemoraKetcherFrame { margin-bottom: 14px; }
+#structureDialog .notice { margin: 0 0 14px; }

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full inventory-dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Chemical Inventory | Chemora">
+  <title>Chemical Inventory | Chemora</title>
+  <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/9183/9183391.png">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="inventory.css">
+</head>
+
+<body class="min-h-screen flex flex-col selection:bg-amber-300 selection:text-navy-900" data-page="inventory">
+<!-- Chemora floating toast notifications (outside the portal so sign-in errors are visible too) -->
+<div id="chemoraToastContainer" class="chemora-toast-container" aria-label="Notifications" aria-live="polite" aria-relevant="additions"></div>
+<header class="inventory-topbar">
+  <a class="inventory-brand chemora-brand" href="index.html" aria-label="Chemora Chemical Management home">
+    <svg width="42" height="42" viewBox="100 60 190 180" role="img" aria-label="Chemora logo" xmlns="http://www.w3.org/2000/svg">
+      <path d="M250.6 115 L190 80 L129.4 115 L129.4 185 L190 220 L250.6 185" fill="none" stroke="#2DD4BF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="250.6" cy="115" r="13" fill="#F59E0B"/>
+      <circle cx="250.6" cy="185" r="13" fill="#F59E0B"/>
+      <circle cx="190" cy="150" r="9" fill="#FFFFFF"/>
+    </svg>
+    <span class="chemora-brand-copy"><strong>Chemora</strong><span class="chemora-subtitle">CHEMICAL MANAGEMENT</span></span>
+  </a>
+  <div class="inventory-topbar-right">
+    <div id="profileCard" class="inventory-profile hide" aria-label="Signed-in user">
+      <div id="profileAvatar" class="inventory-avatar">HG</div>
+      <div class="inventory-profile-info"><strong id="who"></strong><span id="profileRole">Member</span></div>
+      <button id="logout" class="inventory-profile-logout" type="button" title="Sign out" aria-label="Sign out"><i class="fa-solid fa-right-from-bracket"></i></button>
+    </div>
+  </div>
+</header>
+
+
+<main class="flex-grow">
+<div class="page-view active-page" id="page-research">
+<div class="shell">
+<section id="setup" class="notice hide" role="alert">Supabase configuration is missing. Check config.js.</section>
+<section id="auth" class="panel" style="max-width:460px;margin:35px auto"><h2>Member sign in</h2><div class="pad"><p class="muted">Sign in with an approved Hari Group inventory account.</p><form id="login"><label class="field">Email<input id="email" type="email" autocomplete="username" required></label><label class="field">Password<input id="password" type="password" autocomplete="current-password" required></label><button class="btn" type="submit">Sign in</button><p id="loginError" class="status" role="alert"></p></form></div></section>
+<section id="portal" class="hide">
+<div class="inventory-workspace"><div class="mobile-module-select"><label for="mobileModule">Module</label><select id="mobileModule" aria-label="Choose inventory module"><option value="home">Home</option><option value="chemicals">Search Chemicals</option><option value="add">Add Chemicals</option><option value="requests">Manage Requests</option><option value="orders">Request Chemicals</option><option value="locations">Locations</option><option value="history" data-manager>Log History</option><option value="users" data-admin>User Management</option><option value="tools" data-admin>Inventory Tools</option><option value="files">SDS &amp; File Storage</option></select></div>
+
+<nav class="nav inventory-sidebar" id="tabs"><div class="workspace-side-brand">
+
+<img src="iisc.png" alt="Flask Vial" width="50" height="50"><strong>Hari Group</strong>
+
+</div><button type="button" data-tab="home" class="active"><i class="fa-solid fa-house"></i><span>Home</span></button><div class="workspace-side-label">INVENTORY</div><button type="button" data-tab="chemicals"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Search Chemicals</span></button><button type="button" data-tab="add"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Add Chemicals</span></button><div class="workspace-side-label">ORDER REQUESTS</div><button type="button" data-tab="requests"><i class="fa-solid fa-list-check"></i><span>Manage Requests</span></button><button type="button" data-tab="orders"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i><span>Request Chemicals</span></button><button type="button" data-tab="locations"><i class="fa-solid fa-warehouse" aria-hidden="true"></i><span>Locations</span></button><div class="workspace-side-label">ADMINISTRATION</div><button type="button" data-tab="history" class="manager-only hide"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i><span>Log History</span></button><button type="button" data-tab="users" class="admin-only hide"><i class="fa-solid fa-users-gear" aria-hidden="true"></i><span>User Management</span></button><div class="inventory-sidebar-caption">MANAGEMENT</div><button type="button" data-tab="tools" class="admin-only hide"><i class="fa-solid fa-screwdriver-wrench"></i><span>Inventory Tools</span></button><button type="button" data-tab="files"><i class="fa-solid fa-file-shield"></i><span>SDS &amp; File Storage</span></button></nav>
+<div class="inventory-content">
+<p id="globalStatus" class="status" role="status"></p>
+
+<section id="view-home" class="tab-view"><div class="workspace-home">
+
+<p class="workspace-group-title">WORKSPACE</p><div class="workspace-modules"><button type="button" class="workspace-module workspace-accent-blue " data-open-tab="chemicals"><span class="workspace-module-icon"><i class="fa-solid fa-magnifying-glass"></i></span><span class="workspace-module-copy"><strong>SEARCH CHEMICALS</strong><span>Find chemicals, containers, barcodes and stock levels.</span></span><span class="workspace-module-arrow"><i class="fa-solid fa-arrow-right"></i></span></button><button type="button" class="workspace-module workspace-accent-green " data-open-tab="add"><span class="workspace-module-icon"><i class="fa-solid fa-flask-vial"></i></span><span class="workspace-module-copy"><strong>ADD CONTAINER</strong><span>Register new chemical bottles and storage details.</span></span><span class="workspace-module-arrow"><i class="fa-solid fa-arrow-right"></i></span></button><button type="button" class="workspace-module workspace-accent-amber " data-open-tab="orders"><span class="workspace-module-icon"><i class="fa-solid fa-clipboard-list"></i></span><span class="workspace-module-copy"><strong>REQUEST CHEMICALS</strong><span>Submit a new purchasing request.</span></span><span class="workspace-module-arrow"><i class="fa-solid fa-arrow-right"></i></span></button><button type="button" class="workspace-module workspace-accent-purple " data-open-tab="requests"><span class="workspace-module-icon"><i class="fa-solid fa-list-check"></i></span><span class="workspace-module-copy"><strong>CURRENT ORDERS</strong><span>Review requests and manage purchasing progress.</span></span><span class="workspace-module-arrow"><i class="fa-solid fa-arrow-right"></i></span></button><button type="button" class="workspace-module workspace-accent-cyan " data-open-tab="locations"><span class="workspace-module-icon"><i class="fa-solid fa-warehouse"></i></span><span class="workspace-module-copy"><strong>LOCATIONS</strong><span>Explore and manage laboratory storage.</span></span><span class="workspace-module-arrow"><i class="fa-solid fa-arrow-right"></i></span></button><button type="button" class="workspace-module workspace-accent-rose " data-open-tab="files"><span class="workspace-module-icon"><i class="fa-solid fa-file-shield"></i></span><span class="workspace-module-copy"><strong>SDS &amp; SAFETY</strong><span>View the chemical safety and file storage module.</span></span><span class="workspace-module-arrow"><i class="fa-solid fa-arrow-right"></i></span></button><button type="button" class="workspace-module workspace-accent-indigo admin-only" data-open-tab="users"><span class="workspace-module-icon"><i class="fa-solid fa-users-gear"></i></span><span class="workspace-module-copy"><strong>USER MANAGEMENT</strong><span>Manage approved laboratory accounts.</span></span><span class="workspace-module-arrow"><i class="fa-solid fa-arrow-right"></i></span></button><button type="button" class="workspace-module workspace-accent-orange manager-only" data-open-tab="history"><span class="workspace-module-icon"><i class="fa-solid fa-clock-rotate-left"></i></span><span class="workspace-module-copy"><strong>LOG HISTORY</strong><span>Review recorded inventory activity.</span></span><span class="workspace-module-arrow"><i class="fa-solid fa-arrow-right"></i></span></button><button type="button" class="workspace-module workspace-accent-teal admin-only" data-open-tab="tools"><span class="workspace-module-icon"><i class="fa-solid fa-chart-column"></i></span><span class="workspace-module-copy"><strong>INVENTORY TOOLS</strong><span>Exports, labels and inventory utilities.</span></span><span class="workspace-module-arrow"><i class="fa-solid fa-arrow-right"></i></span></button></div></div></section>
+<section id="view-chemicals" class="tab-view hide">
+  <div class="chemora-search-split">
+    <div class="panel chemora-search-panel">
+      <h2><i class="fa-solid fa-magnifying-glass module-title-icon" style="margin-right: 10px;" aria-hidden="true"></i> Search Chemicals</h2>
+      <div class="pad">
+        <form id="search" class="chemora-search-fields">
+          <!-- [Separate visible search fields; original type/query retained for existing structure search] -->
+          <input id="type" type="hidden" value="name">
+          <input id="query" type="hidden" value="">
+          <label class="field">Chemical Name<input id="searchChemicalName" type="search" placeholder="Chemical name or synonym" autocomplete="off"></label>
+          <label class="field">CAS Number<input id="searchChemicalCas" type="search" placeholder="CAS registry number" autocomplete="off"></label>
+          <label class="field">Barcode<input id="searchChemicalBarcode" type="search" placeholder="Container barcode" autocomplete="off"></label>
+          <label class="field">Limit to location<select id="searchLocation"><option value="">All locations</option></select></label>
+          <div class="actions chemora-search-actions">
+            <button class="btn secondary" id="structureSearchButton" type="button">Structure Search</button>
+            <button class="btn" type="submit">Search</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="panel chemora-results-panel hide" id="chemoraResultsPanel">
+      
+
+<h2>
+  <i class="fa-solid fa-flask-vial module-title-icon" style="margin-right: 10px;" aria-hidden="true"></i> 
+  Search Results: <span id="chemoraResultsCount" class="chemora-results-count" aria-live="polite"></span>
+</h2>
+
+
+
+      <div class="pad">
+        <p id="searchStatus" class="status" role="status"></p>
+        <div id="chemicalCards" class="cards"></div>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="view-add" class="tab-view hide"><div class="panel"><h2><i class="fa-solid fa-flask-vial module-title-icon" aria-hidden="true"></i> Add Chemical and Container</h2><div class="pad"><form id="addChemical"><div class="row"><label class="field">Chemical name<input name="name" required></label><label class="field">CAS number<input name="cas"></label></div><div class="row"><label class="field">Molecular formula<input name="formula"></label><label class="field">Supplier<input name="supplier"></label></div><div class="row"><label class="field">Container size<input name="container_size" type="number" step="any" min="0"></label><label class="field">Remaining amount<input name="remaining_amount" type="number" step="any" min="0"></label></div><div class="row"><label class="field">Unit<select name="unit"><option value="g">g</option><option value="mg">mg</option><option value="kg">kg</option><option value="mL">mL</option><option value="L">L</option></select></label><label class="field">Storage location (required)<select name="location_id" id="chemicalLocation" required><option value="">Select location</option></select></label></div><div class="row"><label class="field">Barcode<input name="barcode" placeholder="Automatically generated" disabled></label><label class="field">Notes<input name="notes"></label></div><div class="row"><label class="field">Catalog number<input name="catalog_number"></label><label class="field">Lot number<input name="lot_number"></label></div><div class="row"><label class="field">Purity<input name="purity" placeholder="e.g. 98%"></label><label class="field">Owner<select name="owner_id" id="containerOwner"><option value="">Current user</option></select></label></div><div class="row"><label class="field">Date Received<input name="received_at" type="date"></label><label class="field">Expiry date<input name="expires_at" type="date"></label></div><p class="muted">A unique barcode is generated automatically. The same chemical may have multiple containers.</p><button class="btn" type="submit">Register container</button><p id="addStatus" class="status"></p><div id="registeredBarcode" class="barcode-result" aria-live="polite"></div></form></div></div></section>
+<dialog id="chemicalDialog" class="chemical-dialog" aria-labelledby="chemicalDialogTitle"><div class="chemical-dialog-head"><h2 id="chemicalDialogTitle">Chemical details</h2><button type="button" id="closeChemicalDialog" aria-label="Close details"><i class="fa-solid fa-xmark"></i></button></div><div id="chemicalDialogBody" class="chemical-dialog-body"></div></dialog>
+<dialog id="containerActionDialog" class="chemical-dialog" aria-labelledby="containerActionTitle"><div class="chemical-dialog-head"><h2 id="containerActionTitle">Manage container</h2><button type="button" id="closeContainerAction" aria-label="Close">×</button></div><div class="chemical-dialog-body"><p id="containerActionSummary" class="muted"></p><form id="containerActionForm"><label class="field">Action<select name="action" id="containerActionType"><option value="quantity">Update remaining quantity</option><option value="move">Move to another location</option><option value="transfer">Transfer ownership</option><option value="empty">Mark as empty</option><option value="dispose">Dispose (archive)</option></select></label><label class="field" data-action-field="quantity">New remaining quantity<input name="remaining_amount" type="number" step="any" min="0"></label><label class="field hide" data-action-field="move">Destination location<select name="location_id"></select></label><label class="field hide" data-action-field="transfer">New owner<select name="owner_id"></select></label><p class="notice hide" data-action-field="dispose">Disposing archives this container and removes it from search results. This cannot be undone from the interface.</p><button class="btn" type="submit">Apply action</button><p id="containerActionStatus" class="status" role="status"></p></form></div></dialog>
+<section id="view-orders" class="tab-view hide"><div class="panel"><h2><i class="fa-solid fa-clipboard-list module-title-icon" aria-hidden="true"></i> Request a chemical</h2><div class="pad"><form id="orderForm"><div class="row"><label class="field">Chemical name<input name="chemical_name" required></label><label class="field">CAS number<input name="cas"></label></div><div class="row"><label class="field">Size<input name="container_size" type="number" min="0.00001" step="any" required></label><label class="field">Unit<select name="unit"><option>mg</option><option>g</option><option>mL</option><option>L</option></select></label></div><label class="field">Supplier<input name="supplier"></label><label class="field">Comments<textarea name="comments" rows="2"></textarea></label><button class="btn" type="submit">Submit request</button></form></div></div></section><section id="view-requests" class="tab-view hide"><div class="panel" style="margin-top:18px"><h2><i class="fa-solid fa-list-check module-title-icon" aria-hidden="true"></i> Manage Requests</h2><div class="pad"><div class="inventory-toolbar"><input id="orderFilter" type="search" placeholder="Filter orders by Name, CAS, Supplier or Status" aria-label="Filter orders"><select id="orderStatusFilter" aria-label="Order status"><option value="">All Status</option><option value="requested">Requested</option><option value="ordered">Ordered</option></select>
+
+<button type="button" id="orderSettingsButton" class="btn secondary manager-only hide" disabled>Order Settings</button>
+
+<button type="button" id="exportPendingOrders" class="btn secondary manager-only hide">Download Pending Orders (CSV)</button><button type="button" id="exportOrders" class="btn secondary manager-only hide">Export CSV</button></div><div id="orderList" class="table-wrap"></div></div></div></section>
+<section id="view-locations" class="tab-view hide"><div class="panel"><h2><i class="fa-solid fa-warehouse module-title-icon" aria-hidden="true"></i> Storage locations</h2><div class="pad"><form id="locationForm" class="admin-only hide"><div class="row"><label class="field">Location name<input name="name" required></label><label class="field">Description<input name="description"></label></div><div class="row"><label class="field">Location type<select name="location_type" id="locationType"><option value="building">Building</option><option value="room">Room</option><option value="cabinet">Cabinet</option><option value="shelf">Shelf</option><option value="position">Position</option></select></label><label class="field">Parent location<select name="parent_id" id="locationParent"><option value="">No parent (building)</option></select></label></div><button class="btn" type="submit">Add location</button></form><p class="muted">Existing locations without parents are preserved. Add buildings first, then rooms, cabinets, shelves and positions.</p><div id="locationList" class="location-tree"></div></div></div></section>
+<section id="view-history" class="tab-view hide"><div class="panel"><h2><i class="fa-solid fa-clock-rotate-left module-title-icon" aria-hidden="true"></i> Activity history</h2><div class="pad"><div class="inventory-toolbar"><input type="search" id="historyFilter" placeholder="Filter activity history"><input type="date" id="historyFrom" aria-label="From date"><input type="date" id="historyTo" aria-label="To date"><button id="historyExport" type="button" class="btn secondary">Export CSV</button></div><div id="historyList" class="table-wrap"></div></div></div></section>
+<section id="view-tools" class="tab-view hide"><div class="panel"><h2><i class="fa-solid fa-screwdriver-wrench module-title-icon" aria-hidden="true"></i> Inventory Management</h2><div class="pad"><div class="tool-grid"><button class="tool-tile" id="exportInventory" type="button"><i class="fa-solid fa-file-export"></i><strong>Export inventory</strong><span>Download accessible containers as CSV</span></button><button class="tool-tile" id="printLabels" type="button"><i class="fa-solid fa-barcode"></i><strong>Barcode labels</strong><span>Print barcode text labels for containers</span></button><button class="tool-tile" id="recentContainers" type="button"><i class="fa-solid fa-clock"></i><strong>Recently added</strong><span>View recently registered containers</span></button><button class="tool-tile" id="importHelp" type="button"><i class="fa-solid fa-file-import"></i><strong>Bulk CSV import</strong><span>Validate and import containers from a CSV file</span></button></div><div id="importPanel" class="hide" style="margin-top:18px"><p class="muted">Upload a CSV with one row per container (up to 500 rows). Required columns: <code>name</code>, <code>container_size</code>, <code>unit</code> (g, mg, kg, mL, L) and <code>location</code>, written as the full path, e.g. <code>Main Building / Room 101 / Cabinet A</code>, (<code>&gt;</code> also works as a separator), or a unique location name. Dates may be YYYY-MM-DD or DD/MM/YYYY. Each row gets its own generated barcode.</p><div class="inventory-toolbar"><input type="file" id="importFile" accept=".csv,text/csv" aria-label="CSV file to import"><button type="button" class="btn secondary" id="importTemplate">Download template</button></div><label class="muted" style="display:block;margin:0 0 12px"><input type="checkbox" id="importSkipDupes" checked> Skip possible duplicates (same CAS or name, location, size, unit and lot already in inventory or earlier in the file)</label><label class="muted" style="display:block;margin:0 0 12px"><input type="checkbox" id="importCreateLocations"> Create missing locations (each level of a path is created in order as Building, Room, Cabinet, Shelf, Position)</label><div id="importPreview" class="table-wrap"></div><div class="actions" style="margin-top:12px"><button type="button" class="btn hide" id="importRun">Import</button><button type="button" class="btn secondary hide" id="importDownload">Download results (CSV)</button></div><p id="importStatus" class="status" role="status"></p></div>
+<div id="toolsResult" class="table-wrap" style="margin-top:18px"></div></div></div></section>
+<section id="view-files" class="tab-view hide"><div class="panel"><h2><i class="fa-solid fa-file-shield module-title-icon" aria-hidden="true"></i> SDS &amp; File Storage</h2><div class="pad"><p class="muted">This module requires a private Supabase Storage bucket and corresponding RLS policies. No files are uploaded until that backend is configured.</p><p>Use a private bucket for safety data sheets, with authenticated access and signed download URLs.</p></div></div></section>
+<dialog id="editOrderDialog" class="inventory-dialog order-edit-modal" aria-labelledby="editOrderTitle">
+  <div class="order-edit-header">
+    <div>
+      <h2 id="editOrderTitle">View/Edit Order Request</h2>
+      <p class="order-edit-description muted">All information saved for this order request order is displayed below. It is not possible to edit the request after it has been marked as 'Ordered'.</p>
+    </div>
+    <button type="button" id="closeEditOrder" class="order-edit-close" aria-label="Close edit request dialog">&times;</button>
+  </div>
+  <form id="editOrderForm">
+    <input type="hidden" name="order_id">
+    <div class="order-edit-grid">
+      <label class="field order-edit-field">Chemical Name<input name="chemical_name" required></label>
+      <label class="field order-edit-field">CAS Number<input name="cas"></label>
+      <label class="field order-edit-field">Container Size<input name="container_size" type="number" min="0.00001" step="any" required></label>
+      <label class="field order-edit-field">Unit<select name="unit"><option value="mg">mg</option><option value="g">g</option><option value="mL">mL</option><option value="L">L</option></select></label>
+      <label class="field order-edit-field order-edit-full">Supplier<input name="supplier"></label>
+      <label class="field order-edit-field order-edit-full">Comments<textarea name="comments" rows="3"></textarea></label>
+    </div>
+    <p class="status" id="editOrderStatus" role="status"></p>
+    <div class="order-edit-footer">
+      <button type="button" class="btn secondary" id="cancelEditOrder">Cancel</button>
+      <button type="submit" class="btn">Save Changes</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="receiveOrderDialog" class="chemical-dialog" aria-labelledby="receiveOrderTitle"><div class="chemical-dialog-head"><h2 id="receiveOrderTitle">Receive &amp; Add to Inventory</h2><button id="closeReceiveOrder" type="button" aria-label="Close">×</button></div><div class="chemical-dialog-body"><p id="receiveOrderSummary" class="muted"></p><form id="receiveOrderForm"><label class="field">Storage Location (required)<select name="location_id" required><option value="">Choose location</option></select></label><div class="row"><label class="field">Date Received<input type="date" name="received_at" required></label><label class="field">Expiry Date<input type="date" name="expires_at"></label></div><div class="row"><label class="field">Remaining Quantity (blank = full container)<input type="number" step="any" min="0" name="remaining_amount"></label><label class="field">Owner (blank = receiving manager)<select name="owner_id" id="receiveOwner"><option value="">Receiving Manager</option></select></label></div><div class="row"><label class="field">Supplier<input name="supplier"></label><label class="field">Catalog Number<input name="catalog_number"></label></div><div class="row"><label class="field">Lot Number<input name="lot_number"></label><label class="field">Purity<input name="purity"></label></div><label class="field">Notes<textarea name="notes" rows="2"></textarea></label><button class="btn" type="submit">Confirm Receipt and Add Container</button><p id="receiveOrderStatus" class="status" role="status"></p></form></div></dialog>
+<dialog id="orderSettingsDialog" class="chemical-dialog"><div class="chemical-dialog-head"><h2>Order Settings</h2><button type="button" id="closeOrderSettings" aria-label="Close settings">×</button></div><div class="chemical-dialog-body"><p class="muted">Notification delivery requires a server-side email service. This setting records recipients locally for planning only; it does not send emails.</p><label class="field">Notification email addresses (one per line)<textarea id="orderNotifyEmails" rows="4" placeholder="manager@example.org"></textarea></label><button id="saveOrderSettings" class="btn" type="button">Save local preference</button><p id="orderSettingsStatus" class="status"></p></div></dialog>
+<dialog id="phase7LabelDialog" class="chemical-dialog phase7-label-dialog" aria-labelledby="phase7LabelTitle"><div class="chemical-dialog-head"><h2 id="phase7LabelTitle">Container barcode label</h2><button id="phase7CloseLabel" type="button" aria-label="Close label">×</button></div><div class="chemical-dialog-body"><div id="phase7PrintableLabel" class="phase7-print-label"><strong id="phase7LabelName"></strong><span id="phase7LabelCas"></span><svg id="phase7Barcode" aria-label="Container barcode"></svg><strong id="phase7LabelCode"></strong><span id="phase7LabelAmount"></span><span id="phase7LabelLocation"></span></div><p id="phase7LabelWarning" class="muted" role="status"></p><div class="actions"><button id="phase7PrintLabel" class="btn" type="button">Print label</button><button class="btn secondary" type="button" onclick="document.getElementById('phase7LabelDialog').close()">Close</button></div></div></dialog>
+<dialog id="structureDialog" class="chemical-dialog chemora-structure-dialog" aria-labelledby="structureDialogTitle">
+  <div class="chemical-dialog-head"><h2 id="structureDialogTitle">Structure Search</h2><button type="button" id="closeStructure" aria-label="Close structure search">×</button></div>
+  <div class="chemical-dialog-body">
+    <p id="ketcherSetupNotice" class="notice hide" role="alert"></p>
+    <iframe id="chemoraKetcherFrame" title="Ketcher chemical structure editor" data-editor-src="ketcher/index.html" loading="lazy"></iframe>
+    <label class="field">Or paste a SMILES string<input id="structureSmiles" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. CCO for ethanol"></label>
+    <div class="chemora-structure-actions">
+      <button id="searchExact" class="btn" type="button">Exact Match Search</button>
+      <button id="searchSubstructure" class="btn secondary" type="button">Substructure Search</button>
+      <button id="searchSimilarity" class="btn secondary" type="button">Similarity Search</button>
+      <button id="clearStructure" class="btn secondary" type="button">Clear Structure</button>
+    </div>
+    <p id="structureStatus" class="status" role="status"></p>
+  </div>
+</dialog>
+<section id="view-users" class="tab-view hide"><div class="panel"><h2><i class="fa-solid fa-users-gear module-title-icon" aria-hidden="true"></i> Create member</h2><div class="pad"><form id="userForm"><div class="row"><label class="field">Full name<input name="name" required></label><label class="field">Email<input name="email" type="email" required></label></div><div class="row"><label class="field">Temporary password (12+ characters)<input name="password" type="password" minlength="12" autocomplete="new-password" required></label><label class="field">Role<select name="role"><option value="member">Member</option><option value="manager">Chemical manager</option><option value="admin">Administrator</option></select></label></div><button class="btn" type="submit">Create user</button></form>
+
+
+
+</div></div><div class="panel" style="margin-top:18px"><h2>Approved users</h2><div class="pad"><div class="inventory-toolbar"><input id="userFilter" type="search" placeholder="Search name or email" aria-label="Search users"><select id="userRoleFilter" aria-label="Filter by role"><option value="">All roles</option><option value="member">Member</option><option value="manager">Chemical Manager</option><option value="admin">Administrator</option></select><button type="button" class="btn secondary" id="refreshUsers">Refresh</button></div><div id="userList" class="table-wrap"></div></div></div></section>
+</div></div></section></div></div></main>
+
+
+
+
+
+
+
+
+<script src="js/navigation.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script src="inventory.js"></script>
+</body></html>
