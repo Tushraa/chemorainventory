@@ -1,6 +1,9 @@
-// Edge function "inventory-users": account management for the lab the caller is currently in.
-// Only an administrator of that lab may use it. Passwords and e-mail addresses of people who also
-// belong to other labs cannot be changed from here (their own lab cannot take over their account).
+// Edge function "inventory-users": account management.
+//  * A lab administrator manages the accounts of the lab they are currently in. Passwords and e-mail
+//    addresses of people who also belong to other labs cannot be changed by a lab administrator.
+//  * The platform Inventory Administrator manages every lab and every account (pass labId to pick the lab,
+//    and global:true to act on an account regardless of lab) and is the only one who can touch another
+//    platform administrator.
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -36,16 +39,31 @@ export async function handle(req, admin) {
     // The caller must be an administrator of their currently selected, active lab.
     const profile = await must(admin.from('inventory_user_profiles').select('active_lab_id,account_status').eq('user_id', callerId).maybeSingle());
     if (!profile || profile.account_status === 'locked' || !profile.active_lab_id) fail(403, 'No active lab for this account.');
-    const labId = profile.active_lab_id;
-    const lab = await must(admin.from('inventory_labs').select('id,active').eq('id', labId).maybeSingle());
-    if (!lab?.active) fail(403, 'This lab is not active.');
-    const mine = await must(admin.from('inventory_members').select('role').eq('lab_id', labId).eq('user_id', callerId).maybeSingle());
-    if (mine?.role !== 'admin') fail(403, 'Only lab administrators can manage accounts.');
+    const platformRows = await must(admin.from('inventory_platform_admins').select('user_id').limit(1000));
+    const platformIds = new Set(platformRows.map(r => r.user_id));
+    const platform = platformIds.has(callerId);
+    const labId = platform && clean(body.labId) ? clean(body.labId) : profile.active_lab_id;
+    if (!labId && !(platform && body.global === true)) fail(403, 'No active lab for this account.');
+    if (labId) {
+      const lab = await must(admin.from('inventory_labs').select('id,active').eq('id', labId).maybeSingle());
+      if (!lab) fail(404, 'Lab not found.');
+      if (!lab.active && !platform) fail(403, 'This lab is not active.');
+      const mine = await must(admin.from('inventory_members').select('role').eq('lab_id', labId).eq('user_id', callerId).maybeSingle());
+      if (mine?.role !== 'admin' && !platform) fail(403, 'Only lab administrators can manage accounts.');
+    }
+    const globalScope = platform && body.global === true;
+    const guardPlatformTarget = id => { if (platformIds.has(id) && !platform) fail(403, 'Only the Inventory Administrator can change that account.'); };
 
     const members = async () => await must(admin.from('inventory_members').select('user_id,role').eq('lab_id', labId).limit(5000));
     const requireTarget = async () => {
       const id = clean(body.userId);
       if (!id) fail(400, 'userId is required.');
+      guardPlatformTarget(id);
+      if (globalScope) {
+        const prof = await must(admin.from('inventory_user_profiles').select('user_id').eq('user_id', id).maybeSingle());
+        if (!prof) fail(404, 'Account not found.');
+        return { user_id: id, role: 'member' };
+      }
       const row = (await members()).find(m => m.user_id === id);
       if (!row) fail(404, 'That person is not in this lab.');
       return row;
@@ -84,9 +102,9 @@ export async function handle(req, admin) {
 
     if (action === 'update') {
       const target = await requireTarget();
-      const id = target.user_id, shared = await otherLabs(id) > 0;
+      const id = target.user_id, shared = !platform && await otherLabs(id) > 0;
       const name = clean(body.name), email = clean(body.email).toLowerCase(), role = clean(body.role), password = String(body.password ?? '');
-      if (role) {
+      if (role && !globalScope) {
         if (!ROLES.includes(role)) fail(400, 'Invalid role.');
         if (role !== target.role) {
           if (id === callerId && role !== 'admin') fail(400, 'You cannot remove your own administrator access.');
@@ -119,11 +137,22 @@ export async function handle(req, admin) {
     if (action === 'lock' || action === 'unlock') {
       const target = await requireTarget();
       if (target.user_id === callerId) fail(400, 'You cannot lock your own account.');
-      if (await otherLabs(target.user_id) > 0) fail(403, 'This person also belongs to another lab. Remove them from this lab instead of locking the account.');
+      if (!platform && await otherLabs(target.user_id) > 0) fail(403, 'This person also belongs to another lab. Remove them from this lab instead of locking the account.');
       const locking = action === 'lock';
       const { error } = await admin.auth.admin.updateUserById(target.user_id, { ban_duration: locking ? BAN : 'none' });
       if (error) fail(400, error.message);
       await must(admin.from('inventory_user_profiles').update({ account_status: locking ? 'locked' : 'active' }).eq('user_id', target.user_id));
+      return json(200, { ok: true });
+    }
+
+    if (action === 'delete' && globalScope) {
+      // Inventory Administrator: remove the account from every lab and deactivate it (records and history are kept).
+      const target = await requireTarget();
+      const id = target.user_id;
+      if (id === callerId) fail(400, 'You cannot remove yourself.');
+      await must(admin.from('inventory_members').delete().eq('user_id', id));
+      await admin.auth.admin.updateUserById(id, { ban_duration: BAN });
+      await must(admin.from('inventory_user_profiles').update({ account_status: 'locked', active_lab_id: null }).eq('user_id', id));
       return json(200, { ok: true });
     }
 

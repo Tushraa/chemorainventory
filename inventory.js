@@ -46,7 +46,7 @@ function showToast(message, type = 'success') {
 }
 
 // Chemora uses a permanent dark appearance.
-document.documentElement.classList.add('inventory-dark');
+document.documentElement.classList.add('ci-root');
 
 const cfg = window.HARI_INVENTORY_CONFIG;
 const clean = value => typeof value === 'string' ? value.trim() : value;
@@ -181,8 +181,9 @@ async function rejectSession(message) {
 function applyRoleVisibility() {
   document.querySelectorAll('.manager-only').forEach(el => show(el, isManager()));
   document.querySelectorAll('.admin-only').forEach(el => show(el, isAdmin()));
+  document.querySelectorAll('.platform-only').forEach(el => show(el, Boolean(labContext?.platform_admin)));
   document.querySelectorAll('#mobileModule option').forEach(o => {
-    const allowed = (!o.hasAttribute('data-manager') || isManager()) && (!o.hasAttribute('data-admin') || isAdmin());
+    const allowed = (!o.hasAttribute('data-manager') || isManager()) && (!o.hasAttribute('data-admin') || isAdmin()) && (!o.hasAttribute('data-platform') || Boolean(labContext?.platform_admin));
     o.hidden = !allowed; o.disabled = !allowed;
   });
 }
@@ -208,7 +209,7 @@ async function initSession() {
   $('profileAvatar').textContent = displayName.trim().split(/\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase() || 'HG';
   applyRoleVisibility();
   renderLabControls();
-  setTab('home');
+  setTab('chemicals');
   $('chemicalCards').replaceChildren();
   show($('chemoraResultsPanel'), false);
   $('chemoraResultsCount').textContent = '';
@@ -221,7 +222,7 @@ function renderLabControls() {
   sw.replaceChildren(...labs.map(l => new Option(l.name, l.id)));
   sw.value = labContext?.lab_id || '';
   show(sw, labs.length > 1);
-  show($('createLabPanel'), Boolean(labContext?.platform_admin) && isAdmin());
+  show($('createLabPanel'), Boolean(labContext?.platform_admin));
 }
 async function switchLab(labId) {
   const { error } = await db.rpc('inventory_switch_lab', { p_lab_id: labId });
@@ -236,9 +237,10 @@ $('labSwitcher').addEventListener('change', async e => {
   try { if (await switchLab(select.value)) status('Switched to ' + (labContext?.lab_name || 'the selected lab') + '.'); }
   finally { select.disabled = false; }
 });
+$('addLabButton')?.addEventListener('click', () => $('addLabDialog').showModal());
 $('labForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const f = e.currentTarget, name = val(f, 'name'), prefix = val(f, 'prefix').toUpperCase();
+  const f = e.currentTarget, name = val(f, 'name'), prefix = val(f, 'prefix').toUpperCase(), adminEmail = val(f, 'admin_email').toLowerCase();
   if (!name) return status('Lab name is required.');
   if (!/^[A-Z0-9]{1,8}$/.test(prefix)) return status('Barcode prefix must be 1-8 letters or numbers.');
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
@@ -246,20 +248,22 @@ $('labForm').addEventListener('submit', async e => {
   const submit = f.querySelector('[type="submit"]');
   submit.disabled = true;
   try {
-    const { data, error } = await db.rpc('inventory_create_lab', { p_name: name, p_slug: slug, p_prefix: prefix });
+    const { error } = await db.rpc('inventory_create_lab', { p_name: name, p_slug: slug, p_prefix: prefix, p_admin_email: adminEmail || null });
     if (error) return status(/duplicate key|already exists/i.test(error.message) ? 'A lab with that name already exists.' : error.message);
-    f.reset();
-    if (await switchLab(data)) status('Lab "' + name + '" created. You are now working in it.');
+    f.reset(); f.elements.prefix.value = 'LAB'; $('addLabDialog').close();
+    const ctx = await db.rpc('inventory_my_context'); if (!ctx.error && ctx.data) { labContext = ctx.data; renderLabControls(); }
+    await loadPlatform();
+    status('Lab "' + name + '" created' + (adminEmail ? '; ' + adminEmail + ' is its administrator.' : '.'));
   } finally { submit.disabled = false; }
 });
-const TAB_GROUPS = { orders: ['orders', 'requests'], admin: ['users', 'history', 'tools'] };
+const TAB_GROUPS = { orders: ['orders', 'requests'], admin: ['users', 'history', 'tools', 'platform'] };
 function setGroup(group, open) {
   document.querySelectorAll(`[data-group-body="${group}"]`).forEach(el => show(el, open));
   document.querySelectorAll(`.side-group-toggle[data-group="${group}"]`).forEach(b => { b.setAttribute('aria-expanded', String(open)); b.classList.toggle('open', open); });
 }
 function setTab(name) {
-  if (!$('view-' + name)) name = 'home';
-  if ((['history', 'scan'].includes(name) && !isManager()) || (['users', 'tools'].includes(name) && !isAdmin())) return;
+  if (!$('view-' + name)) name = 'chemicals';
+  if ((['history', 'scan'].includes(name) && !isManager()) || (['users', 'tools'].includes(name) && !isAdmin()) || (name === 'platform' && !labContext?.platform_admin)) return;
   document.querySelectorAll('.tab-view').forEach(el => show(el, el.id === 'view-' + name));
   $('portal').dataset.activeTab = name;
   if ($('mobileModule')) $('mobileModule').value = name === 'tools' ? 'users' : name;
@@ -268,10 +272,11 @@ function setTab(name) {
   document.querySelectorAll('#tabs button[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === menuName));
   for (const [group, tabs] of Object.entries(TAB_GROUPS)) if (tabs.includes(name)) setGroup(group, true);
   if (name === 'requests') loadOrders();
-  if (name === 'locations') loadLocations();
+  if (name === 'locations') { show($('locationContents'), false); locEditMode = false; $('locationEditToggle').textContent = 'Edit'; show($('locationForm'), false); loadLocations(); }
   if (name === 'history') loadHistory();
   if (name === 'users') loadUsers();
-  if (name === 'add') loadContainerOwners();
+  if (name === 'platform') loadPlatform();
+  if (name === 'add') { loadContainerOwners(); renderLocationUi(); }
   if (name === 'collection') loadCollection();
   if (name === 'scan') initScan();
 }
@@ -342,7 +347,7 @@ async function loadLocations() {
   $('chemicalLocation').value = prevAdd;
   $('searchLocation').value = prevSearch;
   refreshLocationParent();
-  $('locationList').innerHTML = sorted.length ? sorted.map(l => `<details class="location-item"><summary><i class="fa-regular fa-folder"></i> ${esc(locationPath(l))} <span class="muted">${esc(l.barcode || 'Legacy location')}</span></summary><p>${esc(l.description || 'No description')}</p><p>Type: ${esc(l.location_type || 'room')} · ${l.active === false ? 'Inactive' : 'Active'}</p><p>Barcode: <code>${esc(l.barcode || '—')}</code></p>${isAdmin() ? `<div class="actions"><button type="button" class="btn secondary" data-edit-location="${esc(l.id)}">Edit</button><button type="button" class="btn secondary" data-toggle-location="${esc(l.id)}">${l.active === false ? 'Activate' : 'Deactivate'}</button></div>` : ''}</details>`).join('') : '<p class="muted">No locations yet.</p>';
+  renderLocationUi();
 }
 $('locationList').addEventListener('click', async e => {
   if (!isAdmin()) return;
@@ -389,22 +394,8 @@ $('locationForm').addEventListener('submit', async e => {
 
 /* ---------- search ---------- */
 const structureUrl = c => 'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/' + encodeURIComponent(c.cas || c.name) + '/PNG?image_size=240x240';
-function chemicalCard(c, x) {
-  return `<button type="button" class="card chemical-result chemora-structure-card" data-chemical-id="${esc(c.id)}" ${x ? `data-container-id="${esc(x.id)}"` : ''} aria-label="View details for ${esc(c.name)}"><span class="chemora-structure-frame"><img src="${esc(structureUrl(c))}" alt="Chemical structure of ${esc(c.name)}" loading="lazy" onerror="this.style.display='none'"></span><span class="chemora-card-name"><strong>Name:</strong> ${esc(c.name)}</span></button>`;
-}
-function renderChemicalCards() {
-  const locationId = $('searchLocation').value;
-  const cards = lastChemicals.flatMap(c => {
-    const rows = lastContainers.filter(x => x.chemical_id === c.id && (!locationId || x.location_id === locationId) && (!matchedContainerIds || matchedContainerIds.has(x.id)));
-    if (rows.length) return rows.map(x => chemicalCard(c, x));
-    return (locationId || matchedContainerIds) ? [] : [chemicalCard(c, null)];
-  });
-  $('chemicalCards').innerHTML = cards.join('') || '<p class="muted">No matching containers.</p>';
-  if (!$('chemoraResultsPanel').classList.contains('hide')) $('chemoraResultsCount').textContent = `${cards.length} container/chemical card(s) found.`;
-  return cards.length;
-}
 function clearResults() {
-  searchSeq++;
+  searchSeq++; selectedKeys = new Set(); currentRows = [];
   lastChemicals = []; lastContainers = []; matchedContainerIds = null; lastSearch = null;
   $('chemicalCards').replaceChildren();
   $('chemoraResultsCount').textContent = '';
@@ -423,6 +414,7 @@ $('searchLocation').addEventListener('change', () => {
 async function loadChemicals(type, q) {
   const seq = ++searchSeq;
   lastSearch = { type, q };
+  activeList = 'search'; selectedKeys = new Set(); show($('locationContents'), false);
   show($('chemoraResultsPanel'), true);
   $('chemoraResultsCount').textContent = 'Searching…';
   status('Searching inventory…', 'searchStatus');
@@ -479,11 +471,6 @@ $('search').addEventListener('submit', async e => {
   $('type').value = type; $('query').value = q;
   await loadChemicals(type, q);
 });
-$('chemicalCards').addEventListener('click', e => {
-  const card = e.target.closest('[data-chemical-id]');
-  if (card) openChemical(card.dataset.chemicalId, card.dataset.containerId || null);
-});
-
 /* ---------- chemical details ---------- */
 function openChemical(id, containerId = null) {
   const c = lastChemicals.find(x => x.id === id);
@@ -504,7 +491,7 @@ function openChemical(id, containerId = null) {
   $('chemicalDialogBody').innerHTML = `<div class="chemora-detail-grid">
    <div class="chemora-detail-column chemora-detail-left">
     <div class="chemora-detail-structure"><img src="${esc(structureUrl(c))}" alt="Structure of ${esc(c.name)}" onerror="this.style.display='none'"></div>
-    <div class="chemora-ghs-summary"><h3>GHS Safety Summary</h3><p>GHS records have not been verified for this substance. Consult the supplier SDS and laboratory safety procedures.</p><a href="${esc('https://pubchem.ncbi.nlm.nih.gov/#query=' + encodeURIComponent(c.cas || c.name))}" target="_blank" rel="noopener noreferrer">View PubChem safety information</a></div>
+    <div class="chemora-ghs-summary"><h3>GHS Safety Summary${isManager() ? ' <button type="button" class="chemora-detail-edit" data-ghs-edit>Edit</button>' : ''}</h3>${ghsSummaryHtml(c)}<a href="${esc('https://pubchem.ncbi.nlm.nih.gov/#query=' + encodeURIComponent(c.cas || c.name))}" target="_blank" rel="noopener noreferrer">View PubChem safety information</a></div>
    </div>
    <div class="chemora-detail-column chemora-detail-middle">
     ${row('Container Name', display(c.name), 'name', 'chemical')}
@@ -519,7 +506,7 @@ function openChemical(id, containerId = null) {
    </div>
    <div class="chemora-detail-column chemora-detail-right">
     <div class="chemora-molecular-details">${row('Formula', display(c.formula, 'Not recorded'), 'formula', 'chemical')}${row('Status', display(selected?.status, 'Not recorded'))}${row('Ordered By', '<span data-ordered-by>Checking order record…</span>')}${row('Expiry', expiry, selected ? 'expires_at' : '', 'container')}</div>
-    <div class="chemora-detail-links">${selected?.barcode ? `<button class="btn secondary" type="button" data-print-container="${esc(selected.id)}">Print Barcode Label</button>` : ''}${isManager() && selected ? `<button class="btn secondary" type="button" data-lifecycle="${esc(selected.id)}">Manage Container</button>` : ''}${isManager() ? '<button class="btn danger" type="button" data-delete-chemical-inline>Delete Chemical</button>' : ''}</div>
+    <div class="chemora-detail-links">${isManager() && selected ? `<button class="btn secondary" type="button" data-duplicate="${esc(selected.id)}">Duplicate Container</button>` : ''}${isManager() && selected ? `<button class="btn secondary" type="button" data-history="${esc(selected.id)}">View History</button>` : ''}${selected?.barcode ? `<button class="btn secondary" type="button" data-print-container="${esc(selected.id)}">Print Barcode Label</button>` : ''}${isManager() && selected ? `<button class="btn secondary" type="button" data-lifecycle="${esc(selected.id)}">Manage Container</button>` : ''}${isManager() ? '<button class="btn danger" type="button" data-delete-chemical-inline>Delete Chemical</button>' : ''}</div>
    </div>
   </div>
   ${allItems.length > 1 ? `<details class="chemora-all-containers"><summary>All registered containers (${allItems.length})</summary><div class="chemora-all-containers-list">${containerRows}</div></details>` : allItems.length === 0 ? '<p class="muted">No containers registered.</p>' : ''}`;
@@ -621,6 +608,19 @@ async function saveInlineField(rowEl, saveButton) {
 $('chemicalDialogBody').addEventListener('click', async e => {
   const printBtn = e.target.closest('[data-print-container]');
   if (printBtn) return printContainerLabel(printBtn.dataset.printContainer);
+  const dupBtn = e.target.closest('[data-duplicate]');
+  if (dupBtn) { const x = lastContainers.find(z => z.id === dupBtn.dataset.duplicate), c = x && lastChemicals.find(z => z.id === x.chemical_id); if (c) { $('chemicalDialog').close(); prefillDuplicate(c, x); } return; }
+  const histBtn = e.target.closest('[data-history]');
+  if (histBtn) return showContainerHistory(histBtn.dataset.history);
+  if (e.target.closest('[data-ghs-edit]')) {
+    const c = lastChemicals.find(z => z.id === activeChemicalId);
+    if (c && isManager()) openGhsEditor(ghsList(c), async codes => {
+      const { error } = await updateRow('inventory_chemicals', c.id, { ghs_codes: codes });
+      if (error) return showToast(/ghs_codes/.test(error.message) ? 'Run sql/05_platform_admin.sql in Supabase to enable hazard codes.' : error.message, 'error');
+      c.ghs_codes = codes; showToast('Hazard codes saved.', 'success'); openChemical(c.id, activeContainerId);
+    });
+    return;
+  }
   const lifecycleBtn = e.target.closest('[data-lifecycle]');
   if (lifecycleBtn) { if (isManager()) openContainerAction(lifecycleBtn.dataset.lifecycle); return; }
   if (e.target.closest('[data-delete-chemical-inline]')) return deleteActiveChemical();
@@ -695,7 +695,7 @@ function syncContainerActionFields() {
   $('containerActionForm').querySelectorAll('[data-action-field]').forEach(el => show(el, el.dataset.actionField === action));
 }
 $('containerActionType').addEventListener('change', syncContainerActionFields);
-function openContainerAction(id) {
+function openContainerAction(id, preset) {
   const x = lastContainers.find(z => z.id === id);
   if (!x || !isManager()) return;
   actionContainerId = id;
@@ -709,6 +709,7 @@ function openContainerAction(id) {
   f.elements.namedItem('owner_id').replaceChildren(...ownerProfiles.map(p => new Option(p.full_name || 'Unnamed user', p.user_id)));
   f.elements.namedItem('owner_id').value = x.owner_id || '';
   status('', 'containerActionStatus');
+  if (preset) $('containerActionType').value = preset;
   syncContainerActionFields();
   $('containerActionDialog').showModal();
 }
@@ -772,19 +773,20 @@ $('addChemical').addEventListener('submit', async e => {
   if (rawAmount !== '' && (!Number.isFinite(Number(rawAmount)) || Number(rawAmount) < 0 || Number(rawAmount) > size)) return msg('Remaining amount must be between zero and container size.');
   if (!val(f, 'location_id')) return msg('Choose a storage location.');
   if (val(f, 'received_at') && val(f, 'expires_at') && val(f, 'expires_at') < val(f, 'received_at')) return msg('Expiry cannot precede receipt.');
-  const fields = ['name', 'cas', 'formula', 'supplier', 'catalog_number', 'lot_number', 'purity', 'unit', 'location_id', 'owner_id', 'received_at', 'expires_at', 'notes'];
+  const fields = ['name', 'cas', 'formula', 'supplier', 'catalog_number', 'lot_number', 'purity', 'unit', 'location_id', 'owner_id', 'received_at', 'expires_at', 'notes', 'barcode'];
   const payload = Object.fromEntries(fields.map(k => [k, optional(val(f, k))]));
   payload.name = name;
   payload.container_size = size;
   payload.remaining_amount = rawAmount === '' ? null : Number(rawAmount);
   payload.chemical_notes = '';
+  try { payload.ghs_codes = JSON.parse(val(f, 'ghs_codes') || '[]'); } catch (_e) { payload.ghs_codes = []; }
   const submit = f.querySelector('[type="submit"]');
   submit.disabled = true;
   msg('Registering container…');
   try {
     const { data, error } = await db.rpc('inventory_register_container_phase3', { p: payload });
     if (error) throw error;
-    f.reset();
+    f.reset(); resetAddForm();
     $('registeredBarcode').textContent = data?.barcode ? 'New container barcode: ' + data.barcode : '';
     msg('Container registered.' + (data?.same_location_count ? ' Warning: ' + data.same_location_count + ' existing container(s) of this chemical are already at that location.' : ''));
     if (!$('chemoraResultsPanel').classList.contains('hide')) clearResults(); // cached search results are now stale
@@ -1122,14 +1124,18 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeImMenus(); });
 async function runImAction(action) {
   if (action === 'users') return setTab('users');
+  if (action === 'columns') return openColumns();
   setTab('tools');
-  $('toolsResult').replaceChildren(); show($('importPanel'), false);
+  $('toolsResult').replaceChildren(); show($('importPanel'), false); show($('bulkUpdatePanel'), false); show($('stocktakePanel'), false);
   if (action === 'import') $('importHelp').click();
   else if (action === 'export') $('exportInventory').click();
   else if (action === 'labels') $('printLabels').click();
   else if (action === 'recent') $('recentContainers').click();
   else if (action === 'deleted') await showDeletedContainers();
   else if (action === 'settings') await showLabSettings();
+  else if (action === 'bulk') { resetBulk(); show($('bulkUpdatePanel'), true); }
+  else if (action === 'stocktake') { resetStock(); show($('stocktakePanel'), true); }
+  else if (action === 'assigned') await showAssignedBarcodes();
 }
 async function showDeletedContainers() {
   try {
@@ -1630,15 +1636,23 @@ function renderUsers() {
   const roleFilter = $('userRoleFilter')?.value || '';
   const users = cachedUsers.filter(u => (!roleFilter || u.role === roleFilter) && (!filter || [u.full_name, u.name, u.email].some(v => String(v || '').toLowerCase().includes(filter))));
   const container = $('userList');
-  if (!users.length) { container.textContent = 'No matching users.'; return; }
+  if (!users.length) { container.innerHTML = '<p class="muted" style="padding:10px">No matching users.</p>'; return; }
   const roleName = r => r === 'admin' ? 'Administrator' : r === 'manager' ? 'Chemical Manager' : 'Member';
-  container.innerHTML = `<table class="inventory-data-table chemora-user-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody>${users.map(u => {
+  container.innerHTML = `<table class="inventory-data-table chemora-user-table"><thead><tr><th>Name</th><th>Email</th><th>Account Type</th><th>Actions</th></tr></thead><tbody>${users.map(u => {
     const id = u.user_id || u.id, locked = u.account_status === 'locked';
-    return `<tr><td><strong>${esc(u.full_name || u.name || 'User')}</strong></td><td>${esc(u.email || '—')}</td><td>${esc(roleName(u.role))}</td><td><span class="order-badge ${locked ? 'ordered' : 'received'}">${locked ? 'Locked' : 'Active'}</span></td><td><button class="btn secondary" type="button" data-user-edit="${esc(id)}">Edit</button></td></tr><tr class="user-edit-row hide" data-user-row="${esc(id)}"><td colspan="5"><form class="user-edit-form"><div class="row"><label class="field">Full name<input name="name" value="${esc(u.full_name || u.name || '')}" required></label><label class="field">Email<input name="email" type="email" value="${esc(u.email || '')}" required></label></div><div class="row"><label class="field">Role<select name="role">${['member', 'manager', 'admin'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${roleName(r)}</option>`).join('')}</select></label><label class="field">New password (optional, 12+ characters)<input name="password" type="password" minlength="12" autocomplete="new-password" placeholder="Leave blank to keep password"></label></div><div class="actions"><button class="btn" type="submit">Save changes</button><button class="btn secondary" type="button" data-user-close>Cancel</button>${id !== user.id ? `<button class="btn secondary" type="button" data-user-lock>${locked ? 'Unlock' : 'Lock'}</button><button class="btn danger" type="button" data-user-delete>Deactivate account</button>` : ''}</div><p class="status user-edit-status" role="status"></p></form></td></tr>`;
+    return `<tr${locked ? ' class="is-locked"' : ''}><td><strong>${esc(u.full_name || u.name || 'User')}</strong>${locked ? ' <span class="order-badge ordered">Locked</span>' : ''}</td><td>${esc(u.email || '—')}</td><td>${esc(roleName(u.role))}</td><td><span class="row-actions">${id !== user.id ? `<button type="button" class="icon-btn" data-user-lock="${esc(id)}" title="${locked ? 'Unlock account' : 'Lock account'}" aria-label="${locked ? 'Unlock account' : 'Lock account'}"><i class="fa-solid ${locked ? 'fa-lock-open' : 'fa-lock'}"></i></button>` : ''}<button type="button" class="icon-btn" data-user-edit="${esc(id)}" title="Edit user" aria-label="Edit user"><i class="fa-solid fa-pen-to-square"></i></button>${id !== user.id ? `<button type="button" class="icon-btn" data-user-delete="${esc(id)}" title="Deactivate account" aria-label="Deactivate account"><i class="fa-solid fa-trash"></i></button>` : ''}</span></td></tr><tr class="user-edit-row hide" data-user-row="${esc(id)}"><td colspan="4"><form class="user-edit-form"><div class="row"><label class="field">Full name<input name="name" value="${esc(u.full_name || u.name || '')}" required></label><label class="field">Email<input name="email" type="email" value="${esc(u.email || '')}" required></label></div><div class="row"><label class="field">Account type<select name="role">${['member', 'manager', 'admin'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${roleName(r)}</option>`).join('')}</select></label><label class="field">New password (optional, 12+ characters)<input name="password" type="password" minlength="12" autocomplete="new-password" placeholder="Leave blank to keep password"></label></div><div class="actions"><button class="btn green" type="submit">Save changes</button><button class="btn" type="button" data-user-close>Cancel</button></div><p class="status user-edit-status" role="status"></p></form></td></tr>`;
   }).join('')}</tbody></table>`;
   container.querySelectorAll('[data-user-edit]').forEach(b => b.addEventListener('click', () => container.querySelector(`[data-user-row="${b.dataset.userEdit}"]`)?.classList.toggle('hide')));
+  container.querySelectorAll('[data-user-lock]').forEach(b => b.addEventListener('click', async () => {
+    const u = users.find(x => (x.user_id || x.id) === b.dataset.userLock);
+    try { await invokeUsers({ action: u.account_status === 'locked' ? 'unlock' : 'lock', userId: b.dataset.userLock }); await loadUsers(); status('Account status updated.'); } catch (err) { status(errorText(err)); }
+  }));
+  container.querySelectorAll('[data-user-delete]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Deactivate this account? Its historical records will be retained.')) return;
+    try { await invokeUsers({ action: 'delete', userId: b.dataset.userDelete }); await loadUsers(); status('User deactivated.'); } catch (err) { status(errorText(err)); }
+  }));
   container.querySelectorAll('[data-user-row]').forEach(row => {
-    const id = row.dataset.userRow, u = users.find(x => (x.user_id || x.id) === id), f = row.querySelector('form');
+    const id = row.dataset.userRow, f = row.querySelector('form');
     const note = text => { f.querySelector('.user-edit-status').textContent = text; };
     row.querySelector('[data-user-close]').addEventListener('click', () => row.classList.add('hide'));
     f.addEventListener('submit', async e => {
@@ -1648,13 +1662,6 @@ function renderUsers() {
       if (password) { if (password.length < 12) return note('Password must contain at least 12 characters.'); payload.password = password; }
       if (id === user.id && payload.role !== 'admin') return note('You cannot remove your own administrator access.');
       try { await invokeUsers(payload); await loadUsers(); status('Account updated.'); } catch (err) { note(errorText(err)); }
-    });
-    row.querySelector('[data-user-lock]')?.addEventListener('click', async () => {
-      try { await invokeUsers({ action: u.account_status === 'locked' ? 'unlock' : 'lock', userId: id }); await loadUsers(); status('Account status updated.'); } catch (err) { note(errorText(err)); }
-    });
-    row.querySelector('[data-user-delete]')?.addEventListener('click', async () => {
-      if (!confirm('Deactivate this account? Its historical records will be retained.')) return;
-      try { await invokeUsers({ action: 'delete', userId: id }); await loadUsers(); status('User deactivated.'); } catch (err) { note(errorText(err)); }
     });
   });
 }
@@ -1669,6 +1676,7 @@ async function loadUsers() {
 $('userFilter')?.addEventListener('input', renderUsers);
 $('userRoleFilter')?.addEventListener('change', renderUsers);
 $('refreshUsers')?.addEventListener('click', loadUsers);
+$('addUserButton')?.addEventListener('click', () => $('addUserDialog').showModal());
 $('userForm').addEventListener('submit', async e => {
   e.preventDefault();
   const f = e.currentTarget;
@@ -1676,11 +1684,764 @@ $('userForm').addEventListener('submit', async e => {
   submit.disabled = true;
   try {
     await invokeUsers({ action: 'create', name: val(f, 'name'), email: val(f, 'email'), password: val(f, 'password'), role: val(f, 'role') });
-    f.reset();
-    status('User created.');
+    f.reset(); $('addUserDialog').close();
+    status('User added.');
     loadUsers();
     loadContainerOwners();
   } catch (err) { status(errorText(err)); } finally { submit.disabled = false; }
+});
+
+/* =====================================================================
+   Chemora interface layer: location tree, result lists, advanced / GHS search,
+   add-container steps, location contents. (Functions above stay unchanged.)
+   ===================================================================== */
+
+/* ---------- generic dialog helpers ---------- */
+document.querySelectorAll('[data-close-dialog]').forEach(b => b.addEventListener('click', () => b.closest('dialog')?.close()));
+document.addEventListener('click', e => { if (e.target instanceof HTMLDialogElement && e.target.open) e.target.close(); });
+const ownerName = id => ownerProfiles.find(p => p.user_id === id)?.full_name || '';
+
+/* ---------- location tree ---------- */
+let locEditMode = false, locSelectedId = null, pickCallback = null;
+const byLocName = (a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true, sensitivity: 'base' });
+const childLocs = (parentId, includeInactive) => locations.filter(l => (l.parent_id || null) === (parentId || null) && (includeInactive || l.active !== false)).sort(byLocName);
+function descendantIds(id) { const out = [id]; for (const c of locations.filter(l => l.parent_id === id)) out.push(...descendantIds(c.id)); return out; }
+function buildLocationTree(ul, { mode = 'browse', selectedId = '', onPick = null, includeInactive = false, edit = false } = {}) {
+  ul.replaceChildren();
+  const open = new Set();
+  for (let l = locations.find(x => x.id === selectedId); l; l = locations.find(x => x.id === l.parent_id)) open.add(l.parent_id);
+  const make = (loc) => {
+    const li = document.createElement('li'); li.dataset.locId = loc.id; li.setAttribute('role', 'treeitem');
+    const kids = childLocs(loc.id, includeInactive);
+    const row = document.createElement('div'); row.className = 'loc-node' + (selectedId === loc.id ? ' selected' : '');
+    const caret = document.createElement('span'); caret.className = 'caret';
+    caret.innerHTML = kids.length ? '<i class="fa-solid fa-chevron-right" aria-hidden="true"></i>' : '<i class="fa-regular fa-folder" aria-hidden="true"></i>';
+    const name = document.createElement('span'); name.className = 'loc-name'; name.textContent = loc.name + (loc.active === false ? ' (inactive)' : '');
+    row.append(caret, name);
+    if (mode === 'browse' && loc.parent_id && loc.barcode) { const code = document.createElement('span'); code.className = 'loc-code'; code.textContent = '(' + loc.barcode + ')'; row.append(code); }
+    if (mode === 'browse') {
+      const all = document.createElement('button'); all.type = 'button'; all.className = 'view-all'; all.dataset.viewAll = loc.id; all.textContent = '[ view all ]'; row.append(all);
+      if (edit) {
+        const ed = document.createElement('button'); ed.type = 'button'; ed.className = 'icon-btn small'; ed.dataset.editLocation = loc.id; ed.title = 'Rename'; ed.innerHTML = '<i class="fa-solid fa-pen" aria-hidden="true"></i>';
+        const tg = document.createElement('button'); tg.type = 'button'; tg.className = 'icon-btn small' + (loc.active === false ? '' : ' danger'); tg.dataset.toggleLocation = loc.id; tg.title = loc.active === false ? 'Activate' : 'Deactivate';
+        tg.innerHTML = loc.active === false ? '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i>' : '<i class="fa-solid fa-ban" aria-hidden="true"></i>';
+        row.append(ed, tg);
+      }
+    }
+    li.appendChild(row);
+    let sub = null;
+    if (kids.length) {
+      sub = document.createElement('ul'); sub.className = open.has(loc.id) ? '' : 'hide';
+      if (open.has(loc.id)) caret.firstChild.className = 'fa-solid fa-chevron-down';
+      kids.forEach(k => sub.appendChild(make(k)));
+      li.appendChild(sub);
+    }
+    row.addEventListener('click', ev => {
+      if (ev.target.closest('[data-view-all],[data-edit-location],[data-toggle-location]')) return;
+      if (sub) { const hidden = sub.classList.toggle('hide'); caret.firstChild.className = hidden ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-down'; }
+      ul.querySelectorAll('.loc-node.selected').forEach(n => n.classList.remove('selected'));
+      row.classList.add('selected');
+      if (mode === 'browse') locSelectedId = loc.id;
+      if (onPick) onPick(loc.id, loc);
+    });
+    return li;
+  };
+  childLocs(null, includeInactive).forEach(l => ul.appendChild(make(l)));
+  if (!ul.children.length) { const li = document.createElement('li'); li.className = 'muted'; li.style.padding = '8px'; li.textContent = 'No locations yet.'; ul.appendChild(li); }
+}
+function renderLocationUi() {
+  buildLocationTree($('locationList'), { mode: 'browse', selectedId: locSelectedId || '', edit: locEditMode && isAdmin(), includeInactive: isAdmin() });
+  buildLocationTree($('addLocationPicker'), { mode: 'pick', selectedId: $('chemicalLocation').value, onPick: id => { $('chemicalLocation').value = id; } });
+  syncLimitLink();
+}
+function syncLimitLink() {
+  const l = locations.find(x => x.id === $('searchLocation').value);
+  $('limitLocationLink').textContent = l ? locationPath(l) : 'All locations';
+}
+function openLocationPicker(title, cb, { allowClear = false, selectedId = '' } = {}) {
+  pickCallback = cb;
+  $('locationPickerDialog').querySelector('h2').textContent = title;
+  show($('clearLocationLimit'), allowClear);
+  buildLocationTree($('searchLocationPicker'), { mode: 'pick', includeInactive: false, selectedId, onPick: (id, loc) => {
+    if (loc.active === false) return;
+    $('locationPickerDialog').close(); const f = pickCallback; pickCallback = null; if (f) f(id);
+  } });
+  $('locationPickerDialog').showModal();
+}
+const chooseLocation = (title, opts) => new Promise(resolve => {
+  let done = false;
+  openLocationPicker(title, id => { done = true; resolve(id); }, opts);
+  $('locationPickerDialog').addEventListener('close', () => { if (!done) resolve(null); }, { once: true });
+});
+$('limitLocationLink').addEventListener('click', async () => {
+  const id = await chooseLocation('Limit search to a location', { allowClear: true, selectedId: $('searchLocation').value });
+  if (id === null) return;
+  $('searchLocation').value = id; syncLimitLink();
+  $('searchLocation').dispatchEvent(new Event('change'));
+});
+$('clearLocationLimit').addEventListener('click', () => { $('locationPickerDialog').close(); pickCallback = null; $('searchLocation').value = ''; syncLimitLink(); $('searchLocation').dispatchEvent(new Event('change')); });
+$('locationEditToggle').addEventListener('click', () => { locEditMode = !locEditMode; $('locationEditToggle').textContent = locEditMode ? 'Done' : 'Edit'; show($('locationForm'), locEditMode && isAdmin()); renderLocationUi(); });
+$('locationList').addEventListener('click', e => {
+  const b = e.target.closest('[data-view-all]');
+  if (b) showLocationContainers(b.dataset.viewAll);
+});
+
+/* ---------- result lists (search and location pages) ---------- */
+const COLUMN_DEFS = { cas: 'CAS Number', barcode: 'Barcode', size: 'Size', remaining: 'Remaining', location: 'Location', supplier: 'Supplier', acquired: 'Date Acquired', owner: 'Owner' };
+let tableColumns = [];
+try { tableColumns = JSON.parse(localStorage.getItem('chemora-columns') || '[]').filter(k => COLUMN_DEFS[k]); } catch (_e) { tableColumns = []; }
+let activeList = 'search', viewMode = { search: 'table', location: 'table' }, selectedKeys = new Set(), currentRows = [];
+const rowKey = r => r.x ? r.x.id : 'c:' + r.c.id;
+function cellText(key, r) {
+  const { c, x } = r;
+  const loc = x && locations.find(l => l.id === x.location_id);
+  switch (key) {
+    case 'cas': return c.cas || '';
+    case 'barcode': return x?.barcode || '';
+    case 'size': return x ? `${x.container_size} ${x.unit || ''}`.trim() : '';
+    case 'remaining': return x ? `${x.remaining_amount ?? x.container_size} ${x.unit || ''}`.trim() : '';
+    case 'location': return loc ? locationPath(loc) : '';
+    case 'supplier': return x?.supplier || '';
+    case 'acquired': return x?.received_at || '';
+    case 'owner': return x ? ownerName(x.owner_id) : '';
+    default: return '';
+  }
+}
+function computeRows() {
+  const limit = activeList === 'search' ? $('searchLocation').value : '';
+  return lastChemicals.flatMap(c => {
+    const rows = lastContainers.filter(x => x.chemical_id === c.id && (!limit || x.location_id === limit) && (!matchedContainerIds || matchedContainerIds.has(x.id)));
+    if (rows.length) return rows.map(x => ({ c, x }));
+    return (limit || matchedContainerIds) ? [] : [{ c, x: null }];
+  });
+}
+const iconBtn = (act, icon, title, extra = '') => `<button type="button" class="icon-btn ${extra}" data-act="${act}" title="${title}" aria-label="${title}"><i class="fa-solid ${icon}" aria-hidden="true"></i></button>`;
+function renderRowsInto(target, rows, mode) {
+  const manager = isManager();
+  if (!rows.length) { target.innerHTML = '<p class="muted" style="padding:10px">No matching containers.</p>'; return; }
+  if (mode === 'grid') {
+    target.innerHTML = '<div class="result-grid">' + rows.map(r => `<button type="button" class="grid-tile" data-act="info" data-key="${esc(rowKey(r))}"><span class="tile-img"><img src="${esc(structureUrl(r.c))}" alt="Structure of ${esc(r.c.name)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'fa-solid fa-flask-vial',style:'font-size:46px;color:#9aa3a7'}))"></span><span class="tile-name"><b>Name:</b> ${esc(r.c.name)}</span></button>`).join('') + '</div>';
+    return;
+  }
+  const cols = tableColumns;
+  target.innerHTML = '<table class="inventory-data-table ci-results"><thead><tr>' + (manager ? '<th class="check-col"><input type="checkbox" data-check-all aria-label="Select all"></th>' : '') + '<th><i>Container Name</i></th>' + cols.map(k => `<th>${COLUMN_DEFS[k]}</th>`).join('') + '<th>Actions</th></tr></thead><tbody>' +
+    rows.map(r => `<tr data-key="${esc(rowKey(r))}">${manager ? `<td class="check-col">${r.x ? `<input type="checkbox" data-check ${selectedKeys.has(rowKey(r)) ? 'checked' : ''} aria-label="Select ${esc(r.c.name)}">` : ''}</td>` : ''}<td><button type="button" class="name-link" data-act="info">${esc(r.c.name)}</button></td>${cols.map(k => `<td>${esc(cellText(k, r))}</td>`).join('')}<td><span class="row-actions">${iconBtn('info', 'fa-circle-info', 'Container details')}${manager && r.x ? iconBtn('move', 'fa-house', 'Move container') : ''}${iconBtn('order', 'fa-cart-shopping', 'Request an order')}${manager && r.x ? iconBtn('delete', 'fa-trash', 'Delete container', 'danger') : ''}</span></td></tr>`).join('') + '</tbody></table>';
+}
+function renderList() {
+  const rows = computeRows(); currentRows = rows;
+  const search = activeList === 'search';
+  const target = search ? $('chemicalCards') : $('locationContainers');
+  renderRowsInto(target, rows, viewMode[activeList]);
+  const n = rows.filter(r => r.x).length || rows.length;
+  if (search) {
+    $('chemoraResultsCount').textContent = `${n} Result${n === 1 ? '' : 's'} Found`;
+    $('resultsSummary').textContent = `The following ${n} container(s) were found:`;
+    $('resultsLabName').textContent = labContext?.lab_name || 'Results';
+    show($('bulkBar'), isManager() && selectedKeys.size > 0);
+  } else {
+    $('locationSummary').textContent = `The following ${n} container(s) were found:`;
+  }
+  return n;
+}
+const renderChemicalCards = renderList;
+function setView(list, mode) {
+  viewMode[list] = mode;
+  const [t, g] = list === 'search' ? ['viewTable', 'viewGrid'] : ['locViewTable', 'locViewGrid'];
+  $(t).classList.toggle('active', mode === 'table'); $(g).classList.toggle('active', mode === 'grid');
+  if (activeList === list) renderList();
+}
+$('viewTable').addEventListener('click', () => setView('search', 'table'));
+$('viewGrid').addEventListener('click', () => setView('search', 'grid'));
+$('locViewTable').addEventListener('click', () => setView('location', 'table'));
+$('locViewGrid').addEventListener('click', () => setView('location', 'grid'));
+function downloadRows(name) {
+  const rows = computeRows();
+  downloadCSV(name, [['Container Name', 'CAS', 'Barcode', 'Size', 'Remaining', 'Unit', 'Location', 'Supplier', 'Date Acquired', 'Status', 'GHS codes'],
+    ...rows.map(r => [r.c.name, r.c.cas, r.x?.barcode, r.x?.container_size, r.x?.remaining_amount, r.x?.unit, cellText('location', r), r.x?.supplier, r.x?.received_at, r.x?.status, (r.c.ghs_codes || []).join(' ')])]);
+}
+$('downloadResults').addEventListener('click', () => { activeList = 'search'; downloadRows('chemora-search-results.csv'); });
+$('locDownload').addEventListener('click', () => { activeList = 'location'; downloadRows('chemora-location-containers.csv'); });
+function updateBulkBar() { if (activeList === 'search') show($('bulkBar'), isManager() && selectedKeys.size > 0); else { show($('locMoveAll'), isManager()); } }
+async function afterBulk(msg) {
+  showToast(msg, 'success'); selectedKeys.clear();
+  if (activeList === 'location' && locSelectedId) await showLocationContainers(locSelectedId); else if (lastSearch) await loadChemicals(lastSearch.type, lastSearch.q); else renderList();
+}
+async function runBulk(ids, action, payload) {
+  const { data, error } = await db.rpc('inventory_bulk_container_action', { p_ids: ids, p_action: action, p: payload || {} });
+  if (error) { showToast(error.message, 'error'); return null; }
+  return data;
+}
+function wireRowTarget(target, list) {
+  target.addEventListener('change', e => {
+    activeList = list;
+    if (e.target.matches('[data-check-all]')) {
+      selectedKeys = e.target.checked ? new Set(computeRows().filter(r => r.x).map(rowKey)) : new Set();
+      target.querySelectorAll('[data-check]').forEach(cb => { cb.checked = e.target.checked; });
+    } else if (e.target.matches('[data-check]')) {
+      const key = e.target.closest('tr').dataset.key;
+      if (e.target.checked) selectedKeys.add(key); else selectedKeys.delete(key);
+    }
+    updateBulkBar();
+  });
+  target.addEventListener('click', async e => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    activeList = list;
+    const holder = btn.closest('[data-key]');
+    const r = currentRows.find(z => rowKey(z) === holder?.dataset.key) || computeRows().find(z => rowKey(z) === holder?.dataset.key);
+    if (!r) return;
+    const act = btn.dataset.act;
+    if (act === 'info') openChemical(r.c.id, r.x?.id || null);
+    else if (act === 'move' && r.x) openContainerAction(r.x.id, 'move');
+    else if (act === 'order') startOrderFor(r.c, r.x);
+    else if (act === 'delete' && r.x && isManager()) {
+      if (!confirm(`Delete container ${r.x.barcode || ''} of "${r.c.name}"? It is archived as disposed and kept in the history.`)) return;
+      const res = await runBulk([r.x.id], 'dispose');
+      if (res) await afterBulk(res.done ? 'Container deleted.' : 'The container could not be deleted.');
+    }
+  });
+}
+wireRowTarget($('chemicalCards'), 'search');
+wireRowTarget($('locationContainers'), 'location');
+$('bulkMove').addEventListener('click', async () => {
+  if (!isManager()) return;
+  const ids = [...selectedKeys].filter(k => !k.startsWith('c:'));
+  if (!ids.length) return;
+  const dest = await chooseLocation(`Move ${ids.length} container(s) to…`);
+  if (!dest) return;
+  const res = await runBulk(ids, 'move', { location_id: dest });
+  if (res) await afterBulk(`Moved ${res.done} container(s)${res.skipped ? `, ${res.skipped} skipped` : ''}.`);
+});
+$('bulkDelete').addEventListener('click', async () => {
+  if (!isManager()) return;
+  const ids = [...selectedKeys].filter(k => !k.startsWith('c:'));
+  if (!ids.length || !confirm(`Delete ${ids.length} container(s)? They are archived as disposed and kept in the history.`)) return;
+  const res = await runBulk(ids, 'dispose');
+  if (res) await afterBulk(`Deleted ${res.done} container(s)${res.skipped ? `, ${res.skipped} skipped` : ''}.`);
+});
+function startOrderFor(c, x) {
+  setTab('orders');
+  const f = $('orderForm');
+  f.elements.chemical_name.value = c.name || ''; f.elements.cas.value = c.cas || '';
+  f.elements.container_size.value = x?.container_size || ''; if (x?.unit) f.elements.unit.value = x.unit;
+  f.elements.supplier.value = x?.supplier || '';
+}
+
+/* ---------- location contents (Locations page: "view all") ---------- */
+async function showLocationContainers(locId) {
+  const loc = locations.find(l => l.id === locId); if (!loc) return;
+  clearResults();
+  activeList = 'location'; selectedKeys = new Set();
+  locSelectedId = locId;
+  show($('locationContents'), true);
+  $('locationContentsTitle').textContent = 'Containers';
+  status('Loading containers…', 'locationStatus');
+  try {
+    const ids = descendantIds(locId);
+    const hits = (await fetchIn('inventory_containers', 'location_id', ids)).filter(isActiveContainer);
+    const chemicalIds = [...new Set(hits.map(x => x.chemical_id))];
+    const chems = await fetchIn('inventory_chemicals', 'id', chemicalIds);
+    lastChemicals = chems.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    lastContainers = (await fetchIn('inventory_containers', 'chemical_id', chemicalIds)).filter(isActiveContainer);
+    matchedContainerIds = new Set(hits.map(x => x.id)); lastSearch = null;
+    status('', 'locationStatus');
+    $('locationContents').dataset.locId = locId;
+    show($('locMoveAll'), isManager()); show($('locDeleteAll'), isManager());
+    renderList();
+  } catch (err) { status(errorText(err), 'locationStatus'); }
+}
+$('locMoveAll').addEventListener('click', async () => {
+  const ids = computeRows().filter(r => r.x).map(r => r.x.id);
+  if (!ids.length) return showToast('There are no containers to move.', 'error');
+  const dest = await chooseLocation(`Move all ${ids.length} container(s) to…`);
+  if (!dest) return;
+  const res = await runBulk(ids, 'move', { location_id: dest });
+  if (res) await afterBulk(`Moved ${res.done} container(s)${res.skipped ? `, ${res.skipped} skipped` : ''}.`);
+});
+$('locDeleteAll').addEventListener('click', async () => {
+  const ids = computeRows().filter(r => r.x).map(r => r.x.id);
+  if (!ids.length) return showToast('There are no containers to delete.', 'error');
+  if (!confirm(`Delete ALL ${ids.length} container(s) in this location? They are archived as disposed and kept in the history.`)) return;
+  const res = await runBulk(ids, 'dispose');
+  if (res) await afterBulk(`Deleted ${res.done} container(s).`);
+});
+
+/* ---------- GHS hazard statements ---------- */
+const GHS = [
+  ['H200', 'Unstable Explosive'], ['H201', 'Explosive; mass explosion hazard'], ['H202', 'Explosive; severe projection hazard'], ['H203', 'Explosive; fire, blast or projection hazard'], ['H204', 'Fire or projection hazard'], ['H205', 'May mass explode in fire'],
+  ['H220', 'Extremely flammable gas'], ['H221', 'Flammable gas'], ['H222', 'Extremely flammable aerosol'], ['H223', 'Flammable aerosol'], ['H224', 'Extremely flammable liquid and vapour'], ['H225', 'Highly flammable liquid and vapour'], ['H226', 'Flammable liquid and vapour'], ['H228', 'Flammable solid'],
+  ['H229', 'Pressurized container: may burst if heated'], ['H230', 'May react explosively even in the absence of air'], ['H231', 'May react explosively even in the absence of air at elevated pressure and/or temperature'], ['H240', 'Heating may cause an explosion'], ['H241', 'Heating may cause a fire or explosion'], ['H242', 'Heating may cause a fire'],
+  ['H250', 'Catches fire spontaneously if exposed to air'], ['H251', 'Self-heating; may catch fire'], ['H252', 'Self-heating in large quantities; may catch fire'], ['H260', 'In contact with water releases flammable gases which may ignite spontaneously'], ['H261', 'In contact with water releases flammable gas'],
+  ['H270', 'May cause or intensify fire; oxidiser'], ['H271', 'May cause fire or explosion; strong oxidiser'], ['H272', 'May intensify fire; oxidiser'], ['H280', 'Contains gas under pressure; may explode if heated'], ['H281', 'Contains refrigerated gas; may cause cryogenic burns or injury'],
+  ['H290', 'May be corrosive to metals'],
+  ['H300', 'Fatal if swallowed'], ['H301', 'Toxic if swallowed'], ['H302', 'Harmful if swallowed'], ['H304', 'May be fatal if swallowed and enters airways'], ['H310', 'Fatal in contact with skin'], ['H311', 'Toxic in contact with skin'], ['H312', 'Harmful in contact with skin'],
+  ['H314', 'Causes severe skin burns and eye damage'], ['H315', 'Causes skin irritation'], ['H317', 'May cause an allergic skin reaction'], ['H318', 'Causes serious eye damage'], ['H319', 'Causes serious eye irritation'],
+  ['H330', 'Fatal if inhaled'], ['H331', 'Toxic if inhaled'], ['H332', 'Harmful if inhaled'], ['H334', 'May cause allergy or asthma symptoms or breathing difficulties if inhaled'], ['H335', 'May cause respiratory irritation'], ['H336', 'May cause drowsiness or dizziness'],
+  ['H340', 'May cause genetic defects'], ['H341', 'Suspected of causing genetic defects'], ['H350', 'May cause cancer'], ['H351', 'Suspected of causing cancer'], ['H360', 'May damage fertility or the unborn child'], ['H361', 'Suspected of damaging fertility or the unborn child'], ['H362', 'May cause harm to breast-fed children'],
+  ['H370', 'Causes damage to organs'], ['H371', 'May cause damage to organs'], ['H372', 'Causes damage to organs through prolonged or repeated exposure'], ['H373', 'May cause damage to organs through prolonged or repeated exposure'],
+  ['H400', 'Very toxic to aquatic life'], ['H410', 'Very toxic to aquatic life with long lasting effects'], ['H411', 'Toxic to aquatic life with long lasting effects'], ['H412', 'Harmful to aquatic life with long lasting effects'], ['H413', 'May cause long lasting harmful effects to aquatic life'], ['H420', 'Harms public health and the environment by destroying ozone in the upper atmosphere']
+];
+const PICTOGRAMS = [
+  ['Explosive', 'fa-bomb', /^H20[0-5]$|^H240$|^H241$/], ['Flammable', 'fa-fire', /^H22[0-9]$|^H24[12]$|^H25[0-2]$|^H26[01]$/], ['Oxidising', 'fa-circle-radiation', /^H27[0-2]$/], ['Gas under pressure', 'fa-oil-can', /^H28[01]$/],
+  ['Corrosive', 'fa-vial-circle-check', /^H290$|^H314$|^H318$/], ['Acute toxicity', 'fa-skull-crossbones', /^H30[01]$|^H31[01]$|^H33[01]$/], ['Irritant / harmful', 'fa-exclamation', /^H302$|^H312$|^H332$|^H31[579]$|^H33[56]$/],
+  ['Health hazard', 'fa-user-doctor', /^H304$|^H334$|^H34[01]$|^H35[01]$|^H36[0-2]$|^H37[0-3]$/], ['Environmental hazard', 'fa-fish', /^H400$|^H41[0-3]$/]
+];
+const ghsList = (c) => (Array.isArray(c?.ghs_codes) ? c.ghs_codes : []);
+function pictogramsFor(codes) {
+  return PICTOGRAMS.filter(([, , re]) => codes.some(code => re.test(code))).map(([label, icon]) => `<span class="ghs-pict" title="${esc(label)}"><i class="fa-solid ${icon}" aria-hidden="true"></i></span>`).join('');
+}
+function ghsSummaryHtml(c) {
+  const codes = ghsList(c);
+  if (!codes.length) return '<p class="muted">No hazard codes recorded for this chemical.</p>';
+  return `<div class="ghs-picts">${pictogramsFor(codes)}</div><p>Hazard Codes: ${codes.map(k => `<span class="dotted" title="${esc(GHS.find(g => g[0] === k)?.[1] || '')}">${esc(k)}</span>`).join(' ')}</p>`;
+}
+function renderGhsPicker(listEl, filterEl, selected, onChange) {
+  const draw = () => {
+    const q = filterEl.value.trim().toLowerCase();
+    listEl.replaceChildren(...GHS.filter(([code, text]) => !q || code.toLowerCase().includes(q) || text.toLowerCase().includes(q)).map(([code, text]) => {
+      const row = document.createElement('label'); row.className = 'ghs-row';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = selected.has(code);
+      cb.addEventListener('change', () => { if (cb.checked) selected.add(code); else selected.delete(code); onChange(); });
+      const a = document.createElement('b'); a.textContent = code; const b = document.createElement('span'); b.textContent = text;
+      row.append(cb, a, b); return row;
+    }));
+  };
+  filterEl.oninput = draw; draw();
+}
+/* GHS search */
+const ghsSel = new Set();
+function drawGhsSelected() { $('ghsSelected').innerHTML = ghsSel.size ? [...ghsSel].sort().map(c => `<span class="badge">${esc(c)}</span>`).join(' ') : '<i>Select items from the list below</i>'; }
+$('openGhs').addEventListener('click', () => { show($('searchMoreMenu'), false); $('ghsFilter').value = ''; renderGhsPicker($('ghsList'), $('ghsFilter'), ghsSel, drawGhsSelected); drawGhsSelected(); status('', 'ghsStatus'); $('ghsSearchDialog').showModal(); });
+$('ghsRun').addEventListener('click', async () => {
+  if (!ghsSel.size) return status('Select at least one hazard code.', 'ghsStatus');
+  const mode = document.querySelector('input[name="ghsMode"]:checked').value, want = [...ghsSel];
+  $('ghsRun').disabled = true; status('Searching…', 'ghsStatus');
+  try {
+    await runSnapshotSearch(({ c }) => {
+      const have = ghsList(c).map(k => k.toUpperCase());
+      if (!have.length) return false;
+      if (mode === 'and') return want.every(k => have.includes(k));
+      if (mode === 'only') return have.every(k => want.includes(k));
+      return want.some(k => have.includes(k));
+    });
+    $('ghsSearchDialog').close();
+  } catch (err) { status(errorText(err), 'ghsStatus'); } finally { $('ghsRun').disabled = false; }
+});
+
+/* ---------- snapshot search (advanced + GHS) ---------- */
+async function fetchSnapshot() {
+  const [chemicals, containers] = await Promise.all([
+    fetchAll(() => db.from('inventory_chemicals').select('*').order('id')),
+    fetchAll(() => db.from('inventory_containers').select('*').order('id'))
+  ]);
+  return { chemicals, containers: containers.filter(isActiveContainer) };
+}
+async function runSnapshotSearch(test, snapshot = null) {
+  const snap = snapshot || await fetchSnapshot();
+  const byChem = new Map(snap.chemicals.map(c => [c.id, c]));
+  const hits = snap.containers.filter(x => byChem.has(x.chemical_id) && test({ c: byChem.get(x.chemical_id), x }));
+  const ids = new Set(hits.map(x => x.chemical_id));
+  clearResults();
+  activeList = 'search'; selectedKeys = new Set(); searchSeq++;
+  lastChemicals = snap.chemicals.filter(c => ids.has(c.id)).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  lastContainers = snap.containers.filter(x => ids.has(x.chemical_id));
+  matchedContainerIds = new Set(hits.map(x => x.id));
+  lastSearch = null;
+  show($('chemoraResultsPanel'), true); show($('locationContents'), false);
+  status('', 'searchStatus');
+  renderList();
+}
+
+/* ---------- advanced search ---------- */
+const ADV_FIELDS = {
+  name: { label: 'Container name (with synonyms)', type: 'text' },
+  name_exact: { label: 'Container name (no synonyms)', type: 'text' },
+  cas: { label: 'CAS number', type: 'text' },
+  barcode: { label: 'Barcode', type: 'text' },
+  supplier: { label: 'Supplier', type: 'text' },
+  catalog: { label: 'Catalog number', type: 'text' },
+  lot: { label: 'Lot number', type: 'text' },
+  comments: { label: 'Comments', type: 'text' },
+  location: { label: 'Location (path)', type: 'text' },
+  owner: { label: 'Owner', type: 'text' },
+  acquired: { label: 'Date acquired', type: 'date' },
+  expires: { label: 'Expiry date', type: 'date' },
+  size: { label: 'Container size', type: 'number' },
+  remaining: { label: 'Remaining amount', type: 'number' },
+  ghs: { label: 'GHS hazard code', type: 'text' },
+  has_ghs: { label: 'Has GHS data', type: 'bool' },
+  valid_cas: { label: 'Has a valid CAS number', type: 'bool' },
+  empty: { label: 'Is empty (no remaining amount)', type: 'bool' }
+};
+const ADV_OPS = {
+  text: [['contains', 'contains'], ['not_contains', 'does not contain'], ['equals', 'is exactly'], ['starts', 'starts with'], ['blank', 'is blank']],
+  date: [['on', 'is on'], ['before', 'is before'], ['after', 'is after'], ['blank', 'is blank']],
+  number: [['eq', '='], ['gt', '>'], ['lt', '<'], ['gte', '≥'], ['lte', '≤']],
+  bool: [['yes', 'Yes'], ['no', 'No']]
+};
+let advRoot = { type: 'group', op: 'AND', items: [{ type: 'rule', field: '', operator: '', value: '' }] };
+function advNew() { return { type: 'rule', field: '', operator: '', value: '' }; }
+function renderAdvanced() {
+  const host = $('advancedBuilder'); host.replaceChildren();
+  const group = (g, parent) => {
+    const box = document.createElement('div'); box.className = 'adv-group';
+    const head = document.createElement('div'); head.className = 'adv-head';
+    const ops = document.createElement('span'); ops.className = 'view-toggle';
+    for (const op of ['AND', 'OR']) { const b = document.createElement('button'); b.type = 'button'; b.textContent = op; b.className = g.op === op ? 'active' : ''; b.addEventListener('click', () => { g.op = op; renderAdvanced(); }); ops.append(b); }
+    const addRule = document.createElement('button'); addRule.type = 'button'; addRule.className = 'btn green small'; addRule.innerHTML = '<i class="fa-solid fa-plus"></i> Add rule'; addRule.addEventListener('click', () => { g.items.push(advNew()); renderAdvanced(); });
+    const addGroup = document.createElement('button'); addGroup.type = 'button'; addGroup.className = 'btn green small'; addGroup.innerHTML = '<i class="fa-solid fa-circle-plus"></i> Add group'; addGroup.addEventListener('click', () => { g.items.push({ type: 'group', op: 'AND', items: [advNew()] }); renderAdvanced(); });
+    const spacer = document.createElement('span'); spacer.style.flex = '1';
+    head.append(ops, spacer, addRule, addGroup);
+    if (parent) { const del = document.createElement('button'); del.type = 'button'; del.className = 'btn danger small'; del.innerHTML = '<i class="fa-solid fa-xmark"></i> Delete'; del.addEventListener('click', () => { parent.items.splice(parent.items.indexOf(g), 1); renderAdvanced(); }); head.append(del); }
+    box.append(head);
+    const body = document.createElement('div'); body.className = 'adv-body';
+    g.items.forEach(item => {
+      if (item.type === 'group') { body.append(group(item, g)); return; }
+      const row = document.createElement('div'); row.className = 'adv-rule';
+      const fsel = document.createElement('select'); fsel.append(new Option('------', ''), ...Object.entries(ADV_FIELDS).map(([k, v]) => new Option(v.label, k))); fsel.value = item.field;
+      fsel.addEventListener('change', () => { item.field = fsel.value; item.operator = item.field ? ADV_OPS[ADV_FIELDS[item.field].type][0][0] : ''; item.value = ''; renderAdvanced(); });
+      row.append(fsel);
+      if (item.field) {
+        const def = ADV_FIELDS[item.field];
+        const osel = document.createElement('select'); osel.append(...ADV_OPS[def.type].map(([k, v]) => new Option(v, k))); osel.value = item.operator || ADV_OPS[def.type][0][0]; item.operator = osel.value;
+        osel.addEventListener('change', () => { item.operator = osel.value; renderAdvanced(); });
+        row.append(osel);
+        if (def.type !== 'bool' && item.operator !== 'blank') {
+          const inp = document.createElement('input'); inp.type = def.type === 'date' ? 'date' : def.type === 'number' ? 'number' : 'text'; if (def.type === 'number') inp.step = 'any'; inp.value = item.value; inp.placeholder = 'Value';
+          inp.addEventListener('input', () => { item.value = inp.value; }); inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('advancedRun').click(); } });
+          row.append(inp);
+        }
+      }
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'btn danger small'; del.innerHTML = '<i class="fa-solid fa-xmark"></i> Delete';
+      del.addEventListener('click', () => { g.items.splice(g.items.indexOf(item), 1); if (!g.items.length && !parent) g.items.push(advNew()); renderAdvanced(); });
+      row.append(del); body.append(row);
+    });
+    box.append(body); return box;
+  };
+  host.append(group(advRoot, null));
+}
+function advRuleTest(rule, ctx) {
+  const def = ADV_FIELDS[rule.field]; if (!def) return true;
+  const { c, x, syn } = ctx;
+  const text = v => String(v ?? '').toLowerCase();
+  const loc = x && locations.find(l => l.id === x.location_id);
+  const get = {
+    name: () => [c.name, ...(syn.get(c.id) || [])].map(text), name_exact: () => [text(c.name)], cas: () => [text(c.cas)], barcode: () => [text(x?.barcode)], supplier: () => [text(x?.supplier)],
+    catalog: () => [text(x?.catalog_number)], lot: () => [text(x?.lot_number)], comments: () => [text(x?.notes), text(c.notes)], location: () => [text(loc ? locationPath(loc) : '')], owner: () => [text(ownerName(x?.owner_id))],
+    ghs: () => ghsList(c).map(text)
+  };
+  if (def.type === 'text') {
+    const vals = (get[rule.field] ? get[rule.field]() : ['']), q = text(rule.value);
+    switch (rule.operator) {
+      case 'contains': return vals.some(v => v.includes(q));
+      case 'not_contains': return !vals.some(v => v.includes(q));
+      case 'equals': return vals.some(v => v === q);
+      case 'starts': return vals.some(v => v.startsWith(q));
+      case 'blank': return vals.every(v => v === '');
+      default: return true;
+    }
+  }
+  if (def.type === 'date') {
+    const v = rule.field === 'acquired' ? x?.received_at : x?.expires_at, q = rule.value;
+    if (rule.operator === 'blank') return !v;
+    if (!v || !q) return false;
+    return rule.operator === 'on' ? v === q : rule.operator === 'before' ? v < q : v > q;
+  }
+  if (def.type === 'number') {
+    const v = Number(rule.field === 'size' ? x?.container_size : (x?.remaining_amount ?? x?.container_size)), q = Number(rule.value);
+    if (!Number.isFinite(v) || rule.value === '' || !Number.isFinite(q)) return false;
+    return { eq: v === q, gt: v > q, lt: v < q, gte: v >= q, lte: v <= q }[rule.operator];
+  }
+  const truth = rule.field === 'has_ghs' ? ghsList(c).length > 0 : rule.field === 'valid_cas' ? Boolean(c.cas && validCAS(c.cas)) : Number(x?.remaining_amount ?? x?.container_size) === 0;
+  return rule.operator === 'yes' ? truth : !truth;
+}
+function advEval(node, ctx) {
+  if (node.type === 'rule') return advRuleTest(node, ctx);
+  const parts = node.items.filter(i => i.type === 'group' || i.field);
+  if (!parts.length) return true;
+  return node.op === 'AND' ? parts.every(i => advEval(i, ctx)) : parts.some(i => advEval(i, ctx));
+}
+$('openAdvanced').addEventListener('click', () => { show($('searchMoreMenu'), false); renderAdvanced(); status('', 'advancedStatus'); $('advancedDialog').showModal(); });
+$('advancedRun').addEventListener('click', async () => {
+  $('advancedRun').disabled = true; status('Searching…', 'advancedStatus');
+  try {
+    const snap = await fetchSnapshot();
+    const syn = new Map();
+    try { for (const s of await fetchAll(() => db.from('inventory_chemical_synonyms').select('chemical_id,synonym').order('id'))) { if (!syn.has(s.chemical_id)) syn.set(s.chemical_id, []); syn.get(s.chemical_id).push(s.synonym); } } catch (_e) { /* synonyms are optional */ }
+    await runSnapshotSearch(({ c, x }) => advEval(advRoot, { c, x, syn }), snap);
+    $('advancedDialog').close();
+  } catch (err) { status(errorText(err), 'advancedStatus'); } finally { $('advancedRun').disabled = false; }
+});
+$('searchMoreToggle').addEventListener('click', e => { e.stopPropagation(); $('searchMoreMenu').classList.toggle('hide'); });
+document.addEventListener('click', () => show($('searchMoreMenu'), false));
+
+/* ---------- add a container (two steps, toggles, location tree, hazard codes) ---------- */
+function setAddStep(step) { show($('addStep1'), step === 1); show($('addStep2'), step === 2); status('', 'addStatus'); }
+$('noCasToggle').addEventListener('click', () => {
+  const f = $('addChemical').elements.cas, off = !f.disabled;
+  f.disabled = off; f.value = ''; f.placeholder = off ? 'No CAS number' : 'CAS Registry Number';
+  $('noCasToggle').textContent = off ? '[enter a CAS number]' : '[no CAS number?]';
+});
+$('noBarcodeToggle').addEventListener('click', () => {
+  const f = $('addChemical').elements.barcode, off = !f.disabled;
+  f.disabled = off; f.value = ''; f.placeholder = off ? 'A barcode will be generated automatically' : 'Barcode Number (leave empty to generate)';
+  $('noBarcodeToggle').textContent = off ? '[enter a barcode]' : '[no barcode?]';
+});
+$('addCommentButton').addEventListener('click', () => { show($('addCommentField'), true); $('addChemical').elements.notes.focus(); });
+$('addNext').addEventListener('click', () => {
+  const f = $('addChemical'), msg = text => status(text, 'addStatus');
+  const name = val(f, 'name'), cas = val(f, 'cas'), size = Number(val(f, 'container_size'));
+  if (!name) return msg('Container name is required.');
+  if (cas && !validCAS(cas)) return msg('Invalid CAS checksum.');
+  if (!(size > 0) || !Number.isFinite(size)) return msg('Container size must be positive.');
+  if (!val(f, 'location_id')) return msg('Choose a location for the container.');
+  setAddStep(2);
+});
+$('addBack').addEventListener('click', () => setAddStep(1));
+let addGhs = new Set();
+function drawAddGhs() { $('addGhsSummary').textContent = addGhs.size ? [...addGhs].sort().join(', ') : 'None selected'; $('addGhsValue').value = JSON.stringify([...addGhs]); }
+let ghsEditTarget = null, ghsEditSel = new Set();
+function openGhsEditor(initial, onSave) {
+  ghsEditSel = new Set(initial); ghsEditTarget = onSave; $('ghsEditFilter').value = '';
+  renderGhsPicker($('ghsEditList'), $('ghsEditFilter'), ghsEditSel, () => {});
+  $('ghsEditDialog').showModal();
+}
+$('ghsEditSave').addEventListener('click', async () => { const f = ghsEditTarget; ghsEditTarget = null; $('ghsEditDialog').close(); if (f) await f([...ghsEditSel].sort()); });
+$('addGhsButton').addEventListener('click', () => openGhsEditor(addGhs, codes => { addGhs = new Set(codes); drawAddGhs(); }));
+function resetAddForm() { addGhs = new Set(); drawAddGhs(); setAddStep(1); for (const id of ['noCasToggle', 'noBarcodeToggle']) { const f = $('addChemical').elements[id === 'noCasToggle' ? 'cas' : 'barcode']; if (f.disabled) $(id).click(); } show($('addCommentField'), false); $('chemicalLocation').value = ''; renderLocationUi(); }
+function prefillDuplicate(c, x) {
+  setTab('add');
+  const f = $('addChemical'); f.reset(); resetAddForm();
+  f.elements.name.value = c.name || ''; f.elements.cas.value = c.cas || ''; f.elements.formula.value = c.formula || '';
+  if (x) { f.elements.container_size.value = x.container_size || ''; f.elements.unit.value = x.unit || 'g'; f.elements.supplier.value = x.supplier || ''; f.elements.catalog_number.value = x.catalog_number || ''; f.elements.lot_number.value = x.lot_number || ''; f.elements.purity.value = x.purity || ''; f.elements.notes.value = x.notes || ''; if (x.notes) show($('addCommentField'), true); $('chemicalLocation').value = x.location_id || ''; renderLocationUi(); }
+  addGhs = new Set(ghsList(c)); drawAddGhs();
+  status('Duplicating "' + c.name + '": a new barcode is generated automatically.', 'addStatus');
+}
+
+async function showContainerHistory(containerId) {
+  const x = lastContainers.find(z => z.id === containerId); if (!x || !isManager()) return;
+  const c = lastChemicals.find(z => z.id === x.chemical_id);
+  $('historyDialogSummary').textContent = `${c?.name || 'Container'} (${x.barcode || 'no barcode'})`;
+  $('historyDialogList').innerHTML = '<p class="muted">Loading…</p>';
+  $('historyDialog').showModal();
+  let { data, error } = await db.from('inventory_activity_logs').select('created_at,action,performed_by,description').eq('record_id', containerId).order('created_at', { ascending: false }).limit(200);
+  if (error && /description/i.test(error.message)) ({ data, error } = await db.from('inventory_activity_logs').select('created_at,action,performed_by').eq('record_id', containerId).order('created_at', { ascending: false }).limit(200));
+  if (error) { $('historyDialogList').textContent = error.message; return; }
+  $('historyDialogList').innerHTML = (data || []).length ? '<table class="inventory-data-table"><thead><tr><th>Timestamp (UTC)</th><th>User</th><th>Event</th><th>Description</th></tr></thead><tbody>' +
+    data.map(h => `<tr><td>${esc(String(h.created_at).replace('T', ' ').slice(0, 19))}</td><td>${esc(ownerName(h.performed_by) || '—')}</td><td>${esc(EVENT_LABELS[h.action] || h.action)}</td><td>${esc(h.description || '')}</td></tr>`).join('') + '</tbody></table>' : '<p class="muted">No history recorded for this container.</p>';
+}
+
+/* ---------- orders: no-CAS toggle ---------- */
+$('orderNoCas')?.addEventListener('click', () => {
+  const f = $('orderForm').elements.cas, on = !f.disabled;
+  f.disabled = on; if (on) f.value = '';
+  $('orderNoCas').textContent = on ? '[has a CAS number?]' : '[no CAS number?]';
+});
+
+/* ---------- Labs & All Users (Inventory Administrator only) ---------- */
+let platformLabs = [], platformUsers = [];
+const roleLabel = r => r === 'admin' ? 'Administrator' : r === 'manager' ? 'Chemical Manager' : 'Member';
+async function loadPlatform() {
+  if (!labContext?.platform_admin) return;
+  $('labTable').textContent = 'Loading labs…'; $('allUsersTable').textContent = 'Loading users…';
+  const [labs, users] = await Promise.all([db.rpc('inventory_list_labs'), db.rpc('inventory_list_all_users')]);
+  if (labs.error) $('labTable').textContent = labs.error.message; else { platformLabs = labs.data || []; renderPlatformLabs(); }
+  if (users.error) $('allUsersTable').textContent = users.error.message; else { platformUsers = users.data || []; renderPlatformUsers(); }
+}
+function renderPlatformLabs() {
+  const current = labContext?.lab_id;
+  $('labTable').innerHTML = platformLabs.length ? '<table class="inventory-data-table"><thead><tr><th>Lab</th><th>Barcode prefix</th><th>Lab administrators</th><th>Members</th><th>Containers</th><th>Status</th><th>Actions</th></tr></thead><tbody>' +
+    platformLabs.map(l => `<tr class="${l.active ? '' : 'is-locked'}"><td><strong>${esc(l.name)}</strong>${l.id === current ? ' <span class="order-badge received">Current</span>' : ''}</td><td>${esc(l.barcode_prefix)}</td><td>${esc(l.admins || '—')}</td><td>${esc(l.member_count)}</td><td>${esc(l.container_count)}</td><td>${l.active ? 'Active' : 'Inactive'}</td><td><span class="row-actions">` +
+      (l.active && l.id !== current ? `<button type="button" class="icon-btn" data-lab-open="${esc(l.id)}" title="Open this lab" aria-label="Open this lab"><i class="fa-solid fa-right-to-bracket"></i></button>` : '') +
+      `<button type="button" class="icon-btn" data-lab-rename="${esc(l.id)}" title="Rename lab" aria-label="Rename lab"><i class="fa-solid fa-pen-to-square"></i></button>` +
+      (l.id !== current ? `<button type="button" class="icon-btn" data-lab-toggle="${esc(l.id)}" title="${l.active ? 'Deactivate lab' : 'Activate lab'}" aria-label="${l.active ? 'Deactivate lab' : 'Activate lab'}"><i class="fa-solid ${l.active ? 'fa-ban' : 'fa-rotate-left'}"></i></button>` : '') +
+      '</span></td></tr>').join('') + '</tbody></table>' : '<p class="muted" style="padding:10px">No labs yet.</p>';
+}
+$('labTable').addEventListener('click', async e => {
+  const open = e.target.closest('[data-lab-open]'), ren = e.target.closest('[data-lab-rename]'), tog = e.target.closest('[data-lab-toggle]');
+  try {
+    if (open) { await switchLab(open.dataset.labOpen); return; }
+    if (ren) {
+      const l = platformLabs.find(x => x.id === ren.dataset.labRename), name = (prompt('Lab name', l.name) || '').trim();
+      if (!name || name === l.name) return;
+      const { error } = await db.rpc('inventory_update_lab', { p_lab_id: l.id, p_name: name, p_active: null }); if (error) throw error;
+      status('Lab renamed.');
+    } else if (tog) {
+      const l = platformLabs.find(x => x.id === tog.dataset.labToggle);
+      if (l.active && !confirm(`Deactivate "${l.name}"? Its members will not be able to sign in to it. Nothing is deleted and you can activate it again.`)) return;
+      const { error } = await db.rpc('inventory_update_lab', { p_lab_id: l.id, p_name: null, p_active: !l.active }); if (error) throw error;
+      status(l.active ? 'Lab deactivated.' : 'Lab activated.');
+    } else return;
+    const ctx = await db.rpc('inventory_my_context'); if (!ctx.error && ctx.data) { labContext = ctx.data; renderLabControls(); }
+    await loadPlatform();
+  } catch (err) { status(errorText(err)); }
+});
+function renderPlatformUsers() {
+  const q = ($('allUsersFilter').value || '').trim().toLowerCase();
+  const rows = platformUsers.filter(u => !q || [u.full_name, u.email, ...(u.labs || []).map(l => l.lab_name)].some(v => String(v || '').toLowerCase().includes(q)));
+  $('allUsersTable').innerHTML = rows.length ? '<table class="inventory-data-table"><thead><tr><th>Name</th><th>Email</th><th>Labs and account type</th><th>Actions</th></tr></thead><tbody>' +
+    rows.map(u => { const locked = u.account_status === 'locked', me = u.user_id === user.id;
+      return `<tr class="${locked ? 'is-locked' : ''}"><td><strong>${esc(u.full_name || 'User')}</strong>${u.platform_admin ? ' <span class="order-badge received">Inventory Administrator</span>' : ''}${locked ? ' <span class="order-badge ordered">Locked</span>' : ''}</td><td>${esc(u.email || '—')}</td><td>${(u.labs || []).map(l => `${esc(l.lab_name)} <span class="muted">(${esc(roleLabel(l.role))})</span>`).join('<br>') || '<span class="muted">No lab</span>'}</td><td><span class="row-actions">` +
+        (me ? '' : `<button type="button" class="icon-btn" data-au-lock="${esc(u.user_id)}" title="${locked ? 'Unlock account' : 'Lock account'}" aria-label="${locked ? 'Unlock account' : 'Lock account'}"><i class="fa-solid ${locked ? 'fa-lock-open' : 'fa-lock'}"></i></button><button type="button" class="icon-btn" data-au-pass="${esc(u.user_id)}" title="Set new password" aria-label="Set new password"><i class="fa-solid fa-key"></i></button><button type="button" class="icon-btn" data-au-delete="${esc(u.user_id)}" title="Deactivate account everywhere" aria-label="Deactivate account everywhere"><i class="fa-solid fa-trash"></i></button>`) +
+        '</span></td></tr>'; }).join('') + '</tbody></table>' : '<p class="muted" style="padding:10px">No matching users.</p>';
+}
+$('allUsersFilter').addEventListener('input', renderPlatformUsers);
+$('refreshPlatform').addEventListener('click', loadPlatform);
+$('allUsersTable').addEventListener('click', async e => {
+  const lock = e.target.closest('[data-au-lock]'), pass = e.target.closest('[data-au-pass]'), del = e.target.closest('[data-au-delete]');
+  const id = (lock || pass || del)?.dataset[lock ? 'auLock' : pass ? 'auPass' : 'auDelete']; if (!id) return;
+  const u = platformUsers.find(x => x.user_id === id);
+  try {
+    if (lock) await invokeUsers({ action: u.account_status === 'locked' ? 'unlock' : 'lock', userId: id, global: true });
+    else if (pass) {
+      const pw = prompt('New password for ' + (u.email || u.full_name) + ' (12+ characters)'); if (!pw) return;
+      if (pw.length < 12) return status('Password must contain at least 12 characters.');
+      await invokeUsers({ action: 'update', userId: id, password: pw, global: true });
+    } else if (del) {
+      if (!confirm('Deactivate ' + (u.email || u.full_name) + ' in every lab? Their records are kept.')) return;
+      await invokeUsers({ action: 'delete', userId: id, global: true });
+    }
+    status('Done.'); await loadPlatform();
+  } catch (err) { status(errorText(err)); }
+});
+
+/* ---------- Table Columns ---------- */
+function openColumns() {
+  $('columnsList').innerHTML = Object.entries(COLUMN_DEFS).map(([k, label]) => `<label class="ci-check"><input type="checkbox" value="${k}" ${tableColumns.includes(k) ? 'checked' : ''}> ${esc(label)}</label>`).join('');
+  $('columnsDialog').showModal();
+}
+$('columnsSave').addEventListener('click', () => {
+  tableColumns = [...$('columnsList').querySelectorAll('input:checked')].map(i => i.value);
+  try { localStorage.setItem('chemora-columns', JSON.stringify(tableColumns)); } catch (_e) { /* private mode */ }
+  $('columnsDialog').close();
+  if (currentRows.length) renderList();
+  status('Table columns saved.');
+});
+
+/* ---------- Assigned barcodes ---------- */
+async function showAssignedBarcodes() {
+  try {
+    const rows = (await getContainerRows()).filter(x => x.barcode).sort((a, b) => String(a.barcode).localeCompare(String(b.barcode), undefined, { numeric: true }));
+    $('toolsResult').innerHTML = '<h3 class="ci-bar">Assigned Barcodes</h3><p class="muted">' + rows.length + ' barcode(s) are assigned in this lab. A barcode is never reused, even after a container is deleted.</p><div class="actions"><button type="button" class="btn" id="assignedDownload">Download list</button></div><table class="inventory-data-table"><thead><tr><th>Barcode</th><th>Container</th><th>Status</th><th>Location</th></tr></thead><tbody>' +
+      rows.map(x => `<tr><td>${esc(x.barcode)}</td><td>${esc(x.chemical?.name)}</td><td>${isActiveContainer(x) ? 'In inventory' : 'Deleted'}</td><td>${esc(x.location_name)}</td></tr>`).join('') + '</tbody></table>';
+    $('assignedDownload').addEventListener('click', () => downloadCSV('assigned-barcodes.csv', [['Barcode', 'Container', 'Status', 'Location'], ...rows.map(x => [x.barcode, x.chemical?.name, isActiveContainer(x) ? 'In inventory' : 'Deleted', x.location_name])]));
+  } catch (e) { status(errorText(e)); }
+}
+
+/* ---------- Bulk container update ---------- */
+const BULK_FIELDS = ['supplier', 'catalog_number', 'lot_number', 'purity', 'received_at', 'expires_at', 'notes', 'remaining_amount'];
+let bulkRows = [], bulkChanges = [];
+function resetBulk() { bulkChanges = []; $('bulkFile').value = ''; $('bulkPreview').replaceChildren(); show($('bulkApply'), false); status('', 'bulkStatus'); }
+$('bulkDownload').addEventListener('click', async () => {
+  try {
+    const rows = (await getContainerRows()).filter(isActiveContainer);
+    downloadCSV('chemora-bulk-update.csv', [['barcode', 'chemical', ...BULK_FIELDS], ...rows.map(x => [x.barcode, x.chemical?.name, ...BULK_FIELDS.map(k => x[k] ?? '')])]);
+    status('Downloaded ' + rows.length + ' containers.', 'bulkStatus');
+  } catch (e) { status(errorText(e), 'bulkStatus'); }
+});
+$('bulkFile').addEventListener('change', async e => {
+  const file = e.target.files[0]; if (!file) return;
+  bulkChanges = []; show($('bulkApply'), false);
+  try {
+    const rows = parseCSV(await file.text()).filter(r => r.some(c => String(c).trim()));
+    const head = (rows.shift() || []).map(h => String(h).trim().toLowerCase());
+    const bi = head.indexOf('barcode');
+    if (bi < 0) return status('The file needs a "barcode" column (download the current data to start from it).', 'bulkStatus');
+    if (rows.length > 500) return status('Up to 500 rows can be updated at once.', 'bulkStatus');
+    bulkRows = (await getContainerRows()).filter(isActiveContainer);
+    const byBarcode = new Map(bulkRows.map(x => [String(x.barcode).toLowerCase(), x]));
+    const problems = [];
+    rows.forEach((r, i) => {
+      const line = i + 2, x = byBarcode.get(String(r[bi] || '').trim().toLowerCase());
+      if (!x) return problems.push(`Row ${line}: barcode "${r[bi] || ''}" not found.`);
+      const patch = {}; let remaining = null;
+      for (const k of BULK_FIELDS) {
+        const ci = head.indexOf(k); if (ci < 0) continue;
+        const raw = String(r[ci] ?? '').trim(), old = x[k] ?? '';
+        if (raw === String(old)) continue;
+        if (k === 'remaining_amount') {
+          if (raw === '' ) continue;
+          const n = Number(raw);
+          if (!Number.isFinite(n) || n < 0 || n > Number(x.container_size)) { problems.push(`Row ${line}: remaining amount must be between 0 and ${x.container_size}.`); continue; }
+          if (n !== Number(old)) remaining = n;
+        } else if (k === 'received_at' || k === 'expires_at') {
+          if (raw !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(raw)) { problems.push(`Row ${line}: ${k} must look like 2026-03-31.`); continue; }
+          patch[k] = raw || null;
+        } else patch[k] = raw || null;
+      }
+      if (Object.keys(patch).length || remaining !== null) bulkChanges.push({ x, patch, remaining });
+    });
+    $('bulkPreview').innerHTML = (problems.length ? '<div class="ci-box" style="border-color:#d9635d"><strong>Please fix:</strong><br>' + problems.slice(0, 20).map(esc).join('<br>') + (problems.length > 20 ? `<br>…and ${problems.length - 20} more` : '') + '</div>' : '') +
+      (bulkChanges.length ? '<table class="inventory-data-table"><thead><tr><th>Barcode</th><th>Container</th><th>Change</th></tr></thead><tbody>' + bulkChanges.map(c => `<tr><td>${esc(c.x.barcode)}</td><td>${esc(c.x.chemical?.name)}</td><td>${[...Object.entries(c.patch).map(([k, v]) => `${esc(k)}: ${esc(c.x[k] ?? '—')} → <b>${esc(v ?? '—')}</b>`), ...(c.remaining !== null ? [`remaining_amount: ${esc(c.x.remaining_amount)} → <b>${esc(c.remaining)}</b>`] : [])].join('<br>')}</td></tr>`).join('') + '</tbody></table>' : '<p class="muted">No changes found.</p>');
+    show($('bulkApply'), bulkChanges.length > 0 && problems.length === 0);
+    status(bulkChanges.length ? `${bulkChanges.length} container(s) will change.` + (problems.length ? ' Fix the listed problems to continue.' : '') : '', 'bulkStatus');
+  } catch (err) { status(errorText(err), 'bulkStatus'); }
+});
+$('bulkApply').addEventListener('click', async () => {
+  if (!isAdmin() || !bulkChanges.length) return;
+  $('bulkApply').disabled = true; let ok = 0; const failed = [];
+  for (const c of bulkChanges) {
+    try {
+      if (Object.keys(c.patch).length) { const { error } = await updateRow('inventory_containers', c.x.id, c.patch); if (error) throw error; }
+      if (c.remaining !== null) { const { error } = await db.rpc('inventory_container_action_phase3', { p_id: c.x.id, p_action: 'quantity', p: { remaining_amount: String(c.remaining) } }); if (error) throw error; }
+      ok++;
+    } catch (err) { failed.push(`${c.x.barcode}: ${errorText(err)}`); }
+  }
+  $('bulkApply').disabled = false; show($('bulkApply'), false); bulkChanges = [];
+  $('bulkPreview').innerHTML = failed.length ? '<div class="ci-box" style="border-color:#d9635d"><strong>Not updated:</strong><br>' + failed.map(esc).join('<br>') + '</div>' : '';
+  status(`Updated ${ok} container(s)` + (failed.length ? `, ${failed.length} failed.` : '.'), 'bulkStatus');
+});
+
+/* ---------- Stocktake & audit ---------- */
+let stock = null;
+function resetStock() { stock = null; show($('stockMove'), false); $('stockLocation').textContent = 'No location selected.'; $('stockScan').disabled = true; $('stockScan').value = ''; $('stockResult').replaceChildren(); status('', 'stockStatus'); }
+$('stockPick').addEventListener('click', async () => {
+  const id = await chooseLocation('Stocktake location'); if (!id) return;
+  try {
+    const loc = locations.find(l => l.id === id), ids = new Set($('stockSub').checked ? descendantIds(id) : [id]);
+    const all = (await getContainerRows()).filter(isActiveContainer);
+    stock = { loc, all, expected: new Map(all.filter(x => ids.has(x.location_id)).map(x => [x.id, x])), found: new Set(), unexpected: new Map(), unknown: [] };
+    $('stockLocation').textContent = locationPath(loc) + ' — ' + stock.expected.size + ' container(s) expected';
+    $('stockScan').disabled = false; $('stockScan').focus(); renderStock();
+  } catch (e) { status(errorText(e), 'stockStatus'); }
+});
+$('stockScan').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || !stock) return;
+  e.preventDefault();
+  const code = e.target.value.trim(); e.target.value = ''; if (!code) return;
+  const x = stock.all.find(r => String(r.barcode).toLowerCase() === code.toLowerCase());
+  if (!x) { if (!stock.unknown.includes(code)) stock.unknown.push(code); status('Unknown barcode ' + code, 'stockStatus'); }
+  else if (stock.expected.has(x.id)) { stock.found.add(x.id); status(`${x.chemical?.name || 'Container'} (${x.barcode}) found.`, 'stockStatus'); }
+  else { stock.unexpected.set(x.id, x); status(`${x.chemical?.name || 'Container'} (${x.barcode}) belongs to ${x.location_name || 'another location'}.`, 'stockStatus'); }
+  renderStock();
+});
+function stockReport() {
+  const rows = [];
+  for (const x of stock.expected.values()) rows.push([stock.found.has(x.id) ? 'Found' : 'Missing', x.barcode, x.chemical?.name, x.location_name]);
+  for (const x of stock.unexpected.values()) rows.push(['Unexpected (listed elsewhere)', x.barcode, x.chemical?.name, x.location_name]);
+  for (const c of stock.unknown) rows.push(['Unknown barcode', c, '', '']);
+  return rows;
+}
+function renderStock() {
+  if (!stock) return $('stockResult').replaceChildren();
+  const missing = [...stock.expected.values()].filter(x => !stock.found.has(x.id));
+  const list = (title, arr, cls) => arr.length ? `<h4>${title} (${arr.length})</h4><table class="inventory-data-table"><thead><tr><th>Barcode</th><th>Container</th><th>Listed location</th></tr></thead><tbody>${arr.map(x => `<tr class="${cls}"><td>${esc(x.barcode)}</td><td>${esc(x.chemical?.name)}</td><td>${esc(x.location_name)}</td></tr>`).join('')}</tbody></table>` : '';
+  $('stockResult').innerHTML = `<p><strong>${stock.found.size}</strong> of ${stock.expected.size} found &middot; <strong>${missing.length}</strong> missing &middot; <strong>${stock.unexpected.size}</strong> unexpected &middot; <strong>${stock.unknown.length}</strong> unknown</p>` +
+    list('Missing', missing, 'is-locked') + list('Unexpected here', [...stock.unexpected.values()], '') +
+    (stock.unknown.length ? `<h4>Unknown barcodes (${stock.unknown.length})</h4><p>${stock.unknown.map(esc).join(', ')}</p>` : '');
+  show($('stockMove'), isManager() && stock.unexpected.size > 0);
+}
+$('stockExport').addEventListener('click', () => { if (!stock) return status('Choose a location first.', 'stockStatus'); downloadCSV('stocktake-' + new Date().toISOString().slice(0, 10) + '.csv', [['Result', 'Barcode', 'Container', 'Listed location'], ...stockReport()]); });
+$('stockReset').addEventListener('click', resetStock);
+$('stockMove').addEventListener('click', async () => {
+  if (!stock?.unexpected.size) return;
+  if (!confirm(`Move ${stock.unexpected.size} container(s) to ${locationPath(stock.loc)}?`)) return;
+  let ok = 0;
+  for (const x of stock.unexpected.values()) {
+    const { error } = await db.rpc('inventory_container_action_phase3', { p_id: x.id, p_action: 'move', p: { location_id: stock.loc.id } });
+    if (!error) { ok++; x.location_id = stock.loc.id; stock.expected.set(x.id, x); stock.found.add(x.id); stock.unexpected.delete(x.id); }
+  }
+  renderStock(); status(`Moved ${ok} container(s).`, 'stockStatus');
 });
 
 initSession().catch(e => { showLoggedOut(); status(errorText(e), 'loginError'); });
