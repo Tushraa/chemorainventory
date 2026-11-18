@@ -2444,5 +2444,6 @@ $('stockMove').addEventListener('click', async () => {
   renderStock(); status(`Moved ${ok} container(s).`, 'stockStatus');
 });
 
+document.querySelectorAll('[data-sponsor-link]').forEach(a => a.addEventListener('click', e => { if (a.getAttribute('href') === '#') e.preventDefault(); }));
 initSession().catch(e => { showLoggedOut(); status(errorText(e), 'loginError'); });
 })();

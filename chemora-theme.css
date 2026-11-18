@@ -248,3 +248,15 @@ html body.ci .history-filters .field{flex:1 1 150px;margin:0}
 html body.ci .history-filters .btn{flex:0 0 auto}
 html body.ci #view-tools label.muted input[type=checkbox]{width:16px !important;height:16px !important;min-height:0 !important;padding:0 !important;flex:0 0 auto}
 html body.ci #view-tools label.muted{white-space:nowrap}
+
+/* sponsors (left menu, below signed-in info) */
+.ci .ci-sponsors{display:flex;flex-direction:column;gap:10px;margin:18px 0 0;padding:0 0 0 26px;max-width:200px}
+.ci .ci-sponsor{display:block;text-decoration:none;color:var(--ci-muted,#aab);pointer-events:auto}
+.ci .ci-sponsor[href="#"]{cursor:default}
+.ci .ci-sponsor-label{display:block;font-size:11px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px;color:#9aa5a9}
+.ci .ci-sponsor-logo{position:relative;display:flex;align-items:center;justify-content:center;height:64px;background:#fff;border:1px solid #1b1e22;border-radius:2px;overflow:hidden}
+.ci .ci-sponsor-logo img{max-width:90%;max-height:52px;object-fit:contain;position:relative;z-index:1}
+.ci .ci-sponsor-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8a949a;font-size:11px;border:1px dashed #b9c1c5;margin:4px}
+.ci .ci-sponsor-logo img+.ci-sponsor-ph{z-index:0}
+.ci .ci-sponsor-logo img:not([hidden])~.ci-sponsor-ph{visibility:hidden}
+@media (max-width:760px){.ci .ci-sponsors{padding-left:0;max-width:none}}
