@@ -260,3 +260,5 @@ html body.ci #view-tools label.muted{white-space:nowrap}
 .ci .ci-sponsor-logo img+.ci-sponsor-ph{z-index:0}
 .ci .ci-sponsor-logo img:not([hidden])~.ci-sponsor-ph{visibility:hidden}
 @media (max-width:760px){.ci .ci-sponsors{padding-left:0;max-width:none}}
+html body.ci .ci-sponsors{padding-left:0 !important;max-width:none !important;width:200px;margin-left:0}
+html body.ci .ci-sponsor-label{padding-left:2px}
