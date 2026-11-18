@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="170" viewBox="0 0 560 170" role="img" aria-label="Chemora logo">
+  <rect width="560" height="170" rx="14" fill="#393e41"/>
+  <g transform="translate(34 22) scale(0.74) translate(-100 -60)">
+    <path d="M250.6 115 L190 80 L129.4 115 L129.4 185 L190 220 L250.6 185" fill="none" stroke="#2DD4BF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="250.6" cy="115" r="13" fill="#F59E0B"/>
+    <circle cx="250.6" cy="185" r="13" fill="#F59E0B"/>
+    <circle cx="190" cy="150" r="9" fill="#FFFFFF"/>
+  </g>
+  <text x="196" y="102" font-family="Montserrat, 'Helvetica Neue', Arial, sans-serif" font-size="62" font-weight="300" fill="#ffffff" letter-spacing="1">Chemora</text>
+</svg>
