@@ -142,8 +142,8 @@
 <dialog id="structureDialog" class="chemical-dialog chemora-structure-dialog" aria-labelledby="structureDialogTitle">
   <div class="chemical-dialog-head"><h2 id="structureDialogTitle">Structure Search</h2><button type="button" id="closeStructure" aria-label="Close structure search">×</button></div>
   <div class="chemical-dialog-body">
-    <p id="ketcherSetupNotice" class="notice hide" role="alert"></p>
-    <iframe id="chemoraKetcherFrame" title="Ketcher chemical structure editor" data-editor-src="ketcher/index.html" loading="lazy"></iframe>
+    <p id="structureEditorNotice" class="notice hide" role="alert"></p>
+    <div id="jsmeContainer" data-editor-src="jsme/jsme.nocache.js"></div>
     <label class="field">Or paste a SMILES string<input id="structureSmiles" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. CCO for ethanol"></label>
     <div class="chemora-structure-actions">
       <button id="searchExact" class="btn" type="button">Exact Match Search</button>
