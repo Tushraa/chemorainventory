@@ -1,0 +1,250 @@
+/* Chemora interface theme: dark grey workspace with a stacked left menu, square quick-action buttons,
+   header-bar panels and compact tables. Loaded after inventory.css so it wins every conflict. */
+:root{
+  --ci-page:#393e41; --ci-panel:#2d3133; --ci-bar:#4e5659; --ci-input:#25292b; --ci-line:#1b1e22; --ci-row:#34393b;
+  --ci-btn:#536066; --ci-btn-hover:#62727a; --ci-green:#3e9475; --ci-green-hover:#47a784; --ci-red:#d9635d; --ci-blue:#46697f;
+  --ci-text:#ddd; --ci-muted:#9aa3a7; --ci-white:#fff;
+}
+html,html.ci-root{background:var(--ci-page) !important;color-scheme:dark}
+body.ci{
+  background:var(--ci-page) radial-gradient(rgba(255,255,255,.035) 1px, transparent 1px) 0 0/4px 4px;
+  color:var(--ci-text); font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:12px; line-height:1.45;
+}
+.ci h1,.ci h2,.ci h3,.ci h4,.ci h5,.ci h6,.ci .ci-heading{font-family:Cuprum,"Helvetica Neue",Arial,sans-serif;color:#fff;letter-spacing:0}
+.ci a{color:#fff}
+.ci .muted,.ci .ci-muted{color:var(--ci-muted)}
+.ci .hide{display:none !important}
+
+/* ---------- top bar ---------- */
+.ci .ci-topbar{position:static;height:auto;min-height:94px;padding:22px 30px 14px;background:transparent;border:0;box-shadow:none;display:flex;align-items:flex-start;justify-content:space-between;max-width:1280px;margin:0 auto;width:100%}
+.ci .ci-brand{display:flex;align-items:center;gap:14px;color:#fff;text-decoration:none}
+.ci .ci-brand-name{font-family:Montserrat,"Helvetica Neue",Arial,sans-serif;font-weight:300;font-size:36px;letter-spacing:.5px;color:#fff;line-height:1}
+.ci .inventory-topbar-right{gap:0}
+.ci .inventory-top-actions{display:flex;gap:20px}
+.ci .top-action{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:98px;height:60px;padding:6px 8px;background:var(--ci-btn);color:#fff;border:0;border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,.45);font-size:12px;font-weight:400;cursor:pointer}
+.ci .top-action i{font-size:22px;line-height:1}
+.ci .top-action:hover{background:var(--ci-btn-hover)}
+.ci .top-action.hide{display:none !important}
+
+/* ---------- layout ---------- */
+.ci .shell{max-width:1280px;margin:0 auto 60px;padding:0 30px}
+.ci .inventory-workspace{display:grid;grid-template-columns:200px minmax(0,1fr);gap:30px;align-items:start}
+.ci .inventory-content{min-height:420px}
+
+/* ---------- side menu ---------- */
+.ci .ci-menu{position:static;display:flex;flex-direction:column;gap:5px;background:transparent;border:0;padding:0;margin:0;box-shadow:none}
+.ci .ci-menu>button,.ci .ci-menu .side-group-toggle{display:flex;align-items:center;gap:10px;width:100%;height:40px;padding:0 12px;background:var(--ci-bar);color:#fff;border:0;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.45);font-family:Cuprum,Arial,sans-serif;font-size:16px;font-weight:700;text-align:left;cursor:pointer}
+.ci .ci-menu>button i:first-child{width:18px;text-align:center;font-size:14px}
+.ci .ci-menu>button:hover{background:#5d676b}
+.ci .ci-menu>button.active,.ci .ci-menu>button.open{background:var(--ci-green)}
+.ci .ci-menu .side-group-toggle .side-chevron{margin-left:auto;font-size:11px}
+.ci .ci-menu .side-sub{display:flex;flex-direction:column;margin:0 0 3px;background:var(--ci-panel);border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.45);overflow:hidden}
+.ci .ci-menu .side-sub.hide{display:none !important}
+.ci .ci-menu .side-sub button{display:flex;align-items:center;justify-content:space-between;width:100%;height:38px;padding:0 12px;background:transparent;color:#fff;border:0;border-radius:0;font-size:12px;font-weight:400;font-family:"Helvetica Neue",Arial,sans-serif;text-align:left;cursor:pointer}
+.ci .ci-menu .side-sub button:hover{background:#383e41}
+.ci .ci-menu .side-sub button.active{background:var(--ci-blue)}
+.ci .ci-menu .side-sub button.active::after{content:"\203A";font-size:18px;line-height:1}
+.ci .ci-signed-in{margin-top:12px;padding:0 0 0 26px;color:#fff;font-size:12px}
+.ci .ci-signed-in strong{font-weight:400;border-bottom:1px dotted #fff}
+.ci .ci-signed-in .ci-role{color:var(--ci-muted);margin-top:2px}
+.ci .ci-signed-in select{margin-top:8px;max-width:170px;background:var(--ci-input);color:var(--ci-text);border:1px solid var(--ci-line);border-radius:2px;padding:4px}
+
+/* ---------- panels ---------- */
+.ci .panel{background:var(--ci-panel);border:1px solid rgba(0,0,0,.35);border-radius:2px !important;box-shadow:0 1px 4px rgba(0,0,0,.5);margin:0 0 20px;color:var(--ci-text)}
+.ci .panel>h2,.ci .panel>h3.ci-bar,.ci .ci-bar{display:flex;align-items:center;gap:10px;margin:0;min-height:42px;padding:0 14px;background:var(--ci-bar);color:#fff;border:0;border-bottom:0;font-family:Cuprum,Arial,sans-serif;font-size:16px;font-weight:700;letter-spacing:0}
+.ci .panel>h2 .module-title-icon{display:none}
+.ci .panel>h2 .ci-bar-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.ci .pad{padding:14px 15px}
+.ci .tab-view>.panel:last-child{margin-bottom:0}
+
+/* ---------- forms ---------- */
+.ci .field,.ci label.field{display:block;margin:0 0 12px;color:var(--ci-text);font-size:12px;font-weight:400}
+.ci .field input,.ci .field select,.ci .field textarea,.ci input[type=text],.ci input[type=search],.ci input[type=email],.ci input[type=number],.ci input[type=password],.ci input[type=date],.ci input[type=file],.ci select,.ci textarea{
+  width:100%;background:var(--ci-input);color:var(--ci-text);border:1px solid var(--ci-line);border-radius:2px !important;padding:10px 10px;font-size:12px;box-shadow:none;margin-top:5px}
+.ci .field input:focus,.ci .field select:focus,.ci .field textarea:focus,.ci input:focus,.ci select:focus,.ci textarea:focus{outline:0;border-color:var(--ci-green);box-shadow:0 0 0 1px var(--ci-green)}
+.ci input::placeholder,.ci textarea::placeholder{color:#6d777b}
+.ci input[type=checkbox],.ci input[type=radio]{width:auto;margin:0 6px 0 0;accent-color:var(--ci-green)}
+.ci .row{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.ci .status{color:var(--ci-muted);min-height:0;margin:6px 0}
+.ci .status:empty{display:none}
+.ci .notice{background:#4a3f2c;color:#f3d9a4;border:1px solid #6b5a38;border-radius:2px;padding:10px 12px}
+.ci .hint{color:var(--ci-muted);font-size:11px;margin:-6px 0 12px 5px}
+.ci .dotted{border-bottom:1px dotted #fff;cursor:pointer;color:#fff;background:none;border-top:0;border-left:0;border-right:0;padding:0;font-size:inherit}
+
+/* ---------- buttons ---------- */
+.ci .btn,.ci button.btn,.ci .btn.secondary{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--ci-btn);color:#fff;border:0;border-radius:2px !important;padding:9px 14px;font-size:12px;font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.4);cursor:pointer;width:auto}
+.ci .btn:hover,.ci .btn.secondary:hover{background:var(--ci-btn-hover)}
+.ci .btn.green{background:var(--ci-green)}
+.ci .btn.green:hover{background:var(--ci-green-hover)}
+.ci .btn.danger{background:var(--ci-red)}
+.ci .btn.small{padding:5px 9px;font-size:11px}
+.ci .btn[disabled],.ci .btn.disabled{opacity:.5;cursor:default}
+.ci .icon-btn{display:inline-grid;place-items:center;width:26px;height:26px;background:var(--ci-btn);color:#fff;border:0;border-radius:2px;cursor:pointer;font-size:11px;box-shadow:0 1px 2px rgba(0,0,0,.4)}
+.ci .icon-btn:hover{background:var(--ci-btn-hover)}
+.ci .icon-btn.danger{background:var(--ci-red)}
+.ci .icon-btn[disabled]{opacity:.4;cursor:default}
+.ci .actions{display:flex;gap:8px;flex-wrap:wrap}
+.ci .split{display:inline-flex;position:relative}
+.ci .split>.btn:first-child{border-radius:2px 0 0 2px !important}
+.ci .split>.btn.caret{margin-left:1px;padding:9px 8px;border-radius:0 2px 2px 0 !important}
+.ci .split .menu{position:absolute;right:0;top:calc(100% + 4px);min-width:170px;background:#fff;color:#222;border-radius:3px;box-shadow:0 6px 18px rgba(0,0,0,.5);z-index:50;padding:3px 0}
+.ci .split .menu button{display:flex;width:100%;justify-content:space-between;gap:16px;align-items:center;background:none;border:0;padding:9px 12px;color:#222;font-size:12px;cursor:pointer;text-align:left}
+.ci .split .menu button:hover{background:#eef2f1}
+
+/* ---------- toolbars, tables ---------- */
+.ci .inventory-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 12px}
+.ci .inventory-toolbar input,.ci .inventory-toolbar select{margin-top:0;width:auto;min-width:160px;flex:1 1 180px}
+.ci .table-wrap{overflow:auto;max-height:70vh}
+.ci table.inventory-data-table,.ci .inventory-data-table{width:100%;border-collapse:collapse;background:transparent;color:var(--ci-text);font-size:12px}
+.ci .inventory-data-table thead th{position:sticky;top:0;background:var(--ci-panel);color:#fff;font-weight:700;text-align:left;padding:12px 10px;border-bottom:1px solid var(--ci-line);white-space:nowrap}
+.ci .inventory-data-table td{padding:12px 10px;border-bottom:1px solid #3a4043;border-right:0;vertical-align:middle}
+.ci .inventory-data-table tbody tr:hover td{background:#32373a}
+.ci .inventory-data-table th[scope=row]{background:transparent;color:#fff;text-align:left;padding:10px;border-bottom:1px solid #3a4043;width:40%}
+.ci .row-actions{display:flex;gap:6px;white-space:nowrap}
+.ci .badge{display:inline-block;background:var(--ci-green);color:#fff;font-weight:700;font-size:11px;padding:3px 8px;border-radius:2px}
+
+/* ---------- dialogs ---------- */
+.ci dialog,.ci dialog.chemical-dialog{background:var(--ci-panel);color:var(--ci-text);border:1px solid rgba(0,0,0,.5);border-radius:3px;box-shadow:0 8px 40px rgba(0,0,0,.7);padding:0;max-width:min(96vw,1000px);width:100%}
+.ci dialog::backdrop{background:rgba(20,22,24,.62)}
+.ci .chemical-dialog-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:transparent;border:0}
+.ci .chemical-dialog-head h2{font-size:16px;margin:0}
+.ci .chemical-dialog-head button{background:none;border:0;color:#fff;font-size:20px;cursor:pointer;line-height:1}
+.ci .chemical-dialog-body{padding:4px 16px 16px;background:transparent;color:var(--ci-text)}
+
+/* ---------- search page ---------- */
+.ci .chemora-search-split{display:grid;grid-template-columns:290px minmax(0,1fr);gap:30px;align-items:start}
+.ci .search-panel-fields .field{margin-bottom:14px}
+.ci .limit-line{margin:4px 0 14px;color:var(--ci-text)}
+.ci .search-actions{display:flex;justify-content:flex-end;gap:8px}
+.ci .results-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px}
+.ci .view-toggle{display:inline-flex}
+.ci .view-toggle button{background:var(--ci-panel);color:var(--ci-muted);border:0;padding:5px 10px;font-size:11px;cursor:pointer}
+.ci .view-toggle button.active{background:var(--ci-btn);color:#fff;font-weight:700}
+.ci .results-scroll{max-height:68vh;overflow:auto}
+.ci .result-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:28px 24px;padding:6px 4px}
+.ci .grid-tile{background:none;border:0;padding:0;text-align:left;color:var(--ci-text);cursor:pointer}
+.ci .grid-tile .tile-img{display:grid;place-items:center;width:100%;aspect-ratio:1;background:#f4f4f4;border-radius:1px;overflow:hidden}
+.ci .grid-tile .tile-img img{max-width:100%;max-height:100%;object-fit:contain}
+.ci .grid-tile .tile-name{margin-top:6px;font-size:12px}
+.ci .grid-tile .tile-name b{color:#fff}
+.ci .name-link{background:none;border:0;color:var(--ci-text);cursor:pointer;padding:0;text-align:left;font-size:12px}
+.ci .name-link:hover{color:#fff;text-decoration:underline}
+.ci .check-col{width:34px}
+.ci .check-col input{margin:0;width:16px;height:16px}
+
+/* ---------- location tree ---------- */
+.ci .loc-tree{list-style:none;margin:0;padding:6px 4px 6px 6px}
+.ci .loc-tree ul{list-style:none;margin:0;padding-left:16px}
+.ci .loc-node{display:flex;align-items:center;gap:6px;padding:3px 2px;color:#fff;font-size:12px;cursor:pointer}
+.ci .loc-node .caret{width:12px;color:var(--ci-muted);font-size:10px}
+.ci .loc-node .loc-code{color:var(--ci-muted)}
+.ci .loc-node .view-all{background:none;border:0;color:var(--ci-muted);cursor:pointer;font-size:11px;padding:0}
+.ci .loc-node .view-all:hover{color:#fff;text-decoration:underline}
+.ci .loc-node.selected>.loc-name{color:var(--ci-green)}
+.ci .loc-picker{background:var(--ci-panel);border:1px solid var(--ci-line);max-height:190px;overflow:auto;border-radius:2px}
+.ci .loc-picker .loc-node.selected{background:var(--ci-green);color:#fff}
+
+@media(max-width:900px){
+  .ci .inventory-workspace{grid-template-columns:1fr}
+  .ci .chemora-search-split{grid-template-columns:1fr}
+  .ci .ci-topbar{padding:14px}
+  .ci .inventory-top-actions{gap:8px}
+  .ci .top-action{min-width:68px;height:52px}
+  .ci .ci-brand-name{font-size:26px}
+  .ci .row{grid-template-columns:1fr}
+  .ci .shell{padding:0 14px}
+}
+
+/* ---------- overrides of the older layered theme in inventory.css (it uses !important) ---------- */
+html body.ci{background:var(--ci-page) radial-gradient(rgba(255,255,255,.035) 1px, transparent 1px) 0 0/4px 4px !important;color:var(--ci-text) !important;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif !important;font-weight:400 !important}
+html body.ci button,html body.ci input,html body.ci select,html body.ci textarea,html body.ci table,html body.ci dialog{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif !important;font-weight:400 !important}
+html body.ci h1,html body.ci h2,html body.ci h3,html body.ci .ci-menu>button,html body.ci .ci-menu .side-group-toggle,html body.ci .ci-heading{font-family:Cuprum,"Helvetica Neue",Arial,sans-serif !important;font-weight:700 !important}
+html body.ci .ci-brand-name{font-family:Montserrat,"Helvetica Neue",Arial,sans-serif !important;font-weight:300 !important}
+html body.ci .inventory-topbar.ci-topbar{height:auto !important;min-height:94px !important;background:transparent !important;border:0 !important;box-shadow:none !important;padding:22px 30px 14px !important}
+html body.ci .shell{margin-top:6px !important}
+html body.ci .ci-menu>button,html body.ci .ci-menu .side-group-toggle{min-height:40px !important;height:40px;padding:0 12px !important;background:var(--ci-bar) !important;color:#fff !important;border:0 !important;border-radius:3px !important;font-size:16px}
+html body.ci .ci-menu>button.active,html body.ci .ci-menu>button.open{background:var(--ci-green) !important}
+html body.ci .ci-menu>button:hover:not(.active){background:#5d676b !important}
+html body.ci .ci-menu .side-sub button{min-height:38px !important;height:38px;padding:0 12px !important;background:transparent !important;border:0 !important;color:#fff !important;font-size:12px}
+html body.ci .ci-menu .side-sub button.active{background:var(--ci-blue) !important}
+html body.ci .ci-menu .side-sub button:hover:not(.active){background:#383e41 !important}
+html body.ci .inventory-sidebar.ci-menu{background:transparent !important;border:0 !important;padding:0 !important;border-radius:0 !important;position:static;top:auto}
+html body.ci .inventory-content .panel,html body.ci .tab-view .panel,html body.ci .panel{background:var(--ci-panel) !important;border:1px solid rgba(0,0,0,.35) !important;border-radius:2px !important;box-shadow:0 1px 4px rgba(0,0,0,.5) !important}
+html body.ci .panel>h2,html body.ci .tab-view .panel h2{background:var(--ci-bar) !important;color:#fff !important;border:0 !important;padding:0 14px !important;font-size:16px !important}
+html body.ci .field input,html body.ci .field select,html body.ci .field textarea,html body.ci .inventory-toolbar input,html body.ci .inventory-toolbar select,html body.ci input,html body.ci select,html body.ci textarea{background:var(--ci-input) !important;color:var(--ci-text) !important;border-color:var(--ci-line) !important;border-radius:2px !important}
+html body.ci input[type=checkbox],html body.ci input[type=radio]{background:transparent !important}
+html body.ci .inventory-data-table th{background:var(--ci-panel) !important;color:#fff !important;border-color:var(--ci-line) !important}
+html body.ci .inventory-data-table td{color:var(--ci-text) !important;border-color:#3a4043 !important}
+html body.ci .btn,html body.ci .btn.secondary{background:var(--ci-btn) !important;color:#fff !important;border:0 !important;border-radius:2px !important}
+html body.ci .btn:hover,html body.ci .btn.secondary:hover{background:var(--ci-btn-hover) !important}
+html body.ci .btn.green{background:var(--ci-green) !important}
+html body.ci .btn.danger{background:var(--ci-red) !important}
+html body.ci .btn.caret{padding:9px 8px}
+html body.ci .muted,html body.ci .status,html body.ci p.muted{color:var(--ci-muted) !important}
+html body.ci .chemical-dialog,html body.ci dialog{background:var(--ci-panel) !important;color:var(--ci-text) !important}
+html body.ci .chemical-dialog-head{background:transparent !important;border:0 !important}
+html body.ci .inventory-top-actions .top-action{min-width:98px;height:60px;background:var(--ci-btn) !important;border-radius:2px !important}
+html body.ci .ci-signed-in{margin-top:12px}
+@media(max-width:850px){html body.ci .ci-menu{display:none !important}html body.ci .mobile-module-select select{background:var(--ci-input) !important;color:var(--ci-text) !important;border:1px solid var(--ci-line) !important}}
+html body.ci .ci-menu>button,html body.ci .ci-menu .side-group-toggle{white-space:nowrap}
+
+/* ---------- advanced search builder, GHS lists, dialog sizes ---------- */
+.ci dialog.ci-small{max-width:460px}
+.ci dialog.ci-wide{max-width:min(96vw,760px)}
+.ci .ci-label{margin:0 0 5px;color:var(--ci-text)}
+.ci .ci-box{background:#25292b;border:1px solid var(--ci-line);border-radius:2px;padding:12px 14px}
+.ci .ci-box p{margin:0 0 8px}
+.ci label.radio{display:flex;align-items:flex-start;gap:8px;margin:6px 0;cursor:pointer}
+.ci .ghs-list{max-height:300px;overflow:auto;padding:4px 8px}
+.ci .ghs-row{display:grid;grid-template-columns:28px 54px 1fr;align-items:center;gap:6px;padding:7px 4px;border-bottom:1px solid #30363a;cursor:pointer}
+.ci .ghs-row b{color:#fff}
+.ci .ghs-row input{margin:0;width:16px;height:16px}
+.ci .adv-group{background:#25292b;border:1px solid var(--ci-line);border-radius:2px;padding:8px;margin:8px 0}
+.ci .adv-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ci .adv-body{margin:8px 0 0 14px;padding-left:10px;border-left:2px solid #3a4043}
+.ci .adv-rule{display:grid;grid-template-columns:minmax(150px,1.4fr) minmax(110px,1fr) minmax(120px,1.4fr) auto;gap:8px;align-items:center;margin:6px 0;background:#2d3133;padding:6px}
+.ci .adv-rule select,.ci .adv-rule input{margin:0;width:100%}
+.ci .adv-rule select:only-of-type{grid-column:span 3}
+.ci .ghs-picts{display:flex;gap:8px;margin:8px 0}
+.ci .ghs-pict{display:grid;place-items:center;width:46px;height:46px;background:#fff;color:#111;border:4px solid #d42a2a;transform:rotate(45deg);margin:8px}
+.ci .ghs-pict i{transform:rotate(-45deg);font-size:18px}
+.ci .ci-narrow{max-width:520px}
+.ci .ci-loc-split{grid-template-columns:290px minmax(0,1fr)}
+.ci .loc-node .view-all{display:none}
+.ci .loc-node.selected .view-all{display:inline}
+.ci .loc-node .icon-btn.small{width:22px;height:22px;font-size:10px;margin-left:4px}
+.ci .loc-node .loc-name{flex:0 1 auto}
+.ci .loc-node{min-height:24px}
+.ci .loc-node:hover .loc-name{text-decoration:underline}
+.ci .ci-loc-form{border-bottom:1px solid var(--ci-line);margin-bottom:8px;padding:8px 6px}
+.ci .size-row{display:grid;grid-template-columns:1.4fr 1fr;gap:0 14px}
+.ci .barcode-result{color:var(--ci-green);font-weight:700}
+@media(max-width:700px){.ci .adv-rule{grid-template-columns:1fr}.ci .adv-rule select:only-of-type{grid-column:auto}}
+html body.ci dialog{max-height:92vh;overflow:auto}
+
+/* users / labs / tools additions */
+.ci .ci-check{display:block;padding:5px 0;cursor:pointer}
+.ci .ci-check input{margin-right:8px}
+.ci tr.is-locked td{opacity:.6}
+.ci .row-actions{display:inline-flex;gap:4px}
+.ci .im-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.ci .im-menu{position:relative}
+.ci .im-list{position:absolute;z-index:20;top:100%;left:0;min-width:240px;background:var(--ci-panel,#2d3133);border:1px solid #1b1e22;box-shadow:0 6px 14px rgba(0,0,0,.4)}
+.ci .im-list button{display:block;width:100%;text-align:left;padding:9px 12px;background:none;border:0;color:#ddd;font:inherit;cursor:pointer;white-space:nowrap}
+.ci .im-list button:hover{background:#4e5659;color:#fff}
+.ci .im-list button i{width:18px;margin-right:6px}
+.ci .im-list.hide{display:none}
+.ci #view-tools h4{margin:14px 0 6px}
+
+/* tools page: the dropdown toolbar replaces the old tiles (kept in the DOM for the toolbar actions) */
+html body.ci .tool-grid{display:none !important}
+html body.ci #view-tools>.panel>h2{display:none !important}
+html body.ci #view-tools>.panel{background:transparent !important;border:0 !important;box-shadow:none !important}
+html body.ci #view-tools>.panel>.pad{padding:0 !important}
+html body.ci #view-tools label.muted{display:inline-flex;align-items:center;gap:6px}
+html body.ci #view-tools input[type=checkbox]{width:auto !important;height:auto !important;margin:0}
+html body.ci .history-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+html body.ci .history-filters .field{flex:1 1 150px;margin:0}
+html body.ci .history-filters .btn{flex:0 0 auto}
+html body.ci #view-tools label.muted input[type=checkbox]{width:16px !important;height:16px !important;min-height:0 !important;padding:0 !important;flex:0 0 auto}
+html body.ci #view-tools label.muted{white-space:nowrap}
