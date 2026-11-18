@@ -76,7 +76,7 @@ if (!cfg || !cfg.supabaseUrl || !cfg.supabaseAnonKey || !window.supabase) {
 const db = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
 /* ---------- state ---------- */
-let user = null, role = null;
+let user = null, role = null, labContext = null;
 let locations = [], ownerProfiles = [];
 let lastChemicals = [], lastContainers = [], matchedContainerIds = null, lastSearch = null, searchSeq = 0;
 let activeChemicalId = null, activeContainerId = null;
@@ -187,10 +187,11 @@ async function initSession() {
   user = error ? null : current; role = null;
   let displayName = '';
   if (user) {
-    const result = await db.from('inventory_members').select('role').eq('user_id', user.id).maybeSingle();
+    const result = await db.rpc('inventory_my_context');
     if (result.error) { await rejectSession('Could not verify inventory access: ' + result.error.message); return; }
-    if (!result.data) { await rejectSession('Your account is not approved for inventory access.'); return; }
+    if (!result.data?.lab_id || !result.data?.role) { await rejectSession('Your account is not approved for inventory access.'); return; }
     role = result.data.role;
+    labContext = result.data;
     const { data: profile } = await db.from('inventory_user_profiles').select('full_name,account_status').eq('user_id', user.id).maybeSingle();
     if (profile?.account_status === 'locked') { await rejectSession('This account is locked. Contact the administrator.'); return; }
     displayName = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
@@ -199,7 +200,7 @@ async function initSession() {
 
   show($('auth'), false); show($('portal'), true); show($('profileCard'), true);
   $('who').textContent = displayName;
-  $('profileRole').textContent = role === 'admin' ? 'Administrator' : role === 'manager' ? 'Chemical Manager' : 'Member';
+  $('profileRole').textContent = (role === 'admin' ? 'Administrator' : role === 'manager' ? 'Chemical Manager' : 'Member') + (labContext?.lab_name ? ' · ' + labContext.lab_name : '');
   $('profileAvatar').textContent = displayName.trim().split(/\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase() || 'HG';
   applyRoleVisibility();
   setTab('home');
@@ -948,87 +949,102 @@ $('historyExport').addEventListener('click', () => {
   downloadCSV('hari-history.csv', [['Timestamp', 'Table', 'Action', 'User name'], ...cachedHistory.map(x => [x.created_at, x.table_name, x.action, historyNames[x.performed_by] || x.performed_by])]);
 });
 
-/* ---------- structure search (Ketcher editor + PubChem identity lookup) ---------- */
-let ketcherState = 'idle'; // idle | loading | ready | missing
-const setKetcherNotice = text => { const n = $('ketcherSetupNotice'); n.textContent = text || ''; show(n, Boolean(text)); };
-function getKetcherApi() {
+/* ---------- structure search (JSME editor + PubChem identity lookup) ---------- */
+// JSME (free, BSD licence) is loaded on demand from the "jsme" folder next to inventory.html.
+let editorState = 'idle'; // idle | loading | ready | missing
+let jsmeApplet = null, jsmeWaiters = [];
+const setEditorNotice = text => { const n = $('structureEditorNotice'); n.textContent = text || ''; show(n, Boolean(text)); };
+const getEditor = () => (jsmeApplet && typeof jsmeApplet.smiles === 'function' ? jsmeApplet : null);
+// JSME calls this global function once its files have loaded.
+window.jsmeOnLoad = function () {
   try {
-    const api = $('chemoraKetcherFrame').contentWindow?.ketcher;
-    return api && typeof api.getSmiles === 'function' ? api : null;
-  } catch (_err) { return null; } // cross-origin frame: Ketcher must be hosted on the same site
-}
-function waitForKetcher(timeoutMs = 60000) {
+    jsmeApplet = new window.JSApplet.JSME('jsmeContainer', '100%', '480px');
+    jsmeWaiters.splice(0).forEach(w => w.resolve(jsmeApplet));
+  } catch (err) { jsmeWaiters.splice(0).forEach(w => w.reject(err)); }
+};
+function waitForEditor(timeoutMs = 30000) {
   return new Promise((resolve, reject) => {
-    const started = Date.now();
-    (function poll() {
-      const api = getKetcherApi();
-      if (api) return resolve(api);
-      if (Date.now() - started > timeoutMs) return reject(Error('Ketcher did not finish loading.'));
-      setTimeout(poll, 300);
-    })();
+    if (getEditor()) return resolve(jsmeApplet);
+    const waiter = { resolve, reject };
+    jsmeWaiters.push(waiter);
+    setTimeout(() => {
+      const i = jsmeWaiters.indexOf(waiter);
+      if (i >= 0) { jsmeWaiters.splice(i, 1); reject(Error('The structure editor did not finish loading.')); }
+    }, timeoutMs);
   });
 }
-async function loadKetcher() {
-  if (ketcherState === 'loading' || ketcherState === 'ready') return;
-  const frame = $('chemoraKetcherFrame');
-  ketcherState = 'loading';
-  setKetcherNotice('');
-  show(frame, true);
+function loadEditorScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(Error('The structure editor files could not be loaded.'));
+    document.head.appendChild(s);
+  });
+}
+async function loadEditor() {
+  if (editorState === 'loading' || editorState === 'ready') return;
+  const box = $('jsmeContainer'), src = box.dataset.editorSrc;
+  editorState = 'loading';
+  setEditorNotice('');
+  show(box, true);
   $('structureStatus').textContent = 'Loading the structure editor…';
   try {
-    // Check the files exist first: an iframe pointing at a missing page would just show an error page.
+    // Check the file exists first so a missing folder gives a clear message instead of a silent blank box.
     let missing = false;
-    try { missing = (await fetch(frame.dataset.editorSrc, { method: 'HEAD', cache: 'no-store' })).status === 404; }
+    try { missing = (await fetch(src, { method: 'HEAD', cache: 'no-store' })).status === 404; }
     catch (_err) { missing = true; } // e.g. the page was opened from disk (file://) instead of a web server
     if (missing) {
-      ketcherState = 'missing';
-      show(frame, false);
-      setKetcherNotice('The Ketcher editor was not found. Copy the Ketcher standalone build into a "ketcher" folder next to inventory.html and open the site through a web address (see KETCHER_SETUP.md). You can still search by pasting a SMILES string below.');
+      editorState = 'missing';
+      show(box, false);
+      setEditorNotice('The JSME structure editor was not found. Copy the JSME files into a "jsme" folder next to inventory.html and open the site through a web address (see JSME_SETUP.md). You can still search by pasting a SMILES string below.');
       $('structureStatus').textContent = '';
       return;
     }
-    frame.src = frame.dataset.editorSrc;
-    const api = await waitForKetcher();
-    ketcherState = 'ready';
+    const ready = waitForEditor();
+    if (!window.JSApplet) await loadEditorScript(src);
+    else window.jsmeOnLoad();
+    const api = await ready;
+    editorState = 'ready';
     $('structureStatus').textContent = '';
     const pasted = $('structureSmiles').value.trim();
-    if (pasted) { try { await api.setMolecule(pasted); } catch (_err) { /* shown when searching */ } }
+    if (pasted) { try { api.readGenericMolecularInput(pasted); } catch (_err) { /* shown when searching */ } }
   } catch (err) {
-    ketcherState = 'idle'; // allow another attempt the next time the window is opened
-    setKetcherNotice(errorText(err) + ' Close and reopen this window to try again, or paste a SMILES string below.');
+    editorState = 'idle'; // allow another attempt the next time the window is opened
+    setEditorNotice(errorText(err) + ' Close and reopen this window to try again, or paste a SMILES string below.');
     $('structureStatus').textContent = '';
   }
 }
 $('structureSearchButton').addEventListener('click', () => {
   $('structureStatus').textContent = '';
   $('structureDialog').showModal();
-  loadKetcher();
+  loadEditor();
 });
 $('closeStructure').addEventListener('click', () => $('structureDialog').close());
-$('clearStructure').addEventListener('click', async () => {
+$('clearStructure').addEventListener('click', () => {
   $('structureStatus').textContent = '';
   $('structureSmiles').value = '';
-  const api = getKetcherApi();
+  const api = getEditor();
   if (!api) return;
-  try { await api.setMolecule(''); }
+  try { api.reset(); }
   catch (err) { $('structureStatus').textContent = 'Unable to clear the editor: ' + errorText(err); }
 });
 // Pasting a SMILES string also draws it in the editor, so it can be checked and edited.
-$('structureSmiles').addEventListener('change', async () => {
-  const api = getKetcherApi(), text = $('structureSmiles').value.trim();
+$('structureSmiles').addEventListener('change', () => {
+  const api = getEditor(), text = $('structureSmiles').value.trim();
   if (!api || !text) return;
-  try { await api.setMolecule(text); $('structureStatus').textContent = ''; }
-  catch (err) { $('structureStatus').textContent = 'Ketcher could not read this SMILES: ' + errorText(err); }
+  try { api.readGenericMolecularInput(text); $('structureStatus').textContent = ''; }
+  catch (err) { $('structureStatus').textContent = 'The editor could not read this SMILES: ' + errorText(err); }
 });
 async function chemoraRunStructureSearch(mode) {
   const message = $('structureStatus');
   try {
     // The drawing wins; the pasted SMILES is used when the editor is unavailable or empty.
-    const api = getKetcherApi();
+    const api = getEditor();
     let smiles = '';
     if (api) {
-      try { smiles = String((await api.getSmiles()) || '').trim(); }
-      catch (err) { throw Error('Ketcher could not read the drawing: ' + errorText(err)); }
+      try { smiles = String(api.smiles() || '').trim(); }
+      catch (err) { throw Error('The editor could not read the drawing: ' + errorText(err)); }
     }
     if (!smiles) smiles = $('structureSmiles').value.trim();
     if (!smiles) throw Error(api ? 'Draw a chemical structure or paste a SMILES string first.' : 'Paste a SMILES string; the drawing editor is not available.');

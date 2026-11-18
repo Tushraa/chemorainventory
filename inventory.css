@@ -1351,21 +1351,21 @@ html body dialog::backdrop {
 
 
 /* =========================================
-   CHEMORA - KETCHER STRUCTURE SEARCH DIALOG
+   CHEMORA - STRUCTURE EDITOR STRUCTURE SEARCH DIALOG
    ========================================= */
 .chemora-structure-dialog{width:min(1050px,calc(100vw - 28px))!important;max-width:none!important;}
 .chemora-structure-dialog .chemical-dialog-body{max-height:calc(90vh - 65px);overflow-y:auto;}
 .chemora-editor-toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0;}
-#chemoraKetcherFrame{display:none;width:100%;height:min(530px,60vh);border:1px solid #475569;background:#fff;margin-bottom:12px;}
+#jsmeContainer{display:none;width:100%;height:min(530px,60vh);border:1px solid #475569;background:#fff;margin-bottom:12px;}
 .chemora-structure-dialog #structureSmiles{font-family:monospace;}
 .chemora-structure-dialog .status{min-height:0;}
-@media(max-width:600px){#chemoraKetcherFrame{height:380px}.chemora-structure-dialog .chemical-dialog-body{padding:14px;}}
+@media(max-width:600px){#jsmeContainer{height:380px}.chemora-structure-dialog .chemical-dialog-body{padding:14px;}}
 
 /* [Chemora structure editor: auto-loaded drawing surface and search actions.] */
-#chemoraKetcherFrame{display:block!important;width:100%;height:min(560px,65vh);border:1px solid #475569;background:#fff;margin:0 0 14px;}
+#jsmeContainer{display:block!important;width:100%;height:min(560px,65vh);border:1px solid #475569;background:#fff;margin:0 0 14px;}
 .chemora-structure-actions{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 12px;}
 .chemora-structure-dialog .chemical-dialog-body{padding-top:14px;}
-@media(max-width:600px){#chemoraKetcherFrame{height:420px}.chemora-structure-actions .btn{flex:1 1 100%;}}
+@media(max-width:600px){#jsmeContainer{height:420px}.chemora-structure-actions .btn{flex:1 1 100%;}}
 
 
 /* =========================================
@@ -1393,7 +1393,8 @@ html body dialog::backdrop {
 #importPanel code { font-size: 12px; }
 
 
-/* Ketcher dialog: the frame must be hideable when the editor files are missing (same specificity as the display rule above, later wins) */
-#chemoraKetcherFrame.hide { display: none !important; }
-#chemoraKetcherFrame { margin-bottom: 14px; }
+/* structure editor dialog: the frame must be hideable when the editor files are missing (same specificity as the display rule above, later wins) */
+#jsmeContainer.hide { display: none !important; }
+#jsmeContainer { margin-bottom: 14px; }
 #structureDialog .notice { margin: 0 0 14px; }
+#jsmeContainer{height:auto!important;min-height:0!important;overflow:hidden;}
