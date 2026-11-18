@@ -35,7 +35,7 @@
   <div class="inventory-topbar-right">
     <div id="profileCard" class="inventory-profile hide" aria-label="Signed-in user">
       <div id="profileAvatar" class="inventory-avatar">HG</div>
-      <div class="inventory-profile-info"><strong id="who"></strong><span id="profileRole">Member</span></div>
+      <div class="inventory-profile-info"><strong id="who"></strong><span id="profileRole">Member</span><select id="labSwitcher" class="hide" aria-label="Switch lab" title="Switch lab"></select></div>
       <button id="logout" class="inventory-profile-logout" type="button" title="Sign out" aria-label="Sign out"><i class="fa-solid fa-right-from-bracket"></i></button>
     </div>
   </div>
@@ -154,7 +154,7 @@
     <p id="structureStatus" class="status" role="status"></p>
   </div>
 </dialog>
-<section id="view-users" class="tab-view hide"><div class="panel"><h2><i class="fa-solid fa-users-gear module-title-icon" aria-hidden="true"></i> Create member</h2><div class="pad"><form id="userForm"><div class="row"><label class="field">Full name<input name="name" required></label><label class="field">Email<input name="email" type="email" required></label></div><div class="row"><label class="field">Temporary password (12+ characters)<input name="password" type="password" minlength="12" autocomplete="new-password" required></label><label class="field">Role<select name="role"><option value="member">Member</option><option value="manager">Chemical manager</option><option value="admin">Administrator</option></select></label></div><button class="btn" type="submit">Create user</button></form>
+<section id="view-users" class="tab-view hide"><div id="createLabPanel" class="panel hide"><h2><i class="fa-solid fa-flask-vial module-title-icon" aria-hidden="true"></i> Create a new lab</h2><div class="pad"><p class="muted">Platform administrators only. The new lab starts empty and completely separate from the others; you become its administrator.</p><form id="labForm"><div class="row"><label class="field">Lab name<input name="name" required maxlength="80"></label><label class="field">Barcode prefix (letters/numbers)<input name="prefix" maxlength="8" value="LAB" pattern="[A-Za-z0-9]{1,8}" required></label></div><button class="btn" type="submit">Create lab</button></form></div></div><div class="panel"><h2><i class="fa-solid fa-users-gear module-title-icon" aria-hidden="true"></i> Create member</h2><div class="pad"><form id="userForm"><div class="row"><label class="field">Full name<input name="name" required></label><label class="field">Email<input name="email" type="email" required></label></div><div class="row"><label class="field">Temporary password (12+ characters)<input name="password" type="password" minlength="12" autocomplete="new-password" required></label><label class="field">Role<select name="role"><option value="member">Member</option><option value="manager">Chemical manager</option><option value="admin">Administrator</option></select></label></div><button class="btn" type="submit">Create user</button></form>
 
 
 

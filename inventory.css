@@ -1398,3 +1398,5 @@ html body dialog::backdrop {
 #jsmeContainer { margin-bottom: 14px; }
 #structureDialog .notice { margin: 0 0 14px; }
 #jsmeContainer{height:auto!important;min-height:0!important;overflow:hidden;}
+#labSwitcher{margin-top:4px;max-width:100%;font-size:12px;padding:2px 4px;border:1px solid #cbd5d0;border-radius:4px;background:#fff;color:#25332b;}
+.inventory-dark #labSwitcher{background:#1e2724;color:#dbe7df;border-color:#3b4a43;}

@@ -162,6 +162,8 @@ function resetState() {
   $('chemoraResultsCount').textContent = '';
   show($('chemoraResultsPanel'), false);
   $('chemoraToastContainer')?.replaceChildren();
+  labContext = null;
+  show($('labSwitcher'), false); show($('createLabPanel'), false);
 }
 function showLoggedOut() {
   show($('auth'), true); show($('portal'), false); show($('profileCard'), false);
@@ -203,6 +205,7 @@ async function initSession() {
   $('profileRole').textContent = (role === 'admin' ? 'Administrator' : role === 'manager' ? 'Chemical Manager' : 'Member') + (labContext?.lab_name ? ' · ' + labContext.lab_name : '');
   $('profileAvatar').textContent = displayName.trim().split(/\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase() || 'HG';
   applyRoleVisibility();
+  renderLabControls();
   setTab('home');
   $('chemicalCards').replaceChildren();
   show($('chemoraResultsPanel'), false);
@@ -210,6 +213,43 @@ async function initSession() {
   status('', 'searchStatus');
   await Promise.all([loadLocations(), loadContainerOwners()]);
 }
+/* Lab switcher and lab creation (data of different labs never mixes: the database only returns the selected lab). */
+function renderLabControls() {
+  const labs = labContext?.labs || [], sw = $('labSwitcher');
+  sw.replaceChildren(...labs.map(l => new Option(l.name, l.id)));
+  sw.value = labContext?.lab_id || '';
+  show(sw, labs.length > 1);
+  show($('createLabPanel'), Boolean(labContext?.platform_admin) && isAdmin());
+}
+async function switchLab(labId) {
+  const { error } = await db.rpc('inventory_switch_lab', { p_lab_id: labId });
+  if (error) { status(error.message); renderLabControls(); return false; }
+  resetState();
+  await initSession();
+  return true;
+}
+$('labSwitcher').addEventListener('change', async e => {
+  const select = e.currentTarget;
+  select.disabled = true;
+  try { if (await switchLab(select.value)) status('Switched to ' + (labContext?.lab_name || 'the selected lab') + '.'); }
+  finally { select.disabled = false; }
+});
+$('labForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.currentTarget, name = val(f, 'name'), prefix = val(f, 'prefix').toUpperCase();
+  if (!name) return status('Lab name is required.');
+  if (!/^[A-Z0-9]{1,8}$/.test(prefix)) return status('Barcode prefix must be 1-8 letters or numbers.');
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  if (slug.length < 2) return status('Use a lab name with at least two letters or numbers.');
+  const submit = f.querySelector('[type="submit"]');
+  submit.disabled = true;
+  try {
+    const { data, error } = await db.rpc('inventory_create_lab', { p_name: name, p_slug: slug, p_prefix: prefix });
+    if (error) return status(/duplicate key|already exists/i.test(error.message) ? 'A lab with that name already exists.' : error.message);
+    f.reset();
+    if (await switchLab(data)) status('Lab "' + name + '" created. You are now working in it.');
+  } finally { submit.disabled = false; }
+});
 function setTab(name) {
   if (!$('view-' + name)) name = 'home';
   if ((name === 'history' && !isManager()) || (['users', 'tools'].includes(name) && !isAdmin())) return;
