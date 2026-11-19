@@ -3,7 +3,8 @@
 //    addresses of people who also belong to other labs cannot be changed by a lab administrator.
 //  * The platform Inventory Administrator manages every lab and every account (pass labId to pick the lab,
 //    and global:true to act on an account regardless of lab) and is the only one who can touch another
-//    platform administrator.
+//    platform administrator, except that a lab administrator may remove the Inventory Administrator from their own
+//    lab (membership only: the account is never locked or deactivated by a lab administrator).
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -38,10 +39,11 @@ export async function handle(req, admin) {
 
     // The caller must be an administrator of their currently selected, active lab.
     const profile = await must(admin.from('inventory_user_profiles').select('active_lab_id,account_status').eq('user_id', callerId).maybeSingle());
-    if (!profile || profile.account_status === 'locked' || !profile.active_lab_id) fail(403, 'No active lab for this account.');
     const platformRows = await must(admin.from('inventory_platform_admins').select('user_id').limit(1000));
     const platformIds = new Set(platformRows.map(r => r.user_id));
     const platform = platformIds.has(callerId);
+    // The Inventory Administrator needs no working lab (every lab may be deactivated); everyone else does.
+    if (!profile || profile.account_status === 'locked' || (!profile.active_lab_id && !platform)) fail(403, 'No active lab for this account.');
     const labId = platform && clean(body.labId) ? clean(body.labId) : profile.active_lab_id;
     if (!labId && !(platform && body.global === true)) fail(403, 'No active lab for this account.');
     if (labId) {
@@ -52,13 +54,13 @@ export async function handle(req, admin) {
       if (mine?.role !== 'admin' && !platform) fail(403, 'Only lab administrators can manage accounts.');
     }
     const globalScope = platform && body.global === true;
-    const guardPlatformTarget = id => { if (platformIds.has(id) && !platform) fail(403, 'Only the Inventory Administrator can change that account.'); };
+    const guardPlatformTarget = (id, allowRemoval = false) => { if (allowRemoval) return; if (platformIds.has(id) && !platform) fail(403, 'Only the Inventory Administrator can change that account.'); };
 
     const members = async () => await must(admin.from('inventory_members').select('user_id,role').eq('lab_id', labId).limit(5000));
-    const requireTarget = async () => {
+    const requireTarget = async (allowPlatformRemoval = false) => {
       const id = clean(body.userId);
       if (!id) fail(400, 'userId is required.');
-      guardPlatformTarget(id);
+      guardPlatformTarget(id, allowPlatformRemoval);
       if (globalScope) {
         const prof = await must(admin.from('inventory_user_profiles').select('user_id').eq('user_id', id).maybeSingle());
         if (!prof) fail(404, 'Account not found.');
@@ -76,7 +78,7 @@ export async function handle(req, admin) {
       const ids = rows.map(r => r.user_id);
       const profiles = ids.length ? await must(admin.from('inventory_user_profiles').select('user_id,full_name,email,account_status').in('user_id', ids).limit(5000)) : [];
       const byId = new Map(profiles.map(p => [p.user_id, p]));
-      return json(200, { users: rows.map(r => { const p = byId.get(r.user_id) || {}; return { user_id: r.user_id, id: r.user_id, full_name: p.full_name || '', name: p.full_name || '', email: p.email || '', account_status: p.account_status || 'active', role: r.role }; }) });
+      return json(200, { users: rows.map(r => { const p = byId.get(r.user_id) || {}; return { user_id: r.user_id, platform_admin: platformIds.has(r.user_id), id: r.user_id, full_name: p.full_name || '', name: p.full_name || '', email: p.email || '', account_status: p.account_status || 'active', role: r.role }; }) });
     }
 
     if (action === 'create') {
@@ -157,11 +159,12 @@ export async function handle(req, admin) {
     }
 
     if (action === 'delete') {
-      const target = await requireTarget();
+      const target = await requireTarget(true);
       const id = target.user_id;
       if (id === callerId) fail(400, 'You cannot remove yourself.');
       if (target.role === 'admin' && await adminCountAfter(id, 'none') < 1) fail(400, 'A lab needs at least one administrator.');
       await must(admin.from('inventory_members').delete().eq('lab_id', labId).eq('user_id', id));
+      if (platformIds.has(id)) return json(200, { ok: true, removedFromLab: true }); // the Inventory Administrator keeps platform-wide access
       const remaining = await must(admin.from('inventory_members').select('lab_id').eq('user_id', id).limit(1));
       if (remaining.length) {
         await must(admin.from('inventory_user_profiles').update({ active_lab_id: remaining[0].lab_id }).eq('user_id', id).eq('active_lab_id', labId));

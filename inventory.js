@@ -197,7 +197,8 @@ async function initSession() {
   if (user) {
     const result = await db.rpc('inventory_my_context');
     if (result.error) { await rejectSession('Could not verify inventory access: ' + result.error.message); return; }
-    if (!result.data?.lab_id || !result.data?.role) { await rejectSession('Your account is not approved for inventory access.'); return; }
+    if (result.data?.lab_deactivated) { await rejectSession('Your laboratory has been deactivated by the Inventory Administrator, so you cannot sign in. Please contact the Inventory Administrator.'); return; }
+    if ((!result.data?.lab_id && !result.data?.platform_admin) || !result.data?.role) { await rejectSession('Your account is not approved for inventory access.'); return; }
     role = result.data.role;
     labContext = result.data;
     const { data: profile } = await db.from('inventory_user_profiles').select('full_name,account_status').eq('user_id', user.id).maybeSingle();
@@ -208,7 +209,7 @@ async function initSession() {
 
   show($('auth'), false); show($('portal'), true); show($('profileCard'), true); show($('topActions'), true);
   $('who').textContent = displayName;
-  $('profileRole').textContent = (role === 'admin' ? 'Administrator' : role === 'manager' ? 'Chemical Manager' : 'Member') + (labContext?.lab_name ? ' · ' + labContext.lab_name : '');
+  $('profileRole').textContent = labContext?.platform_admin ? 'Inventory Administrator' : (role === 'admin' ? 'Administrator' : role === 'manager' ? 'Chemical Manager' : 'Member') + (labContext?.lab_name ? ' · ' + labContext.lab_name : '');
   const initials = displayName.trim().split(/\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase() || 'HG';
   $('profileAvatar').textContent = initials; $('drawerAvatar').textContent = initials; $('drawerEmail').textContent = user.email || '';
   $('accountButton').title = displayName;
@@ -219,7 +220,7 @@ async function initSession() {
   show($('chemoraResultsPanel'), false);
   $('chemoraResultsCount').textContent = '';
   status('', 'searchStatus');
-  await Promise.all([loadLocations(), loadContainerOwners()]);
+  if (!labContext?.platform_admin) await Promise.all([loadLocations(), loadContainerOwners()]); // the Inventory Administrator only works in Labs & All Users
 }
 /* Lab switcher and lab creation (data of different labs never mixes: the database only returns the selected lab). */
 function renderLabControls() {
@@ -1220,7 +1221,7 @@ async function loadEditor() {
     if (missing) {
       editorState = 'missing';
       show(box, false);
-      setEditorNotice('The JSME structure editor was not found. Copy the JSME files into a "jsme" folder next to inventory.html and open the site through a web address (see JSME_SETUP.md). You can still search by pasting a SMILES string below.');
+      setEditorNotice('The JSME structure editor was not found. Copy the JSME files into a "jsme" folder next to inventory.html and open the site through a web address (see JSME_SETUP.md).');
       $('structureStatus').textContent = '';
       return;
     }
@@ -1230,11 +1231,9 @@ async function loadEditor() {
     const api = await ready;
     editorState = 'ready';
     $('structureStatus').textContent = '';
-    const pasted = $('structureSmiles').value.trim();
-    if (pasted) { try { api.readGenericMolecularInput(pasted); } catch (_err) { /* shown when searching */ } }
   } catch (err) {
     editorState = 'idle'; // allow another attempt the next time the window is opened
-    setEditorNotice(errorText(err) + ' Close and reopen this window to try again, or paste a SMILES string below.');
+    setEditorNotice(errorText(err) + ' Close and reopen this window to try again.');
     $('structureStatus').textContent = '';
   }
 }
@@ -1246,31 +1245,21 @@ $('structureSearchButton').addEventListener('click', () => {
 $('closeStructure').addEventListener('click', () => $('structureDialog').close());
 $('clearStructure').addEventListener('click', () => {
   $('structureStatus').textContent = '';
-  $('structureSmiles').value = '';
   const api = getEditor();
   if (!api) return;
   try { api.reset(); }
   catch (err) { $('structureStatus').textContent = 'Unable to clear the editor: ' + errorText(err); }
 });
-// Pasting a SMILES string also draws it in the editor, so it can be checked and edited.
-$('structureSmiles').addEventListener('change', () => {
-  const api = getEditor(), text = $('structureSmiles').value.trim();
-  if (!api || !text) return;
-  try { api.readGenericMolecularInput(text); $('structureStatus').textContent = ''; }
-  catch (err) { $('structureStatus').textContent = 'The editor could not read this SMILES: ' + errorText(err); }
-});
 async function chemoraRunStructureSearch(mode) {
   const message = $('structureStatus');
   try {
-    // The drawing wins; the pasted SMILES is used when the editor is unavailable or empty.
     const api = getEditor();
     let smiles = '';
     if (api) {
       try { smiles = String(api.smiles() || '').trim(); }
       catch (err) { throw Error('The editor could not read the drawing: ' + errorText(err)); }
     }
-    if (!smiles) smiles = $('structureSmiles').value.trim();
-    if (!smiles) throw Error(api ? 'Draw a chemical structure or paste a SMILES string first.' : 'Paste a SMILES string; the drawing editor is not available.');
+    if (!smiles) throw Error(api ? 'Draw a chemical structure first.' : 'The drawing editor is not available.');
     if (/\s/.test(smiles) || smiles.length > 2000) throw Error('That does not look like a valid SMILES string.');
     if (mode !== 'exact') { await runStructureMatch(mode, smiles, message); return; }
     message.textContent = 'Identifying structure through PubChem…';
@@ -1763,7 +1752,7 @@ function renderUsers() {
   const roleName = r => r === 'admin' ? 'Administrator' : r === 'manager' ? 'Chemical Manager' : 'Member';
   container.innerHTML = `<table class="inventory-data-table chemora-user-table"><thead><tr><th>Name</th><th>Email</th><th>Account Type</th><th>Actions</th></tr></thead><tbody>${users.map(u => {
     const id = u.user_id || u.id, locked = u.account_status === 'locked';
-    return `<tr${locked ? ' class="is-locked"' : ''}><td><strong>${esc(u.full_name || u.name || 'User')}</strong>${locked ? ' <span class="order-badge ordered">Locked</span>' : ''}</td><td>${esc(u.email || '—')}</td><td>${esc(roleName(u.role))}</td><td><span class="row-actions">${id !== user.id ? `<button type="button" class="icon-btn" data-user-lock="${esc(id)}" title="${locked ? 'Unlock account' : 'Lock account'}" aria-label="${locked ? 'Unlock account' : 'Lock account'}"><i class="fa-solid ${locked ? 'fa-lock-open' : 'fa-lock'}"></i></button>` : ''}<button type="button" class="icon-btn" data-user-edit="${esc(id)}" title="Edit user" aria-label="Edit user"><i class="fa-solid fa-pen-to-square"></i></button>${id !== user.id ? `<button type="button" class="icon-btn" data-user-delete="${esc(id)}" title="Deactivate account" aria-label="Deactivate account"><i class="fa-solid fa-trash"></i></button>` : ''}</span></td></tr><tr class="user-edit-row hide" data-user-row="${esc(id)}"><td colspan="4"><form class="user-edit-form"><div class="row"><label class="field">Full name<input name="name" value="${esc(u.full_name || u.name || '')}" required></label><label class="field">Email<input name="email" type="email" value="${esc(u.email || '')}" required></label></div><div class="row"><label class="field">Account type<select name="role">${['member', 'manager', 'admin'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${roleName(r)}</option>`).join('')}</select></label><label class="field">New password (optional, 12+ characters)<input name="password" type="password" minlength="12" autocomplete="new-password" placeholder="Leave blank to keep password"></label></div><div class="actions"><button class="btn green" type="submit">Save changes</button><button class="btn" type="button" data-user-close>Cancel</button></div><p class="status user-edit-status" role="status"></p></form></td></tr>`;
+    return `<tr${locked ? ' class="is-locked"' : ''}><td><strong>${esc(u.full_name || u.name || 'User')}</strong>${u.platform_admin ? ' <span class="order-badge received">Inventory Administrator</span>' : ''}${locked ? ' <span class="order-badge ordered">Locked</span>' : ''}</td><td>${esc(u.email || '—')}</td><td>${esc(roleName(u.role))}</td><td><span class="row-actions">${id !== user.id && !u.platform_admin ? `<button type="button" class="icon-btn" data-user-lock="${esc(id)}" title="${locked ? 'Unlock account' : 'Lock account'}" aria-label="${locked ? 'Unlock account' : 'Lock account'}"><i class="fa-solid ${locked ? 'fa-lock-open' : 'fa-lock'}"></i></button>` : ''}${u.platform_admin ? '' : `<button type="button" class="icon-btn" data-user-edit="${esc(id)}" title="Edit user" aria-label="Edit user"><i class="fa-solid fa-pen-to-square"></i></button>`}${id !== user.id ? `<button type="button" class="icon-btn" data-user-delete="${esc(id)}" title="Remove from this lab" aria-label="Remove from this lab"><i class="fa-solid fa-trash"></i></button>` : ''}</span></td></tr><tr class="user-edit-row hide" data-user-row="${esc(id)}"><td colspan="4"><form class="user-edit-form"><div class="row"><label class="field">Full name<input name="name" value="${esc(u.full_name || u.name || '')}" required></label><label class="field">Email<input name="email" type="email" value="${esc(u.email || '')}" required></label></div><div class="row"><label class="field">Account type<select name="role">${['member', 'manager', 'admin'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${roleName(r)}</option>`).join('')}</select></label><label class="field">New password (optional, 12+ characters)<input name="password" type="password" minlength="12" autocomplete="new-password" placeholder="Leave blank to keep password"></label></div><div class="actions"><button class="btn green" type="submit">Save changes</button><button class="btn" type="button" data-user-close>Cancel</button></div><p class="status user-edit-status" role="status"></p></form></td></tr>`;
   }).join('')}</tbody></table>`;
   container.querySelectorAll('[data-user-edit]').forEach(b => b.addEventListener('click', () => container.querySelector(`[data-user-row="${b.dataset.userEdit}"]`)?.classList.toggle('hide')));
   container.querySelectorAll('[data-user-lock]').forEach(b => b.addEventListener('click', async () => {
@@ -1771,8 +1760,9 @@ function renderUsers() {
     try { await invokeUsers({ action: u.account_status === 'locked' ? 'unlock' : 'lock', userId: b.dataset.userLock }); await loadUsers(); status('Account status updated.'); } catch (err) { status(errorText(err)); }
   }));
   container.querySelectorAll('[data-user-delete]').forEach(b => b.addEventListener('click', async () => {
-    if (!confirm('Deactivate this account? Its historical records will be retained.')) return;
-    try { await invokeUsers({ action: 'delete', userId: b.dataset.userDelete }); await loadUsers(); status('User deactivated.'); } catch (err) { status(errorText(err)); }
+    const target = users.find(x => (x.user_id || x.id) === b.dataset.userDelete);
+    if (!confirm(target?.platform_admin ? 'Remove the Inventory Administrator from this lab? Their platform-wide access is not affected.' : 'Delete this account from this lab? If they belong to no other lab the account is deactivated and can no longer sign in. Containers and history are kept.')) return;
+    try { await invokeUsers({ action: 'delete', userId: b.dataset.userDelete }); await loadUsers(); status('Account deleted from this lab.'); } catch (err) { status(errorText(err)); }
   }));
   container.querySelectorAll('[data-user-row]').forEach(row => {
     const id = row.dataset.userRow, f = row.querySelector('form');
@@ -2134,7 +2124,7 @@ function renderGhsPicker(listEl, filterEl, selected, onChange) {
 /* GHS search */
 const ghsSel = new Set();
 function drawGhsSelected() { $('ghsSelected').innerHTML = ghsSel.size ? [...ghsSel].sort().map(c => `<span class="badge">${esc(c)}</span>`).join(' ') : '<i>Select items from the list below</i>'; }
-$('openGhs').addEventListener('click', () => { show($('searchMoreMenu'), false); $('ghsFilter').value = ''; renderGhsPicker($('ghsList'), $('ghsFilter'), ghsSel, drawGhsSelected); drawGhsSelected(); status('', 'ghsStatus'); $('ghsSearchDialog').showModal(); });
+$('openGhs')?.addEventListener('click', () => { $('ghsFilter').value = ''; renderGhsPicker($('ghsList'), $('ghsFilter'), ghsSel, drawGhsSelected); drawGhsSelected(); status('', 'ghsStatus'); $('ghsSearchDialog').showModal(); });
 $('ghsRun').addEventListener('click', async () => {
   if (!ghsSel.size) return status('Select at least one hazard code.', 'ghsStatus');
   const mode = document.querySelector('input[name="ghsMode"]:checked').value, want = [...ghsSel];
@@ -2284,7 +2274,7 @@ function advEval(node, ctx) {
   if (!parts.length) return true;
   return node.op === 'AND' ? parts.every(i => advEval(i, ctx)) : parts.some(i => advEval(i, ctx));
 }
-$('openAdvanced').addEventListener('click', () => { show($('searchMoreMenu'), false); renderAdvanced(); status('', 'advancedStatus'); $('advancedDialog').showModal(); });
+$('openAdvanced')?.addEventListener('click', () => { renderAdvanced(); status('', 'advancedStatus'); $('advancedDialog').showModal(); });
 $('advancedRun').addEventListener('click', async () => {
   $('advancedRun').disabled = true; status('Searching…', 'advancedStatus');
   try {
@@ -2295,8 +2285,6 @@ $('advancedRun').addEventListener('click', async () => {
     $('advancedDialog').close();
   } catch (err) { status(errorText(err), 'advancedStatus'); } finally { $('advancedRun').disabled = false; }
 });
-$('searchMoreToggle').addEventListener('click', e => { e.stopPropagation(); $('searchMoreMenu').classList.toggle('hide'); });
-document.addEventListener('click', () => show($('searchMoreMenu'), false));
 
 /* ---------- add a container (two steps, toggles, location tree, hazard codes) ---------- */
 function setAddStep(step) { show($('addStep1'), step === 1); show($('addStep2'), step === 2); status('', 'addStatus'); }
@@ -2372,12 +2360,10 @@ async function loadPlatform() {
   if (users.error) $('allUsersTable').textContent = users.error.message; else { platformUsers = users.data || []; renderPlatformUsers(); }
 }
 function renderPlatformLabs() {
-  const current = labContext?.lab_id;
   $('labTable').innerHTML = platformLabs.length ? '<table class="inventory-data-table"><thead><tr><th>Lab</th><th>Barcode prefix</th><th>Lab administrators</th><th>Members</th><th>Containers</th><th>Status</th><th>Actions</th></tr></thead><tbody>' +
-    platformLabs.map(l => `<tr class="${l.active ? '' : 'is-locked'}"><td><strong>${esc(l.name)}</strong>${l.id === current ? ' <span class="order-badge received">Current</span>' : ''}</td><td>${esc(l.barcode_prefix)}</td><td>${esc(l.admins || '—')}</td><td>${esc(l.member_count)}</td><td>${esc(l.container_count)}</td><td>${l.active ? 'Active' : 'Inactive'}</td><td><span class="row-actions">` +
-      (l.active && l.id !== current ? `<button type="button" class="icon-btn" data-lab-open="${esc(l.id)}" title="Open this lab" aria-label="Open this lab"><i class="fa-solid fa-right-to-bracket"></i></button>` : '') +
+    platformLabs.map(l => `<tr class="${l.active ? '' : 'is-locked'}"><td><strong>${esc(l.name)}</strong></td><td>${esc(l.barcode_prefix)}</td><td>${esc(l.admins || '—')}</td><td>${esc(l.member_count)}</td><td>${esc(l.container_count)}</td><td>${l.active ? 'Active' : 'Inactive'}</td><td><span class="row-actions">` +
       `<button type="button" class="icon-btn" data-lab-rename="${esc(l.id)}" title="Rename lab" aria-label="Rename lab"><i class="fa-solid fa-pen-to-square"></i></button>` +
-      (l.id !== current ? `<button type="button" class="icon-btn" data-lab-toggle="${esc(l.id)}" title="${l.active ? 'Deactivate lab' : 'Activate lab'}" aria-label="${l.active ? 'Deactivate lab' : 'Activate lab'}"><i class="fa-solid ${l.active ? 'fa-ban' : 'fa-rotate-left'}"></i></button>` : '') +
+      `<button type="button" class="icon-btn" data-lab-toggle="${esc(l.id)}" title="${l.active ? 'Deactivate lab' : 'Activate lab'}" aria-label="${l.active ? 'Deactivate lab' : 'Activate lab'}"><i class="fa-solid ${l.active ? 'fa-ban' : 'fa-rotate-left'}"></i></button>` +
       '</span></td></tr>').join('') + '</tbody></table>' : '<p class="muted" style="padding:10px">No labs yet.</p>';
 }
 $('labTable').addEventListener('click', async e => {
@@ -2391,7 +2377,7 @@ $('labTable').addEventListener('click', async e => {
       status('Lab renamed.');
     } else if (tog) {
       const l = platformLabs.find(x => x.id === tog.dataset.labToggle);
-      if (l.active && !confirm(`Deactivate "${l.name}"? Its members will not be able to sign in to it. Nothing is deleted and you can activate it again.`)) return;
+      if (l.active && !confirm(`Deactivate "${l.name}"? Its members will not be able to sign in until you activate it again. Nothing is deleted.`)) return;
       const { error } = await db.rpc('inventory_update_lab', { p_lab_id: l.id, p_name: null, p_active: !l.active }); if (error) throw error;
       status(l.active ? 'Lab deactivated.' : 'Lab activated.');
     } else return;
@@ -2404,24 +2390,33 @@ function renderPlatformUsers() {
   const rows = platformUsers.filter(u => !q || [u.full_name, u.email, ...(u.labs || []).map(l => l.lab_name)].some(v => String(v || '').toLowerCase().includes(q)));
   $('allUsersTable').innerHTML = rows.length ? '<table class="inventory-data-table"><thead><tr><th>Name</th><th>Email</th><th>Labs and account type</th><th>Actions</th></tr></thead><tbody>' +
     rows.map(u => { const locked = u.account_status === 'locked', me = u.user_id === user.id;
-      return `<tr class="${locked ? 'is-locked' : ''}"><td><strong>${esc(u.full_name || 'User')}</strong>${u.platform_admin ? ' <span class="order-badge received">Inventory Administrator</span>' : ''}${locked ? ' <span class="order-badge ordered">Locked</span>' : ''}</td><td>${esc(u.email || '—')}</td><td>${(u.labs || []).map(l => `${esc(l.lab_name)} <span class="muted">(${esc(roleLabel(l.role))})</span>`).join('<br>') || '<span class="muted">No lab</span>'}</td><td><span class="row-actions">` +
-        (me ? '' : `<button type="button" class="icon-btn" data-au-lock="${esc(u.user_id)}" title="${locked ? 'Unlock account' : 'Lock account'}" aria-label="${locked ? 'Unlock account' : 'Lock account'}"><i class="fa-solid ${locked ? 'fa-lock-open' : 'fa-lock'}"></i></button><button type="button" class="icon-btn" data-au-pass="${esc(u.user_id)}" title="Set new password" aria-label="Set new password"><i class="fa-solid fa-key"></i></button><button type="button" class="icon-btn" data-au-delete="${esc(u.user_id)}" title="Deactivate account everywhere" aria-label="Deactivate account everywhere"><i class="fa-solid fa-trash"></i></button>`) +
+      return `<tr class="${locked ? 'is-locked' : ''}"><td><strong>${esc(u.full_name || 'User')}</strong>${u.platform_admin ? ' <span class="order-badge received">Inventory Administrator</span>' : ''}${locked ? ' <span class="order-badge ordered">Locked</span>' : ''}</td><td>${esc(u.email || '—')}</td><td>${(u.labs || []).map(l => `<span class="au-lab">${esc(l.lab_name)} <span class="muted">(${esc(roleLabel(l.role))})</span>${u.platform_admin ? '' : ` <button type="button" class="icon-btn au-remove" data-au-remove="${esc(u.user_id)}" data-au-lab="${esc(l.lab_id)}" title="Remove from ${esc(l.lab_name)}" aria-label="Remove from ${esc(l.lab_name)}"><i class="fa-solid fa-xmark"></i></button>`}</span>`).join('<br>') || '<span class="muted">No lab</span>'}</td><td><span class="row-actions">` +
+        (me ? '' : `<button type="button" class="icon-btn" data-au-lock="${esc(u.user_id)}" title="${locked ? 'Unlock account' : 'Lock account'}" aria-label="${locked ? 'Unlock account' : 'Lock account'}"><i class="fa-solid ${locked ? 'fa-lock-open' : 'fa-lock'}"></i></button><button type="button" class="icon-btn" data-au-edit="${esc(u.user_id)}" title="Edit name and e-mail" aria-label="Edit name and e-mail"><i class="fa-solid fa-pen-to-square"></i></button><button type="button" class="icon-btn" data-au-pass="${esc(u.user_id)}" title="Set new password" aria-label="Set new password"><i class="fa-solid fa-key"></i></button><button type="button" class="icon-btn" data-au-delete="${esc(u.user_id)}" title="Delete account (every lab)" aria-label="Delete account (every lab)"><i class="fa-solid fa-trash"></i></button>`) +
         '</span></td></tr>'; }).join('') + '</tbody></table>' : '<p class="muted" style="padding:10px">No matching users.</p>';
 }
 $('allUsersFilter').addEventListener('input', renderPlatformUsers);
 $('refreshPlatform').addEventListener('click', loadPlatform);
 $('allUsersTable').addEventListener('click', async e => {
-  const lock = e.target.closest('[data-au-lock]'), pass = e.target.closest('[data-au-pass]'), del = e.target.closest('[data-au-delete]');
-  const id = (lock || pass || del)?.dataset[lock ? 'auLock' : pass ? 'auPass' : 'auDelete']; if (!id) return;
+  const lock = e.target.closest('[data-au-lock]'), pass = e.target.closest('[data-au-pass]'), del = e.target.closest('[data-au-delete]'), edit = e.target.closest('[data-au-edit]'), rem = e.target.closest('[data-au-remove]');
+  const id = (lock || pass || del || edit || rem)?.dataset[lock ? 'auLock' : pass ? 'auPass' : del ? 'auDelete' : edit ? 'auEdit' : 'auRemove']; if (!id) return;
   const u = platformUsers.find(x => x.user_id === id);
   try {
-    if (lock) await invokeUsers({ action: u.account_status === 'locked' ? 'unlock' : 'lock', userId: id, global: true });
+    if (rem) {
+      const lab = (u.labs || []).find(l => l.lab_id === rem.dataset.auLab);
+      if (!confirm('Remove ' + (u.email || u.full_name) + ' from ' + (lab?.lab_name || 'this lab') + '? Their account stays active in any other lab. Containers and history are kept.')) return;
+      await invokeUsers({ action: 'delete', userId: id, labId: rem.dataset.auLab });
+    } else if (edit) {
+      const name = prompt('Full name', u.full_name || ''); if (name === null) return;
+      const email = prompt('E-mail address', u.email || ''); if (email === null) return;
+      if (!name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return status('Enter a name and a valid e-mail address.');
+      await invokeUsers({ action: 'update', userId: id, name: name.trim(), email: email.trim().toLowerCase(), global: true });
+    } else if (lock) await invokeUsers({ action: u.account_status === 'locked' ? 'unlock' : 'lock', userId: id, global: true });
     else if (pass) {
       const pw = prompt('New password for ' + (u.email || u.full_name) + ' (12+ characters)'); if (!pw) return;
       if (pw.length < 12) return status('Password must contain at least 12 characters.');
       await invokeUsers({ action: 'update', userId: id, password: pw, global: true });
     } else if (del) {
-      if (!confirm('Deactivate ' + (u.email || u.full_name) + ' in every lab? Their records are kept.')) return;
+      if (!confirm('Delete the account of ' + (u.email || u.full_name) + ' from every lab? It is deactivated and can no longer sign in. Containers and history are kept.')) return;
       await invokeUsers({ action: 'delete', userId: id, global: true });
     }
     status('Done.'); await loadPlatform();
