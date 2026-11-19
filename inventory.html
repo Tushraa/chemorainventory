@@ -17,8 +17,8 @@
   
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Cuprum:wght@400;700&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="inventory.css?v=20261119r">
-  <link rel="stylesheet" href="chemora-theme.css?v=20261119r">
+  <link rel="stylesheet" href="inventory.css?v=20261120a">
+  <link rel="stylesheet" href="chemora-theme.css?v=20261120a">
   <style>/* critical: keeps the account drawer closed even if a cached stylesheet is older than this page */
   .ci-drawer{position:fixed;top:0;right:0;bottom:0;width:340px;max-width:88vw;z-index:1000;transform:translateX(100%);visibility:hidden}
   .ci-drawer.open{transform:none;visibility:visible}
@@ -204,9 +204,9 @@
       <button id="searchExact" class="btn" type="button">Exact Match Search</button>
       <button id="searchSubstructure" class="btn secondary" type="button">Substructure Search</button>
       <button id="searchSimilarity" class="btn secondary" type="button">Similarity Search</button>
+      <label class="field chemora-sim-field" style="max-width:260px"><span class="sim-text">Minimum similarity for Similarity Search (%)</span><input id="similarityThreshold" type="number" min="10" max="100" step="5" value="50" title="Minimum similarity for Similarity Search (%)" aria-label="Minimum similarity for Similarity Search (%)"></label>
       <button id="clearStructure" class="btn secondary" type="button">Clear Structure</button>
     </div>
-    <label class="field" style="max-width:260px">Minimum similarity for Similarity Search (%)<input id="similarityThreshold" type="number" min="10" max="100" step="5" value="50"></label>
     <p id="structureStatus" class="status" role="status"></p>
   </div>
 </dialog>
@@ -248,5 +248,5 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-<script src="inventory.js?v=20261119r"></script>
+<script src="inventory.js?v=20261120a"></script>
 </body></html>

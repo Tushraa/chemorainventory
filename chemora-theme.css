@@ -543,3 +543,25 @@ html body.ci .ci-menu-toggle{height:40px !important}
 @media(max-width:400px){
   html body.ci #changeAdminButton>i,html body.ci #addUserButton>i{display:none}
 }
+
+/* ---------- structure dialog: similarity % field lives inside the button grid ---------- */
+html body.ci .chemora-sim-field{margin:0}
+@media(max-width:850px){
+  html body.ci .chemora-sim-field{order:5;grid-column:1/-1;margin-top:2px}
+}
+
+/* ---------- DESKTOP ONLY (>850px): normal-weight Search buttons, similarity % beside its button, results bar as on phones ---------- */
+@media(min-width:851px){
+  html body.ci .search-actions .btn,html body.ci #structureSearchButton{font-weight:400 !important}
+  html body.ci .chemora-structure-actions{display:flex !important;align-items:stretch;gap:10px}
+  html body.ci .chemora-structure-actions>.btn{flex:1 1 0;width:auto}
+  html body.ci .chemora-structure-actions>.chemora-sim-field{flex:0 0 58px;width:58px;max-width:58px !important;margin:0 !important;display:block}
+  html body.ci .chemora-sim-field .sim-text{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  html body.ci .chemora-sim-field input{width:100% !important;height:38px;margin:0 !important;padding:0 4px;text-align:center;box-sizing:border-box}
+  html body.ci .results-bar .actions{display:flex;gap:6px;align-items:center}
+  html body.ci .results-bar .view-toggle{display:inline-flex;gap:6px}
+  html body.ci .results-bar .view-toggle button,html body.ci .results-bar #downloadResults,html body.ci .results-bar #locDownload{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;margin:0;padding:0 14px;font-size:13px !important;font-weight:600;line-height:1;white-space:nowrap;border:1px solid var(--ci-btn) !important}
+  html body.ci .results-bar .view-toggle button{background:transparent !important;color:#fff;border-color:#3b6ea8 !important}
+  html body.ci .results-bar .view-toggle button.active{background:var(--ci-btn) !important;border-color:var(--ci-btn) !important}
+  html body.ci .results-bar #downloadResults,html body.ci .results-bar #locDownload{background:var(--ci-green) !important;border-color:var(--ci-green) !important;color:#fff}
+}
