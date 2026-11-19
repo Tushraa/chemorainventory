@@ -528,3 +528,18 @@ html body.ci .ci-menu-toggle{height:40px !important}
   html body.ci #chemicalDialog .chemora-detail-structure{display:flex !important;align-items:center;justify-content:center;height:auto !important;aspect-ratio:auto !important;padding:8px;box-sizing:border-box}
   html body.ci #chemicalDialog .chemora-detail-structure img{width:auto !important;height:auto !important;max-width:100% !important;max-height:230px !important;object-fit:contain}
 }
+
+/* phone: Change Administrator and Add New User share one row */
+@media(max-width:850px){
+  html body.ci #changeAdminButton,html body.ci #addUserButton{flex:1 1 0 !important;min-width:0 !important;padding:0 6px !important;font-size:13px !important;gap:5px}
+}
+@media(max-width:850px){
+  html body.ci #userRoleFilter{flex:1 1 calc(100% - 50px) !important}
+  html body.ci #changeAdminButton,html body.ci #addUserButton{flex:1 1 calc(50% - 6px) !important}
+}
+@media(max-width:340px){
+  html body.ci #changeAdminButton,html body.ci #addUserButton{font-size:11.5px !important;padding:0 3px !important;gap:3px}
+}
+@media(max-width:400px){
+  html body.ci #changeAdminButton>i,html body.ci #addUserButton>i{display:none}
+}
