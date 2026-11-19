@@ -337,7 +337,9 @@ document.querySelectorAll('#tabs button[data-tab], .top-action[data-tab]').forEa
 document.querySelectorAll('[data-open-tab]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.openTab)));
 
 /* ---------- locations ---------- */
-const locationLevels = ['building', 'room', 'cabinet', 'shelf', 'position'];
+const LOCATION_TYPES = ['cabinet', 'shelf', 'fridge', 'tray'];
+const PARENT_TYPES = ['cabinet', 'shelf', 'fridge']; // a Tray cannot contain other locations
+const MAX_LOCATION_DEPTH = 5;
 function locationPath(l, seen = new Set()) {
   if (seen.has(l.id)) return l.name;
   seen.add(l.id);
@@ -346,13 +348,13 @@ function locationPath(l, seen = new Set()) {
 }
 const activeLocations = () => [...locations].filter(l => l.active !== false).sort((a, b) => locationPath(a).localeCompare(locationPath(b)));
 function refreshLocationParent() {
-  const type = $('locationType')?.value;
   if (!$('locationParent')) return;
-  const expected = locationLevels[locationLevels.indexOf(type) - 1];
-  const options = locations.filter(l => l.location_type === expected && l.active !== false);
-  $('locationParent').replaceChildren(new Option(expected ? 'Select parent' : 'No parent (building)', ''), ...options.map(l => new Option(locationPath(l), l.id)));
-  $('locationParent').required = Boolean(expected);
-  $('locationParent').disabled = !expected;
+  const prev = $('locationParent').value;
+  const options = activeLocations().filter(l => PARENT_TYPES.includes(l.location_type));
+  $('locationParent').replaceChildren(new Option('No parent (top level)', ''), ...options.map(l => new Option(locationPath(l), l.id)));
+  $('locationParent').value = options.some(l => l.id === prev) ? prev : '';
+  $('locationParent').required = false;
+  $('locationParent').disabled = false;
 }
 $('locationType')?.addEventListener('change', refreshLocationParent);
 async function loadLocations() {
@@ -404,9 +406,10 @@ $('locationForm').addEventListener('submit', async e => {
   const f = e.currentTarget;
   const type = val(f, 'location_type'), parent = optional(val(f, 'parent_id')), name = val(f, 'name');
   if (!name) return status('Location name is required.');
-  if (type !== 'building' && !parent) return status('Choose a parent location.');
+  if (!LOCATION_TYPES.includes(type)) return status('Choose Cabinet, Shelf, Fridge or Tray.');
+  if (parent && !PARENT_TYPES.includes(locations.find(l => l.id === parent)?.location_type)) return status('Only a Cabinet, Shelf or Fridge can contain other locations.');
   if (locations.some(l => (l.parent_id || null) === (parent || null) && l.name.toLowerCase() === name.toLowerCase())) return status('A location with this name already exists under the same parent.');
-  const { error } = await db.from('inventory_locations').insert({ name, description: optional(val(f, 'description')), location_type: type, parent_id: type === 'building' ? null : parent });
+  const { error } = await db.from('inventory_locations').insert({ name, description: optional(val(f, 'description')), location_type: type, parent_id: parent || null });
   status(error ? error.message : 'Location added.');
   if (!error) { f.reset(); await loadLocations(); }
 });
@@ -960,7 +963,7 @@ $('receiveOrderForm').addEventListener('submit', async e => {
 });
 $('exportPendingOrders').addEventListener('click', () => {
   if (!isManager()) return;
-  downloadCSV('hari-pending-orders.csv', [['Chemical', 'CAS', 'Size', 'Unit', 'Supplier', 'Status', 'Requested at', 'Requested by', 'Comments'],
+  downloadCSV('chemora-pending-orders.csv', [['Chemical', 'CAS', 'Size', 'Unit', 'Supplier', 'Status', 'Requested at', 'Requested by', 'Comments'],
     ...cachedOrders.filter(o => o.status === 'requested' || o.status === 'ordered').map(o => [o.chemical_name, o.cas, o.container_size, o.unit, o.supplier, o.status, o.requested_at, o.requester_name || o.requested_by, o.comments])]);
 });
 $('exportOrders').addEventListener('click', async () => {
@@ -969,7 +972,7 @@ $('exportOrders').addEventListener('click', async () => {
     // The list shows open orders only; the full export includes received and cancelled ones as well.
     const all = await fetchAll(() => db.from('inventory_orders').select('*').order('requested_at', { ascending: false }).order('id'));
     await attachRequesterNames(all);
-    downloadCSV('hari-orders.csv', [['Chemical', 'CAS', 'Size', 'Unit', 'Supplier', 'Status', 'Requested at', 'Ordered at', 'Received at', 'Requested by', 'Comments'],
+    downloadCSV('chemora-orders.csv', [['Chemical', 'CAS', 'Size', 'Unit', 'Supplier', 'Status', 'Requested at', 'Ordered at', 'Received at', 'Requested by', 'Comments'],
       ...all.map(o => [o.chemical_name, o.cas, o.container_size, o.unit, o.supplier, o.status, o.requested_at, o.ordered_at, o.received_at, o.requester_name || 'Name unavailable', o.comments])]);
     status(`Exported ${all.length} orders.`);
   } catch (err) { status(errorText(err)); }
@@ -991,7 +994,7 @@ const SUBJECT_LABELS = { inventory_containers: 'Container', inventory_chemicals:
 const EVENT_LABELS = { insert: 'Creation', update: 'Edit', delete: 'Deletion' };
 const historySubject = x => SUBJECT_LABELS[x.table_name] || x.table_name;
 const historyEvent = x => EVENT_LABELS[x.action] || x.action;
-const historyUser = x => historyNames[x.performed_by] || x.performed_by || 'Unknown';
+const historyUser = x => historyNames[x.performed_by] || (x.performed_by ? 'Former user' : 'System');
 const historyText = x => x.description || `${historySubject(x)} ${String(x.action || '').toLowerCase()} (record ${String(x.record_id || '').slice(0, 8)})`;
 const historyStamp = x => String(x.created_at || '').replace('T', ' ').slice(0, 19);
 function filteredHistory() {
@@ -1010,7 +1013,7 @@ function renderHistory() {
 }
 function fillHistoryUsers() {
   const keep = $('historyUser').value;
-  const people = [...new Set(cachedHistory.map(x => x.performed_by).filter(Boolean))].map(id => [id, historyNames[id] || id]).sort((a, b) => a[1].localeCompare(b[1]));
+  const people = [...new Set(cachedHistory.map(x => x.performed_by).filter(Boolean))].map(id => [id, historyNames[id] || 'Former user']).sort((a, b) => a[1].localeCompare(b[1]));
   $('historyUser').replaceChildren(new Option('All users', ''), ...people.map(([id, name]) => new Option(name, id)));
   $('historyUser').value = people.some(([id]) => id === keep) ? keep : '';
 }
@@ -1029,8 +1032,12 @@ async function loadHistory() {
   historyNames = {};
   if (ids.length) {
     try {
+      const { data: named } = await db.rpc('inventory_history_names', { p_ids: ids });
+      for (const p of named || []) historyNames[p.user_id] = p.name;
+    } catch (_e) { /* run sql/09 to show names of people outside the lab */ }
+    try {
       const profiles = await fetchIn('inventory_user_profiles', 'user_id', ids, { select: 'user_id,full_name,email', order: 'user_id' });
-      for (const p of profiles) historyNames[p.user_id] = p.full_name || p.email;
+      for (const p of profiles) historyNames[p.user_id] = p.full_name || p.email || historyNames[p.user_id];
     } catch (_e) { /* names are optional */ }
     if (isAdmin()) {
       try {
@@ -1046,7 +1053,7 @@ async function loadHistory() {
 for (const id of ['historyFilter', 'historyFrom', 'historyTo', 'historyUser', 'historySubject']) $(id).addEventListener('input', renderHistory);
 $('historyExport').addEventListener('click', () => {
   if (!isManager()) return;
-  downloadCSV('hari-history.csv', [['Timestamp (UTC)', 'User', 'Subject', 'Event', 'Description'], ...filteredHistory().map(x => [historyStamp(x), historyUser(x), historySubject(x), historyEvent(x), historyText(x)])]);
+  downloadCSV('chemora-history.csv', [['Timestamp (UTC)', 'User', 'Subject', 'Event', 'Description'], ...filteredHistory().map(x => [historyStamp(x), historyUser(x), historySubject(x), historyEvent(x), historyText(x)])]);
 });
 
 /* ---------- my collection ---------- */
@@ -1412,7 +1419,7 @@ $('exportInventory').addEventListener('click', async () => {
   if (!isAdmin()) return;
   try {
     const rows = await getContainerRows();
-    downloadCSV('hari-inventory.csv', [['Chemical', 'CAS', 'Barcode', 'Size', 'Remaining', 'Unit', 'Location', 'Supplier', 'Status'], ...rows.map(x => [x.chemical?.name, x.chemical?.cas, x.barcode, x.container_size, x.remaining_amount, x.unit, x.location_name, x.supplier, x.status])]);
+    downloadCSV('chemora-inventory.csv', [['Chemical', 'CAS', 'Barcode', 'Size', 'Remaining', 'Unit', 'Location', 'Supplier', 'Status'], ...rows.map(x => [x.chemical?.name, x.chemical?.cas, x.barcode, x.container_size, x.remaining_amount, x.unit, x.location_name, x.supplier, x.status])]);
     status('Exported ' + rows.length + ' containers.');
   } catch (e) { status(errorText(e)); }
 });
@@ -1524,7 +1531,7 @@ function resolveImportLocation(text, index, createMissing = false) {
     return { id: l.id, path: locationPath(l) };
   }
   if (!createMissing) return { error: `Unknown location "${text}" (tick "Create missing locations" to create it)` };
-  if (segments.length > locationLevels.length) return { error: `Location "${text}" is nested more than ${locationLevels.length} levels deep` };
+  if (segments.length > MAX_LOCATION_DEPTH) return { error: `Location "${text}" is nested more than ${MAX_LOCATION_DEPTH} levels deep` };
   for (let i = 1; i < segments.length; i++) {
     const parent = index.byPath.get(index.norm(segments.slice(0, i).join(' / ')));
     if (parent && parent.active === false) return { error: `Location "${locationPath(parent)}" is inactive` };
@@ -1574,6 +1581,16 @@ function plannedLocationKeys(rows) {
 
 const importMsg = text => status(text, 'importStatus');
 // Creates missing locations one level at a time (parents first), then returns the id for each planned path.
+// Type of a location the CSV importer has to create: taken from the name (Cabinet / Shelf / Fridge / Tray),
+// otherwise Cabinet for a top-level entry and Shelf below it. A Tray can never contain another location.
+function guessLocationType(segs, allPlanned) {
+  const name = segs[segs.length - 1].toLowerCase();
+  const prefix = segs.map(s => s.toLowerCase()).join('\u0000') + '\u0000';
+  const isParent = allPlanned.some(o => o.length > segs.length && o.map(s => s.toLowerCase()).join('\u0000').startsWith(prefix));
+  const hit = LOCATION_TYPES.find(t => new RegExp('\\b' + t + '\\b').test(name));
+  if (hit && !(hit === 'tray' && isParent)) return hit;
+  return segs.length === 1 ? 'cabinet' : 'shelf';
+}
 async function createPlannedLocations(rows) {
   const keys = plannedLocationKeys(rows);
   const byDepth = new Map();
@@ -1587,7 +1604,7 @@ async function createPlannedLocations(rows) {
         if (!parent) throw Error(`The parent of "${segs.join(' / ')}" was not created.`);
         parentId = parent.id;
       }
-      return { name: segs[segs.length - 1], description: null, location_type: locationLevels[depth - 1], parent_id: parentId };
+      return { name: segs[segs.length - 1], description: null, location_type: guessLocationType(segs, [...keys.values()]), parent_id: parentId };
     });
     const { error } = await db.from('inventory_locations').insert(batch);
     if (error) throw Error('Could not create locations: ' + error.message);
