@@ -494,3 +494,18 @@ html body.ci #refreshUsers,html body.ci #refreshPlatform{flex:0 0 38px !importan
   html body.ci .btn,html body.ci button.btn{font-size:14px}
 }
 html body.ci .chemora-structure-actions .btn,html body.ci .search-actions .btn,html body.ci dialog .actions .btn{font-size:14px !important;font-weight:600 !important;height:38px;min-height:0;padding:0 14px;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+
+/* ---------- avatar: no border, same size as the Menu box; ACTIONS label on the left; structure buttons ---------- */
+html body.ci .ci-avatar{border:0 !important;width:40px !important;height:40px !important;box-shadow:none}
+html body.ci .ci-menu-toggle{height:40px !important}
+@media(max-width:850px){
+  html body.ci .ci-avatar{width:54px !important;min-width:54px}
+  html body.ci .ci-menu-toggle{min-width:54px !important;width:54px}
+}
+@media(max-width:700px){
+  html body.ci table[data-cards] td:last-child:has(button,a)::before{margin-right:auto}
+}
+@media(min-width:851px){
+  html body.ci .chemora-structure-actions{grid-template-columns:repeat(4,minmax(0,1fr)) !important}
+  html body.ci .chemora-structure-actions .btn{font-weight:400 !important;white-space:nowrap}
+}
