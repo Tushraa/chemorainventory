@@ -1008,7 +1008,7 @@ function filteredHistory() {
 }
 function renderHistory() {
   const items = filteredHistory();
-  $('historyList').innerHTML = '<table class="inventory-data-table"><thead><tr><th>Timestamp (UTC)</th><th>User</th><th>Subject</th><th>Event</th><th>Description</th></tr></thead><tbody>' +
+  $('historyList').innerHTML = '<table class="inventory-data-table chemora-orders-table"><thead><tr><th>Timestamp (UTC)</th><th>User</th><th>Subject</th><th>Event</th><th>Description</th></tr></thead><tbody>' +
     (items.length ? items.map(x => `<tr><td>${esc(historyStamp(x))}</td><td>${esc(historyUser(x))}</td><td>${esc(historySubject(x))}</td><td>${esc(historyEvent(x))}</td><td>${esc(historyText(x))}</td></tr>`).join('') : '<tr><td colspan="5" class="muted">No activity matches these filters.</td></tr>') + '</tbody></table>';
 }
 function fillHistoryUsers() {
@@ -2356,7 +2356,7 @@ async function showContainerHistory(containerId) {
   let { data, error } = await db.from('inventory_activity_logs').select('created_at,action,performed_by,description').eq('record_id', containerId).order('created_at', { ascending: false }).limit(200);
   if (error && /description/i.test(error.message)) ({ data, error } = await db.from('inventory_activity_logs').select('created_at,action,performed_by').eq('record_id', containerId).order('created_at', { ascending: false }).limit(200));
   if (error) { $('historyDialogList').textContent = error.message; return; }
-  $('historyDialogList').innerHTML = (data || []).length ? '<table class="inventory-data-table"><thead><tr><th>Timestamp (UTC)</th><th>User</th><th>Event</th><th>Description</th></tr></thead><tbody>' +
+  $('historyDialogList').innerHTML = (data || []).length ? '<table class="inventory-data-table chemora-orders-table"><thead><tr><th>Timestamp (UTC)</th><th>User</th><th>Event</th><th>Description</th></tr></thead><tbody>' +
     data.map(h => `<tr><td>${esc(String(h.created_at).replace('T', ' ').slice(0, 19))}</td><td>${esc(ownerName(h.performed_by) || '—')}</td><td>${esc(EVENT_LABELS[h.action] || h.action)}</td><td>${esc(h.description || '')}</td></tr>`).join('') + '</tbody></table>' : '<p class="muted">No history recorded for this container.</p>';
 }
 
