@@ -565,3 +565,17 @@ html body.ci .chemora-sim-field{margin:0}
   html body.ci .results-bar .view-toggle button.active{background:var(--ci-btn) !important;border-color:var(--ci-btn) !important}
   html body.ci .results-bar #downloadResults,html body.ci .results-bar #locDownload{background:var(--ci-green) !important;border-color:var(--ci-green) !important;color:#fff}
 }
+
+/* ---------- login page: spacing under the intro text, sponsors under the form; casing polish ---------- */
+html body.ci #auth .pad>p.muted{margin:0 0 18px}
+html body.ci #auth .ci-sponsors-login{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px !important;width:100% !important;max-width:none !important;margin:20px 0 0 !important;padding:0 !important;order:0}
+html body.ci #auth .ci-sponsors-login .ci-sponsor-label{font-size:9px;line-height:1.2}
+html body.ci .grid-tile .tile-name{margin-top:12px !important}
+@media(min-width:851px){
+  html body.ci #structureSearchButton{white-space:nowrap;padding-left:8px;padding-right:8px}
+  html body.ci .search-actions{grid-template-columns:auto minmax(0,1fr)}
+}
+@media(min-width:851px){
+  html body.ci #auth .ci-sponsors-login{grid-template-columns:repeat(3,auto);justify-content:space-between;padding-top:16px !important;border-top:1px solid #1f3552}
+  html body.ci #auth .ci-sponsors-login .ci-sponsor-label{white-space:nowrap}
+}
