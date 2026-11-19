@@ -351,7 +351,7 @@ function refreshLocationParent() {
   if (!$('locationParent')) return;
   const prev = $('locationParent').value;
   const options = activeLocations().filter(l => PARENT_TYPES.includes(l.location_type));
-  $('locationParent').replaceChildren(new Option('No parent (top level)', ''), ...options.map(l => new Option(locationPath(l), l.id)));
+  $('locationParent').replaceChildren(new Option('No Parent (top level)', ''), ...options.map(l => new Option(locationPath(l), l.id)));
   $('locationParent').value = options.some(l => l.id === prev) ? prev : '';
   $('locationParent').required = false;
   $('locationParent').disabled = false;
@@ -363,8 +363,8 @@ async function loadLocations() {
   locations = data || [];
   const sorted = [...locations].sort((a, b) => locationPath(a).localeCompare(locationPath(b)));
   const prevSearch = $('searchLocation').value, prevAdd = $('chemicalLocation').value;
-  $('chemicalLocation').replaceChildren(new Option('Select location', ''), ...sorted.filter(l => l.active !== false).map(l => new Option(locationPath(l), l.id)));
-  $('searchLocation').replaceChildren(new Option('All locations', ''), ...sorted.map(l => new Option(locationPath(l), l.id)));
+  $('chemicalLocation').replaceChildren(new Option('Select Location', ''), ...sorted.filter(l => l.active !== false).map(l => new Option(locationPath(l), l.id)));
+  $('searchLocation').replaceChildren(new Option('All Locations', ''), ...sorted.map(l => new Option(locationPath(l), l.id)));
   $('chemicalLocation').value = prevAdd;
   $('searchLocation').value = prevSearch;
   refreshLocationParent();
@@ -506,7 +506,7 @@ function openChemical(id, containerId = null) {
   const row = (label, value, field = '', table = '') => `<div class="chemora-detail-row"><div class="chemora-detail-label"><strong>${label}</strong>${isManager() && field ? `<button type="button" class="chemora-detail-edit" data-inline-field="${field}" data-inline-table="${table}">Edit</button>` : ''}</div><div class="chemora-detail-value">${value}</div></div>`;
   const containerRows = allItems.map((x, i) => {
     const location = locations.find(l => l.id === x.location_id);
-    return `<div class="chemical-container chemora-other-container"><strong>Container ${i + 1}${x.id === selected?.id ? ' (selected)' : ''}</strong><p>Barcode: ${display(x.barcode, '—')}</p><p>Location: ${display(location ? locationPath(location) : 'Unassigned')}</p><p>Size: ${display(x.container_size, '—')} ${display(x.unit, '')}</p><p>Remaining: ${display(x.remaining_amount, '—')} ${display(x.unit, '')}</p><p>Status: ${display(x.status, '—')}</p>${x.barcode ? `<button class="btn secondary" type="button" data-print-container="${esc(x.id)}">Print barcode label</button>` : ''}${isManager() ? `<button class="btn secondary" type="button" data-lifecycle="${esc(x.id)}">Manage container</button>` : ''}</div>`;
+    return `<div class="chemical-container chemora-other-container"><strong>Container ${i + 1}${x.id === selected?.id ? ' (selected)' : ''}</strong><p>Barcode: ${display(x.barcode, '—')}</p><p>Location: ${display(location ? locationPath(location) : 'Unassigned')}</p><p>Size: ${display(x.container_size, '—')} ${display(x.unit, '')}</p><p>Remaining: ${display(x.remaining_amount, '—')} ${display(x.unit, '')}</p><p>Status: ${display(x.status, '—')}</p>${x.barcode ? `<button class="btn secondary" type="button" data-print-container="${esc(x.id)}">Print Barcode Label</button>` : ''}${isManager() ? `<button class="btn secondary" type="button" data-lifecycle="${esc(x.id)}">Manage Container</button>` : ''}</div>`;
   }).join('');
   const expiry = selected?.expires_at ? `${display(selected.expires_at)} <span class="muted">(${esc(expiryLabel(selected))})</span>` : 'Not recorded';
   $('chemicalDialogTitle').textContent = c.name;
@@ -531,7 +531,7 @@ function openChemical(id, containerId = null) {
     <div class="chemora-detail-links">${isManager() && selected ? `<button class="btn secondary" type="button" data-duplicate="${esc(selected.id)}">Duplicate Container</button>` : ''}${isManager() && selected ? `<button class="btn secondary" type="button" data-history="${esc(selected.id)}">View History</button>` : ''}${selected?.barcode ? `<button class="btn secondary" type="button" data-print-container="${esc(selected.id)}">Print Barcode Label</button>` : ''}${isManager() && selected ? `<button class="btn secondary" type="button" data-lifecycle="${esc(selected.id)}">Manage Container</button>` : ''}${isManager() ? '<button class="btn danger" type="button" data-delete-chemical-inline>Delete Chemical</button>' : ''}</div>
    </div>
   </div>
-  ${allItems.length > 1 ? `<details class="chemora-all-containers"><summary>All registered containers (${allItems.length})</summary><div class="chemora-all-containers-list">${containerRows}</div></details>` : allItems.length === 0 ? '<p class="muted">No containers registered.</p>' : ''}`;
+  ${allItems.length > 1 ? `<details class="chemora-all-containers"><summary>All Registered Containers (${allItems.length})</summary><div class="chemora-all-containers-list">${containerRows}</div></details>` : allItems.length === 0 ? '<p class="muted">No containers registered.</p>' : ''}`;
   if (!$('chemicalDialog').open) $('chemicalDialog').showModal();
 
   const orderedByElement = $('chemicalDialogBody').querySelector('[data-ordered-by]');
@@ -703,7 +703,7 @@ $('phase7PrintLabel').addEventListener('click', () => window.print());
 /* Container lifecycle (quantity / move / transfer / empty / dispose) */
 function populateOwnerSelects() {
   const options = ownerProfiles.map(x => new Option(x.full_name || 'Unnamed user', x.user_id));
-  $('containerOwner')?.replaceChildren(new Option('Current user', ''), ...options.map(o => o.cloneNode(true)));
+  $('containerOwner')?.replaceChildren(new Option('Current User', ''), ...options.map(o => o.cloneNode(true)));
   $('receiveOwner')?.replaceChildren(new Option('Receiving Manager', ''), ...options.map(o => o.cloneNode(true)));
 }
 async function loadContainerOwners() {
@@ -842,7 +842,7 @@ function renderOrders() {
   const filtered = cachedOrders.filter(o => ['requested', 'ordered'].includes(o.status) && (!state || o.status === state) && (!q || [o.chemical_name, o.cas, o.supplier, o.status, o.comments].some(v => String(v || '').toLowerCase().includes(q))));
   const btn = (action, id, title, icon) => `<button type="button" class="btn secondary chemora-order-icon" data-order-action="${action}" data-order-id="${esc(id)}" title="${title}" aria-label="${title}"><i class="fa-solid ${icon}" aria-hidden="true"></i></button>`;
   $('orderList').innerHTML = `<table class="inventory-data-table chemora-orders-table">
-<thead><tr><th>Chemical Name</th><th>CAS Number</th><th>Size</th><th>Requested by</th><th>Requested on</th><th>Ordered on</th><th>Actions</th></tr></thead>
+<thead><tr><th>Chemical Name</th><th>CAS Number</th><th>Size</th><th>Requested By</th><th>Requested On</th><th>Ordered On</th><th>Actions</th></tr></thead>
 <tbody>${filtered.map(o => `<tr>
 <td>${esc(o.chemical_name)}${o.received_container_id ? `<div class="muted">Container: ${esc(o.received_container_id)}</div>` : ''}</td>
 <td>${esc(o.cas || '—')}</td>
@@ -907,7 +907,7 @@ $('orderList').addEventListener('click', async e => {
     const f = $('receiveOrderForm'); f.reset();
     f.elements.namedItem('received_at').value = new Date().toLocaleDateString('en-CA');
     f.elements.namedItem('supplier').value = o.supplier || '';
-    f.elements.namedItem('location_id').replaceChildren(new Option('Choose an active storage location', ''), ...activeLocations().map(l => new Option(locationPath(l), l.id)));
+    f.elements.namedItem('location_id').replaceChildren(new Option('Choose an Active Storage Location', ''), ...activeLocations().map(l => new Option(locationPath(l), l.id)));
     status('', 'receiveOrderStatus');
     $('receiveOrderDialog').showModal();
   }
@@ -1014,7 +1014,7 @@ function renderHistory() {
 function fillHistoryUsers() {
   const keep = $('historyUser').value;
   const people = [...new Set(cachedHistory.map(x => x.performed_by).filter(Boolean))].map(id => [id, historyNames[id] || 'Former user']).sort((a, b) => a[1].localeCompare(b[1]));
-  $('historyUser').replaceChildren(new Option('All users', ''), ...people.map(([id, name]) => new Option(name, id)));
+  $('historyUser').replaceChildren(new Option('All Users', ''), ...people.map(([id, name]) => new Option(name, id)));
   $('historyUser').value = people.some(([id]) => id === keep) ? keep : '';
 }
 function isoDay(d) { return d.toISOString().slice(0, 10); }
@@ -1086,7 +1086,7 @@ function setScanDestination(loc) {
 }
 function initScan() {
   const sorted = [...locations].filter(l => l.active !== false).sort((a, b) => locationPath(a).localeCompare(locationPath(b)));
-  $('scanLocationSelect').replaceChildren(new Option('Select location', ''), ...sorted.map(l => new Option(locationPath(l), l.id)));
+  $('scanLocationSelect').replaceChildren(new Option('Select Location', ''), ...sorted.map(l => new Option(locationPath(l), l.id)));
   if (scanDestination) $('scanLocationSelect').value = scanDestination.id;
   setScanDestination(scanDestination);
   status('', 'scanStatus');
@@ -1167,7 +1167,7 @@ async function showDeletedContainers() {
   try {
     const rows = (await getContainerRows()).filter(x => !isActiveContainer(x));
     rows.sort((a, b) => String(b.disposed_at || b.updated_at || '').localeCompare(String(a.disposed_at || a.updated_at || '')));
-    $('toolsResult').innerHTML = rows.length ? '<h3>Deleted Containers</h3><table class="inventory-data-table"><thead><tr><th>Chemical</th><th>Barcode</th><th>Size</th><th>Last location</th><th>Disposed</th></tr></thead><tbody>' +
+    $('toolsResult').innerHTML = rows.length ? '<h3>Deleted Containers</h3><table class="inventory-data-table"><thead><tr><th>Chemical</th><th>Barcode</th><th>Size</th><th>Last Location</th><th>Disposed</th></tr></thead><tbody>' +
       rows.map(x => `<tr><td>${esc(x.chemical?.name)}</td><td>${esc(x.barcode)}</td><td>${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td><td>${esc(String(x.disposed_at || x.updated_at || '').slice(0, 10))}</td></tr>`).join('') + '</tbody></table><p class="muted">Disposed containers are archived here with their history until the chemical record is deleted.</p>' : '<p class="muted">No deleted containers.</p>';
   } catch (e) { status(errorText(e)); }
 }
@@ -1176,7 +1176,7 @@ async function showLabSettings() {
     const rows = await getContainerRows();
     const active = rows.filter(isActiveContainer).length;
     const roleName = role === 'admin' ? 'Administrator' : role === 'manager' ? 'Chemical Manager' : 'Member';
-    const items = [['Lab', labContext?.lab_name || '—'], ['Your role', roleName + (labContext?.platform_admin ? ' (platform administrator)' : '')], ['Active containers', active], ['Archived containers', rows.length - active], ['Locations', locations.length], ['Labs you belong to', (labContext?.labs || []).length || 1]];
+    const items = [['Lab', labContext?.lab_name || '—'], ['Your Role', roleName + (labContext?.platform_admin ? ' (platform administrator)' : '')], ['Active Containers', active], ['Archived Containers', rows.length - active], ['Locations', locations.length], ['Labs You Belong To', (labContext?.labs || []).length || 1]];
     $('toolsResult').innerHTML = '<h3>License &amp; Settings</h3><table class="inventory-data-table"><tbody>' + items.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('') + '</tbody></table>';
   } catch (e) { status(errorText(e)); }
 }
@@ -1456,7 +1456,7 @@ $('printLabels').addEventListener('click', async () => {
   try {
     const all = (await getContainerRows()).filter(x => x.barcode && isActiveContainer(x));
     const rows = all.slice(0, 100);
-    $('toolsResult').innerHTML = `<p class="muted">${rows.length} Code 128 barcode label(s) ready${all.length > rows.length ? ` (first ${rows.length} of ${all.length}; print in batches)` : ''}. Scan a printed label before attaching it to a bottle.</p><div class="tool-grid">${rows.map(x => `<div class="card"><strong>${esc(x.chemical?.name)}</strong><p class="muted">${esc(x.barcode)}</p></div>`).join('')}</div><button type="button" class="btn secondary" id="printLabelsNow" style="margin-top:14px">Print labels</button>`;
+    $('toolsResult').innerHTML = `<p class="muted">${rows.length} Code 128 barcode label(s) ready${all.length > rows.length ? ` (first ${rows.length} of ${all.length}; print in batches)` : ''}. Scan a printed label before attaching it to a bottle.</p><div class="tool-grid">${rows.map(x => `<div class="card"><strong>${esc(x.chemical?.name)}</strong><p class="muted">${esc(x.barcode)}</p></div>`).join('')}</div><button type="button" class="btn secondary" id="printLabelsNow" style="margin-top:14px">Print Labels</button>`;
     $('printLabelsNow').addEventListener('click', () => {
       buildLabelSheet(rows);
       const cleanup = () => document.body.classList.remove('print-batch');
@@ -1770,7 +1770,7 @@ function renderUsers() {
   const roleName = r => r === 'admin' ? 'Administrator' : r === 'manager' ? 'Chemical Manager' : 'Member';
   container.innerHTML = `<table class="inventory-data-table chemora-user-table"><thead><tr><th>Name</th><th>Email</th><th>Account Type</th><th>Actions</th></tr></thead><tbody>${users.map(u => {
     const id = u.user_id || u.id, locked = u.account_status === 'locked';
-    return `<tr${locked ? ' class="is-locked"' : ''}><td><strong>${esc(u.full_name || u.name || 'User')}</strong>${u.platform_admin ? ' <span class="order-badge received">Inventory Administrator</span>' : ''}${locked ? ' <span class="order-badge ordered">Locked</span>' : ''}</td><td>${esc(u.email || '—')}</td><td>${esc(roleName(u.role))}</td><td><span class="row-actions">${id !== user.id && !u.platform_admin ? `<button type="button" class="icon-btn" data-user-lock="${esc(id)}" title="${locked ? 'Unlock account' : 'Lock account'}" aria-label="${locked ? 'Unlock account' : 'Lock account'}"><i class="fa-solid ${locked ? 'fa-lock-open' : 'fa-lock'}"></i></button>` : ''}${u.platform_admin ? '' : `<button type="button" class="icon-btn" data-user-edit="${esc(id)}" title="Edit user" aria-label="Edit user"><i class="fa-solid fa-pen-to-square"></i></button>`}${id !== user.id ? `<button type="button" class="icon-btn" data-user-delete="${esc(id)}" title="Remove from this lab" aria-label="Remove from this lab"><i class="fa-solid fa-trash"></i></button>` : ''}</span></td></tr><tr class="user-edit-row hide" data-user-row="${esc(id)}"><td colspan="4"><form class="user-edit-form"><div class="row"><label class="field">Full name<input name="name" value="${esc(u.full_name || u.name || '')}" required></label><label class="field">Email<input name="email" type="email" value="${esc(u.email || '')}" required></label></div><div class="row"><label class="field">Account type<select name="role">${['member', 'manager', 'admin'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${roleName(r)}</option>`).join('')}</select></label><label class="field">New password (optional, 12+ characters)<input name="password" type="password" minlength="12" autocomplete="new-password" placeholder="Leave blank to keep password"></label></div><div class="actions"><button class="btn green" type="submit">Save changes</button><button class="btn" type="button" data-user-close>Cancel</button></div><p class="status user-edit-status" role="status"></p></form></td></tr>`;
+    return `<tr${locked ? ' class="is-locked"' : ''}><td><strong>${esc(u.full_name || u.name || 'User')}</strong>${u.platform_admin ? ' <span class="order-badge received">Inventory Administrator</span>' : ''}${locked ? ' <span class="order-badge ordered">Locked</span>' : ''}</td><td>${esc(u.email || '—')}</td><td>${esc(roleName(u.role))}</td><td><span class="row-actions">${id !== user.id && !u.platform_admin ? `<button type="button" class="icon-btn" data-user-lock="${esc(id)}" title="${locked ? 'Unlock account' : 'Lock account'}" aria-label="${locked ? 'Unlock account' : 'Lock account'}"><i class="fa-solid ${locked ? 'fa-lock-open' : 'fa-lock'}"></i></button>` : ''}${u.platform_admin ? '' : `<button type="button" class="icon-btn" data-user-edit="${esc(id)}" title="Edit user" aria-label="Edit user"><i class="fa-solid fa-pen-to-square"></i></button>`}${id !== user.id ? `<button type="button" class="icon-btn" data-user-delete="${esc(id)}" title="Remove from this lab" aria-label="Remove from this lab"><i class="fa-solid fa-trash"></i></button>` : ''}</span></td></tr><tr class="user-edit-row hide" data-user-row="${esc(id)}"><td colspan="4"><form class="user-edit-form"><div class="row"><label class="field">Full Name<input name="name" value="${esc(u.full_name || u.name || '')}" required></label><label class="field">Email<input name="email" type="email" value="${esc(u.email || '')}" required></label></div><div class="row"><label class="field">Account Type<select name="role">${['member', 'manager', 'admin'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${roleName(r)}</option>`).join('')}</select></label><label class="field">New Password (optional, 12+ characters)<input name="password" type="password" minlength="12" autocomplete="new-password" placeholder="Leave blank to keep password"></label></div><div class="actions"><button class="btn green" type="submit">Save Changes</button><button class="btn" type="button" data-user-close>Cancel</button></div><p class="status user-edit-status" role="status"></p></form></td></tr>`;
   }).join('')}</tbody></table>`;
   container.querySelectorAll('[data-user-edit]').forEach(b => b.addEventListener('click', () => container.querySelector(`[data-user-row="${b.dataset.userEdit}"]`)?.classList.toggle('hide')));
   container.querySelectorAll('[data-user-lock]').forEach(b => b.addEventListener('click', async () => {
@@ -1887,7 +1887,7 @@ function renderLocationUi() {
 }
 function syncLimitLink() {
   const l = locations.find(x => x.id === $('searchLocation').value);
-  $('limitLocationLink').textContent = l ? locationPath(l) : 'All locations';
+  $('limitLocationLink').textContent = l ? locationPath(l) : 'All Locations';
 }
 function openLocationPicker(title, cb, { allowClear = false, selectedId = '' } = {}) {
   pickCallback = cb;
@@ -1905,7 +1905,7 @@ const chooseLocation = (title, opts) => new Promise(resolve => {
   $('locationPickerDialog').addEventListener('close', () => { if (!done) resolve(null); }, { once: true });
 });
 $('limitLocationLink').addEventListener('click', async () => {
-  const id = await chooseLocation('Limit search to a location', { allowClear: true, selectedId: $('searchLocation').value });
+  const id = await chooseLocation('Limit Search to a Location', { allowClear: true, selectedId: $('searchLocation').value });
   if (id === null) return;
   $('searchLocation').value = id; syncLimitLink();
   $('searchLocation').dispatchEvent(new Event('change'));
@@ -2185,24 +2185,24 @@ async function runSnapshotSearch(test, snapshot = null) {
 
 /* ---------- advanced search ---------- */
 const ADV_FIELDS = {
-  name: { label: 'Container name (with synonyms)', type: 'text' },
-  name_exact: { label: 'Container name (no synonyms)', type: 'text' },
-  cas: { label: 'CAS number', type: 'text' },
+  name: { label: 'Container Name (with synonyms)', type: 'text' },
+  name_exact: { label: 'Container Name (no synonyms)', type: 'text' },
+  cas: { label: 'CAS Number', type: 'text' },
   barcode: { label: 'Barcode', type: 'text' },
   supplier: { label: 'Supplier', type: 'text' },
-  catalog: { label: 'Catalog number', type: 'text' },
-  lot: { label: 'Lot number', type: 'text' },
+  catalog: { label: 'Catalog Number', type: 'text' },
+  lot: { label: 'Lot Number', type: 'text' },
   comments: { label: 'Comments', type: 'text' },
   location: { label: 'Location (path)', type: 'text' },
   owner: { label: 'Owner', type: 'text' },
-  acquired: { label: 'Date acquired', type: 'date' },
-  expires: { label: 'Expiry date', type: 'date' },
-  size: { label: 'Container size', type: 'number' },
-  remaining: { label: 'Remaining amount', type: 'number' },
-  ghs: { label: 'GHS hazard code', type: 'text' },
-  has_ghs: { label: 'Has GHS data', type: 'bool' },
-  valid_cas: { label: 'Has a valid CAS number', type: 'bool' },
-  empty: { label: 'Is empty (no remaining amount)', type: 'bool' }
+  acquired: { label: 'Date Acquired', type: 'date' },
+  expires: { label: 'Expiry Date', type: 'date' },
+  size: { label: 'Container Size', type: 'number' },
+  remaining: { label: 'Remaining Amount', type: 'number' },
+  ghs: { label: 'GHS Hazard Code', type: 'text' },
+  has_ghs: { label: 'Has GHS Data', type: 'bool' },
+  valid_cas: { label: 'Has a Valid CAS Number', type: 'bool' },
+  empty: { label: 'Is Empty (no remaining amount)', type: 'bool' }
 };
 const ADV_OPS = {
   text: [['contains', 'contains'], ['not_contains', 'does not contain'], ['equals', 'is exactly'], ['starts', 'starts with'], ['blank', 'is blank']],
@@ -2378,7 +2378,7 @@ async function loadPlatform() {
   if (users.error) $('allUsersTable').textContent = users.error.message; else { platformUsers = users.data || []; renderPlatformUsers(); }
 }
 function renderPlatformLabs() {
-  $('labTable').innerHTML = platformLabs.length ? '<table class="inventory-data-table"><thead><tr><th>Lab</th><th>Barcode prefix</th><th>Lab administrators</th><th>Members</th><th>Containers</th><th>Status</th><th>Actions</th></tr></thead><tbody>' +
+  $('labTable').innerHTML = platformLabs.length ? '<table class="inventory-data-table"><thead><tr><th>Lab</th><th>Barcode Prefix</th><th>Lab Administrators</th><th>Members</th><th>Containers</th><th>Status</th><th>Actions</th></tr></thead><tbody>' +
     platformLabs.map(l => `<tr class="${l.active ? '' : 'is-locked'}"><td><strong>${esc(l.name)}</strong></td><td>${esc(l.barcode_prefix)}</td><td>${l.admins ? esc(l.admins) : '<span class="order-badge ordered">Administrator required</span>'}</td><td>${esc(l.member_count)}</td><td>${esc(l.container_count)}</td><td>${l.active ? 'Active' : 'Inactive'}</td><td><span class="row-actions">` +
       `<button type="button" class="icon-btn" data-lab-rename="${esc(l.id)}" title="Rename lab" aria-label="Rename lab"><i class="fa-solid fa-pen-to-square"></i></button>` +
       `<button type="button" class="icon-btn" data-lab-admin="${esc(l.id)}" title="Change lab administrator" aria-label="Change lab administrator"><i class="fa-solid fa-user-shield"></i></button>` +
@@ -2412,7 +2412,7 @@ $('labTable').addEventListener('click', async e => {
 function renderPlatformUsers() {
   const q = ($('allUsersFilter').value || '').trim().toLowerCase();
   const rows = platformUsers.filter(u => !q || [u.full_name, u.email, ...(u.labs || []).map(l => l.lab_name)].some(v => String(v || '').toLowerCase().includes(q)));
-  $('allUsersTable').innerHTML = rows.length ? '<table class="inventory-data-table"><thead><tr><th>Name</th><th>Email</th><th>Labs and account type</th><th>Actions</th></tr></thead><tbody>' +
+  $('allUsersTable').innerHTML = rows.length ? '<table class="inventory-data-table"><thead><tr><th>Name</th><th>Email</th><th>Labs and Account Type</th><th>Actions</th></tr></thead><tbody>' +
     rows.map(u => { const locked = u.account_status === 'locked', me = u.user_id === user.id;
       return `<tr class="${locked ? 'is-locked' : ''}"><td><strong>${esc(u.full_name || 'User')}</strong>${u.platform_admin ? ' <span class="order-badge received">Inventory Administrator</span>' : ''}${locked ? ' <span class="order-badge ordered">Locked</span>' : ''}</td><td>${esc(u.email || '—')}</td><td>${(u.labs || []).map(l => `<span class="au-lab">${esc(l.lab_name)} <span class="muted">(${esc(roleLabel(l.role))})</span>${u.platform_admin ? '' : ` <button type="button" class="icon-btn au-remove" data-au-remove="${esc(u.user_id)}" data-au-lab="${esc(l.lab_id)}" title="Remove from ${esc(l.lab_name)}" aria-label="Remove from ${esc(l.lab_name)}"><i class="fa-solid fa-xmark"></i></button>`}</span>`).join('<br>') || '<span class="muted">No lab</span>'}</td><td><span class="row-actions">` +
         (me ? '' : `<button type="button" class="icon-btn" data-au-lock="${esc(u.user_id)}" title="${locked ? 'Unlock account' : 'Lock account'}" aria-label="${locked ? 'Unlock account' : 'Lock account'}"><i class="fa-solid ${locked ? 'fa-lock-open' : 'fa-lock'}"></i></button><button type="button" class="icon-btn" data-au-edit="${esc(u.user_id)}" title="Edit name and e-mail" aria-label="Edit name and e-mail"><i class="fa-solid fa-pen-to-square"></i></button><button type="button" class="icon-btn" data-au-pass="${esc(u.user_id)}" title="Set new password" aria-label="Set new password"><i class="fa-solid fa-key"></i></button>${u.platform_admin ? '' : (u.labs || []).length ? `<button type="button" class="icon-btn" data-au-delete="${esc(u.user_id)}" title="Delete account (every lab)" aria-label="Delete account (every lab)"><i class="fa-solid fa-trash"></i></button>` : `<button type="button" class="icon-btn" data-au-purge="${esc(u.user_id)}" title="Delete permanently (not in any lab)" aria-label="Delete permanently"><i class="fa-solid fa-user-xmark"></i></button>`}`) +
@@ -2503,7 +2503,7 @@ $('columnsSave').addEventListener('click', () => {
 async function showAssignedBarcodes() {
   try {
     const rows = (await getContainerRows()).filter(x => x.barcode).sort((a, b) => String(a.barcode).localeCompare(String(b.barcode), undefined, { numeric: true }));
-    $('toolsResult').innerHTML = '<h3 class="ci-bar">Assigned Barcodes</h3><p class="muted">' + rows.length + ' barcode(s) are assigned in this lab. A barcode is never reused, even after a container is deleted.</p><div class="actions"><button type="button" class="btn" id="assignedDownload">Download list</button></div><table class="inventory-data-table"><thead><tr><th>Barcode</th><th>Container</th><th>Status</th><th>Location</th></tr></thead><tbody>' +
+    $('toolsResult').innerHTML = '<h3 class="ci-bar">Assigned Barcodes</h3><p class="muted">' + rows.length + ' barcode(s) are assigned in this lab. A barcode is never reused, even after a container is deleted.</p><div class="actions"><button type="button" class="btn" id="assignedDownload">Download List</button></div><table class="inventory-data-table"><thead><tr><th>Barcode</th><th>Container</th><th>Status</th><th>Location</th></tr></thead><tbody>' +
       rows.map(x => `<tr><td>${esc(x.barcode)}</td><td>${esc(x.chemical?.name)}</td><td>${isActiveContainer(x) ? 'In inventory' : 'Deleted'}</td><td>${esc(x.location_name)}</td></tr>`).join('') + '</tbody></table>';
     $('assignedDownload').addEventListener('click', () => downloadCSV('assigned-barcodes.csv', [['Barcode', 'Container', 'Status', 'Location'], ...rows.map(x => [x.barcode, x.chemical?.name, isActiveContainer(x) ? 'In inventory' : 'Deleted', x.location_name])]));
   } catch (e) { status(errorText(e)); }
@@ -2577,7 +2577,7 @@ $('bulkApply').addEventListener('click', async () => {
 let stock = null;
 function resetStock() { stock = null; show($('stockMove'), false); $('stockLocation').textContent = 'No location selected.'; $('stockScan').disabled = true; $('stockScan').value = ''; $('stockResult').replaceChildren(); status('', 'stockStatus'); }
 $('stockPick').addEventListener('click', async () => {
-  const id = await chooseLocation('Stocktake location'); if (!id) return;
+  const id = await chooseLocation('Stocktake Location'); if (!id) return;
   try {
     const loc = locations.find(l => l.id === id), ids = new Set($('stockSub').checked ? descendantIds(id) : [id]);
     const all = (await getContainerRows()).filter(isActiveContainer);
@@ -2606,7 +2606,7 @@ function stockReport() {
 function renderStock() {
   if (!stock) return $('stockResult').replaceChildren();
   const missing = [...stock.expected.values()].filter(x => !stock.found.has(x.id));
-  const list = (title, arr, cls) => arr.length ? `<h4>${title} (${arr.length})</h4><table class="inventory-data-table"><thead><tr><th>Barcode</th><th>Container</th><th>Listed location</th></tr></thead><tbody>${arr.map(x => `<tr class="${cls}"><td>${esc(x.barcode)}</td><td>${esc(x.chemical?.name)}</td><td>${esc(x.location_name)}</td></tr>`).join('')}</tbody></table>` : '';
+  const list = (title, arr, cls) => arr.length ? `<h4>${title} (${arr.length})</h4><table class="inventory-data-table"><thead><tr><th>Barcode</th><th>Container</th><th>Listed Location</th></tr></thead><tbody>${arr.map(x => `<tr class="${cls}"><td>${esc(x.barcode)}</td><td>${esc(x.chemical?.name)}</td><td>${esc(x.location_name)}</td></tr>`).join('')}</tbody></table>` : '';
   $('stockResult').innerHTML = `<p><strong>${stock.found.size}</strong> of ${stock.expected.size} found &middot; <strong>${missing.length}</strong> missing &middot; <strong>${stock.unexpected.size}</strong> unexpected &middot; <strong>${stock.unknown.length}</strong> unknown</p>` +
     list('Missing', missing, 'is-locked') + list('Unexpected here', [...stock.unexpected.values()], '') +
     (stock.unknown.length ? `<h4>Unknown barcodes (${stock.unknown.length})</h4><p>${stock.unknown.map(esc).join(', ')}</p>` : '');
