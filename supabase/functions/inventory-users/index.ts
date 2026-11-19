@@ -1,6 +1,7 @@
 // Edge function "inventory-users": account management.
 //  * A lab administrator manages the accounts of the lab they are currently in. Passwords and e-mail
 //    addresses of people who also belong to other labs cannot be changed by a lab administrator.
+//  * action 'purge' (Inventory Administrator only) permanently deletes an account that belongs to no lab.
 //  * The Inventory Administrator can never be a member of a lab, and a lab always keeps at least one administrator.
 //  * The platform Inventory Administrator manages every lab and every account (pass labId to pick the lab,
 //    and global:true to act on an account regardless of lab) and is the only one who can touch another
@@ -147,6 +148,24 @@ export async function handle(req, admin) {
       const { error } = await admin.auth.admin.updateUserById(target.user_id, { ban_duration: locking ? BAN : 'none' });
       if (error) fail(400, error.message);
       await must(admin.from('inventory_user_profiles').update({ account_status: locking ? 'locked' : 'active' }).eq('user_id', target.user_id));
+      return json(200, { ok: true });
+    }
+
+    if (action === 'purge') {
+      // Inventory Administrator only: permanently delete an account that belongs to no lab.
+      if (!platform) fail(403, 'Only the Inventory Administrator can permanently delete accounts.');
+      const id = clean(body.userId);
+      if (!id) fail(400, 'userId is required.');
+      if (id === callerId) fail(400, 'You cannot delete yourself.');
+      if (platformIds.has(id)) fail(403, 'The Inventory Administrator account cannot be deleted.');
+      const prof = await must(admin.from('inventory_user_profiles').select('user_id,email').eq('user_id', id).maybeSingle());
+      if (!prof) fail(404, 'Account not found.');
+      const inLabs = await must(admin.from('inventory_members').select('lab_id').eq('user_id', id).limit(1));
+      if (inLabs.length) fail(400, 'This account still belongs to a lab. Remove it from every lab first.');
+      if (prof.email) await must(admin.from('inventory_pending_members').delete().ilike('email', prof.email));
+      const { error } = await admin.auth.admin.deleteUser(id);
+      if (error) fail(400, error.message);
+      await must(admin.from('inventory_user_profiles').delete().eq('user_id', id));
       return json(200, { ok: true });
     }
 
