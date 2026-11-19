@@ -35,12 +35,20 @@
     <span class="ci-brand-name">Chemora</span>
   </a>
   <div class="inventory-topbar-right">
-    <div id="topActions" class="inventory-top-actions hide" aria-label="Quick actions">
-      <div id="profileCard" class="ci-signed-in hide" aria-label="Signed-in user"><span id="profileAvatar" class="hide">HG</span><div>Signed in as <strong id="who"></strong></div><div id="profileRole" class="ci-role">Member</div><select id="labSwitcher" class="hide" aria-label="Switch lab" title="Switch lab"></select></div>
-      <button id="logout" class="top-action" type="button" title="Sign Out" aria-label="Sign Out"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i><span>Sign Out</span></button>
+    <div id="topActions" class="inventory-top-actions hide" aria-label="Account">
+      <button id="accountButton" class="ci-avatar" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="accountDrawer" title="Account" aria-label="Open account panel"><span id="profileAvatar">HG</span></button>
     </div>
   </div>
 </header>
+<div id="accountBackdrop" class="ci-backdrop" hidden></div>
+<aside id="accountDrawer" class="ci-drawer" role="dialog" aria-modal="true" aria-labelledby="accountDrawerTitle" aria-hidden="true">
+  <div class="ci-drawer-head"><h2 id="accountDrawerTitle">Account</h2><button id="accountClose" type="button" class="ci-drawer-close" aria-label="Close account panel">×</button></div>
+  <div id="profileCard" class="ci-drawer-body hide" aria-label="Signed-in user">
+    <div class="ci-drawer-user"><span id="drawerAvatar" class="ci-avatar-lg" aria-hidden="true">HG</span><div><div class="ci-drawer-name">Signed in as <strong id="who"></strong></div><div id="profileRole" class="ci-role">Member</div><div id="drawerEmail" class="ci-role"></div></div></div>
+    <label id="labSwitchLabel" class="ci-drawer-field hide">Laboratory<select id="labSwitcher" class="hide" aria-label="Switch lab" title="Switch lab"></select></label>
+  </div>
+  <div class="ci-drawer-foot"><button id="logout" class="btn ci-signout" type="button" title="Sign Out" aria-label="Sign Out"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sign Out</button></div>
+</aside>
 
 
 <main class="flex-grow">
@@ -130,7 +138,7 @@
  </div>
  <p id="addStatus" class="status" role="status"></p><div id="registeredBarcode" class="barcode-result" aria-live="polite"></div>
 </form></div></div></section>
-<dialog id="chemicalDialog" class="chemical-dialog" aria-labelledby="chemicalDialogTitle"><div class="chemical-dialog-head"><h2 id="chemicalDialogTitle">Chemical details</h2><button type="button" id="closeChemicalDialog" aria-label="Close details"><i class="fa-solid fa-xmark"></i></button></div><div id="chemicalDialogBody" class="chemical-dialog-body"></div></dialog>
+<dialog id="chemicalDialog" class="chemical-dialog" aria-labelledby="chemicalDialogTitle"><div class="chemical-dialog-head"><h2 id="chemicalDialogTitle">Chemical details</h2><button type="button" id="closeChemicalDialog" aria-label="Close details">×</button></div><div id="chemicalDialogBody" class="chemical-dialog-body"></div></dialog>
 <dialog id="containerActionDialog" class="chemical-dialog" aria-labelledby="containerActionTitle"><div class="chemical-dialog-head"><h2 id="containerActionTitle">Manage container</h2><button type="button" id="closeContainerAction" aria-label="Close">×</button></div><div class="chemical-dialog-body"><p id="containerActionSummary" class="muted"></p><form id="containerActionForm"><label class="field">Action<select name="action" id="containerActionType"><option value="quantity">Update remaining quantity</option><option value="move">Move to another location</option><option value="transfer">Transfer ownership</option><option value="empty">Mark as empty</option><option value="dispose">Dispose (archive)</option></select></label><label class="field" data-action-field="quantity">New remaining quantity<input name="remaining_amount" type="number" step="any" min="0"></label><label class="field hide" data-action-field="move">Destination location<select name="location_id"></select></label><label class="field hide" data-action-field="transfer">New owner<select name="owner_id"></select></label><p class="notice hide" data-action-field="dispose">Disposing archives this container and removes it from search results. This cannot be undone from the interface.</p><button class="btn" type="submit">Apply action</button><p id="containerActionStatus" class="status" role="status"></p></form></div></dialog>
 <section id="view-orders" class="tab-view hide"><div class="panel ci-narrow"><h2>Request an Order</h2><div class="pad"><form id="orderForm" autocomplete="off">
 <label class="field">Container Name:<input name="chemical_name" required placeholder="Container Name"></label>

@@ -291,17 +291,12 @@ html body.ci .ci-sponsor-logo{height:30px !important} html body.ci .ci-sponsor-l
 /* ---------- mobile interface (phones and small tablets) ---------- */
 @media(max-width:850px){
   /* header: brand on top, quick actions as a labelled 3-column row */
-  html body.ci .inventory-topbar.ci-topbar{flex-wrap:wrap !important;height:auto !important;min-height:0 !important;gap:10px;padding:12px 12px 6px !important}
+  html body.ci .inventory-topbar.ci-topbar{flex-wrap:nowrap !important;align-items:center !important;height:auto !important;min-height:0 !important;gap:10px;padding:12px 12px 6px !important}
   html body.ci .results-bar{flex-direction:column;align-items:stretch !important;gap:10px}
   html body.ci .results-bar>.actions{display:flex;width:100%}
   html body.ci #downloadResults,html body.ci #bulkBar{flex:1 1 100%;width:100%}
   html body.ci .view-toggle{flex:1 1 100%}
-  html body.ci .inventory-topbar-right{width:100%;margin:0 !important}
-  html body.ci .inventory-top-actions:not(.hide){width:100%;gap:12px;padding:10px 12px !important}
-  html body.ci .inventory-top-actions .ci-signed-in{flex:1 1 auto;min-width:0;text-align:left !important}
-  html body.ci .inventory-top-actions .top-action{min-width:84px !important;height:48px !important;padding:4px 8px !important;flex:0 0 auto}
-  html body.ci .inventory-top-actions .top-action i{font-size:17px}
-  html body.ci .inventory-top-actions .top-action span{display:block !important;font-size:11px;line-height:1.15;text-align:center}
+  html body.ci .inventory-topbar-right{width:auto;margin:0 0 0 auto !important}
   html body.ci .ci-brand-name{font-size:24px}
 
   /* workspace: module picker, content, then signed-in block and sponsors */
@@ -312,7 +307,6 @@ html body.ci .ci-sponsor-logo{height:30px !important} html body.ci .ci-sponsor-l
   html body.ci .inventory-content{order:1;min-width:0;width:100%}
   html body.ci .ci-menu{display:flex !important;order:2;margin-top:6px;padding-top:14px;border-top:1px solid var(--ci-line);flex-direction:column;width:100%}
   html body.ci .ci-menu>button,html body.ci .ci-menu>.side-sub,html body.ci .ci-menu .side-group-toggle{display:none !important}
-  html body.ci .ci-signed-in select{max-width:100%;width:100%;height:36px}
   html body.ci .ci-sponsors{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px !important;width:100% !important;margin-top:14px}
   html body.ci .ci-sponsor-label{font-size:9px;line-height:1.2}
   html body.ci .ci-sponsor-logo{height:30px !important}
@@ -371,9 +365,45 @@ html body.ci .ci-sponsor-logo{height:30px !important} html body.ci .ci-sponsor-l
   html body.ci .table-scroll,html body.ci .im-list{overflow-x:visible}
 }
 
-/* ---------- account box in the top right: signed-in info + lab + Sign Out ---------- */
-html body.ci .inventory-top-actions:not(.hide){display:flex !important;align-items:center;gap:16px;padding:10px 12px 10px 18px;background:var(--ci-panel);border:1px solid var(--ci-line);border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,.45)}
-html body.ci .inventory-top-actions .ci-signed-in{margin:0 !important;padding:0 !important;text-align:right;line-height:1.4;font-size:12px}
-html body.ci .inventory-top-actions .ci-signed-in select{display:block;margin:6px 0 0 auto;max-width:190px}
-html body.ci .inventory-top-actions .ci-signed-in select.hide{display:none}
-html body.ci .inventory-top-actions .top-action{min-width:84px;height:48px}
+/* ---------- initials avatar (top right) and account drawer ---------- */
+html body.ci .inventory-top-actions:not(.hide){display:flex !important;align-items:center;gap:0;padding:0;background:none;border:0;box-shadow:none}
+html body.ci .ci-avatar{display:grid;place-items:center;width:46px;height:46px;padding:0;background:var(--ci-btn) !important;color:#fff;border:2px solid var(--ci-green) !important;font-size:16px;font-weight:700 !important;letter-spacing:.5px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.45)}
+html body.ci .ci-avatar:hover{background:var(--ci-btn-hover) !important}
+html body.ci .ci-avatar:focus-visible,html body.ci .ci-drawer button:focus-visible,html body.ci .ci-drawer select:focus-visible{outline:2px solid var(--ci-green-hover);outline-offset:2px}
+html body.ci .ci-avatar-lg{display:grid;place-items:center;flex:0 0 56px;width:56px;height:56px;background:var(--ci-btn);color:#fff;border:2px solid var(--ci-green);font-size:20px;font-weight:700}
+html body #accountButton.ci-avatar:not(#a1):not(#a2):not(#a3),html body #drawerAvatar.ci-avatar-lg:not(#a1):not(#a2):not(#a3){border-radius:50% !important}
+.ci-backdrop{position:fixed;inset:0;background:rgba(5,10,18,.6);z-index:900}
+.ci-backdrop[hidden]{display:none}
+.ci-drawer{position:fixed;top:0;right:0;bottom:0;width:340px;max-width:88vw;z-index:1000;display:flex;flex-direction:column;background:var(--ci-panel);color:var(--ci-text);border-left:1px solid var(--ci-line);box-shadow:-8px 0 24px rgba(0,0,0,.5);transform:translateX(100%);visibility:hidden;transition:transform .22s ease,visibility 0s linear .22s}
+.ci-drawer.open{transform:none;visibility:visible;transition:transform .22s ease}
+.ci-drawer-head{display:flex;align-items:center;justify-content:space-between;min-height:56px;padding:0 14px 0 18px;background:var(--ci-bar)}
+.ci-drawer-head h2{margin:0;font-size:16px;font-weight:700;color:#fff}
+.ci-drawer-close{width:40px;height:40px;background:transparent;border:0;color:#fff;font-size:28px;line-height:1;cursor:pointer}
+.ci-drawer-body{padding:20px 18px;overflow-y:auto;flex:1 1 auto}
+.ci-drawer-user{display:flex;gap:14px;align-items:center}
+.ci-drawer-name{font-size:14px}
+.ci-drawer-name strong{font-weight:700;border:0}
+.ci-drawer .ci-role{color:var(--ci-muted);margin-top:3px;font-size:13px;overflow-wrap:anywhere}
+.ci-drawer-field{display:block;margin-top:22px;font-size:12px;color:var(--ci-muted)}
+.ci-drawer-field select{display:block;width:100%;margin-top:6px;height:40px;background:var(--ci-input);color:var(--ci-text);border:1px solid var(--ci-line);padding:0 8px}
+.ci-drawer-foot{padding:14px 18px 18px;border-top:1px solid var(--ci-line);margin-top:auto}
+html body.ci .ci-signout{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:46px;background:var(--ci-btn) !important;color:#fff;border:0}
+html body.ci .ci-signout:hover{background:var(--ci-btn-hover) !important}
+body.ci-drawer-open{overflow:hidden}
+
+/* ---------- mobile: result tiles and container detail popup ---------- */
+@media(max-width:850px){
+  html body.ci .result-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:18px 12px !important;padding:6px 0}
+  html body.ci .grid-tile .tile-name{font-size:12px;overflow-wrap:anywhere}
+  html body.ci dialog#chemicalDialog{max-height:calc(100dvh - 16px) !important}
+  html body.ci #chemicalDialog .chemical-dialog-head{position:sticky;top:0;z-index:2;padding:10px 12px !important;min-height:52px}
+  html body.ci #chemicalDialog .chemical-dialog-head h2{font-size:17px;overflow-wrap:anywhere;padding-right:8px}
+  html body.ci #chemicalDialog #closeChemicalDialog{flex:0 0 44px;width:44px;height:44px;font-size:28px;line-height:1}
+  html body.ci #chemicalDialog .chemical-dialog-body{max-height:calc(100dvh - 76px) !important;padding:12px !important;-webkit-overflow-scrolling:touch}
+  html body.ci #chemicalDialog .chemora-detail-structure{aspect-ratio:auto !important;height:190px;max-width:100% !important}
+  html body.ci #chemicalDialog .chemora-detail-structure img{max-height:100%;width:auto !important;max-width:100%}
+  html body.ci #chemicalDialog .chemora-detail-links{display:grid !important;grid-template-columns:1fr 1fr;gap:8px}
+  html body.ci #chemicalDialog .chemora-detail-links>*{width:100%;margin:0;min-width:0}
+  html body.ci #chemicalDialog .chemora-detail-links>:last-child:nth-child(odd){grid-column:1/-1}
+  html body.ci #chemicalDialog .chemora-all-containers-list{grid-template-columns:1fr !important}
+}

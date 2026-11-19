@@ -165,10 +165,10 @@ function resetState() {
   show($('chemoraResultsPanel'), false);
   $('chemoraToastContainer')?.replaceChildren();
   labContext = null;
-  show($('labSwitcher'), false); show($('createLabPanel'), false);
+  show($('labSwitcher'), false); show($('labSwitchLabel'), false); show($('createLabPanel'), false);
 }
 function showLoggedOut() {
-  show($('auth'), true); show($('portal'), false); show($('profileCard'), false); show($('topActions'), false);
+  closeAccountDrawer(); show($('auth'), true); show($('portal'), false); show($('profileCard'), false); show($('topActions'), false);
   $('who').textContent = '';
 }
 async function rejectSession(message) {
@@ -206,7 +206,9 @@ async function initSession() {
   show($('auth'), false); show($('portal'), true); show($('profileCard'), true); show($('topActions'), true);
   $('who').textContent = displayName;
   $('profileRole').textContent = (role === 'admin' ? 'Administrator' : role === 'manager' ? 'Chemical Manager' : 'Member') + (labContext?.lab_name ? ' · ' + labContext.lab_name : '');
-  $('profileAvatar').textContent = displayName.trim().split(/\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase() || 'HG';
+  const initials = displayName.trim().split(/\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase() || 'HG';
+  $('profileAvatar').textContent = initials; $('drawerAvatar').textContent = initials; $('drawerEmail').textContent = user.email || '';
+  $('accountButton').title = displayName;
   applyRoleVisibility();
   renderLabControls();
   setTab('chemicals');
@@ -221,7 +223,7 @@ function renderLabControls() {
   const labs = labContext?.labs || [], sw = $('labSwitcher');
   sw.replaceChildren(...labs.map(l => new Option(l.name, l.id)));
   sw.value = labContext?.lab_id || '';
-  show(sw, labs.length > 1);
+  show(sw, labs.length > 1); show($('labSwitchLabel'), labs.length > 1);
   show($('createLabPanel'), Boolean(labContext?.platform_admin));
 }
 async function switchLab(labId) {
@@ -300,6 +302,7 @@ $('login').addEventListener('submit', async e => {
   }
 });
 $('logout').addEventListener('click', async () => {
+  closeAccountDrawer();
   user = null; role = null;
   await db.auth.signOut();
   resetState();
@@ -2550,6 +2553,29 @@ $('stockMove').addEventListener('click', async () => {
   renderStock(); status(`Moved ${ok} container(s).`, 'stockStatus');
 });
 
+/* Account drawer: the initials circle at the top right opens a panel from the right with account details and Sign Out. */
+function setAccountDrawer(open) {
+  const drawer = $('accountDrawer'), backdrop = $('accountBackdrop'), btn = $('accountButton');
+  if (!drawer) return;
+  drawer.classList.toggle('open', open); drawer.setAttribute('aria-hidden', String(!open));
+  backdrop.hidden = !open; btn.setAttribute('aria-expanded', String(open));
+  document.body.classList.toggle('ci-drawer-open', open);
+  if (open) $('accountClose').focus(); else if (drawer.contains(document.activeElement)) btn.focus();
+}
+function closeAccountDrawer() { setAccountDrawer(false); }
+$('accountButton')?.addEventListener('click', () => setAccountDrawer(!$('accountDrawer').classList.contains('open')));
+$('accountClose')?.addEventListener('click', closeAccountDrawer);
+$('accountBackdrop')?.addEventListener('click', closeAccountDrawer);
+document.addEventListener('keydown', e => {
+  const drawer = $('accountDrawer'); if (!drawer?.classList.contains('open')) return;
+  if (e.key === 'Escape') return closeAccountDrawer();
+  if (e.key !== 'Tab') return;
+  const items = [...drawer.querySelectorAll('button, select')].filter(x => x.offsetParent !== null && !x.disabled);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
 document.querySelectorAll('[data-sponsor-link]').forEach(a => a.addEventListener('click', e => { if (a.getAttribute('href') === '#') e.preventDefault(); }));
 /* mobile helper: copy each header label onto its cells so tables can stack as cards on phones */
 (function labelTables() {
