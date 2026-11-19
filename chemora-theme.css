@@ -283,3 +283,7 @@ html body.ci .ci-sponsor-logo img{max-width:100%;max-height:48px}
 html body.ci .ci-sponsor-ph{border-color:#2b4a6b;color:#8fa6bd}
 html body.ci .ci-sponsor-label{margin-bottom:2px}
 html body.ci .ci-sponsor-logo{justify-content:flex-start !important}
+html body.ci .ci-sponsor-logo{height:34px !important}
+html body.ci .ci-sponsor-logo img{height:30px !important;width:auto !important;max-width:100% !important;max-height:none !important;object-fit:contain;object-position:left center}
+html body.ci .ci-sponsors{gap:12px}
+html body.ci .ci-sponsor-logo{height:30px !important} html body.ci .ci-sponsor-logo img{height:26px !important}
