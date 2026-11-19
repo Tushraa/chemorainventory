@@ -2551,5 +2551,29 @@ $('stockMove').addEventListener('click', async () => {
 });
 
 document.querySelectorAll('[data-sponsor-link]').forEach(a => a.addEventListener('click', e => { if (a.getAttribute('href') === '#') e.preventDefault(); }));
+/* mobile helper: copy each header label onto its cells so tables can stack as cards on phones */
+(function labelTables() {
+  let queued = false;
+  const run = () => {
+    queued = false;
+    document.querySelectorAll('table.inventory-data-table').forEach(t => {
+      const heads = [...t.querySelectorAll('thead th')].map(h => h.textContent.trim());
+      if (!heads.length) return;
+      t.setAttribute('data-cards', '');
+      t.querySelectorAll('tbody tr').forEach(tr => [...tr.children].forEach((td, i) => {
+        if (td.tagName !== 'TD' || td.hasAttribute('data-label')) return;
+        td.setAttribute('data-label', heads[i] || '');
+        if (!td.hasAttribute('colspan') && td.childNodes.length > 1) {
+          const wrap = document.createElement('span'); wrap.className = 'cell-v';
+          while (td.firstChild) wrap.appendChild(td.firstChild);
+          td.appendChild(wrap);
+        }
+      }));
+    });
+  };
+  const queue = () => { if (!queued) { queued = true; requestAnimationFrame(run); } };
+  new MutationObserver(queue).observe(document.body, { childList: true, subtree: true });
+  queue();
+})();
 initSession().catch(e => { showLoggedOut(); status(errorText(e), 'loginError'); });
 })();
