@@ -287,3 +287,86 @@ html body.ci .ci-sponsor-logo{height:34px !important}
 html body.ci .ci-sponsor-logo img{height:30px !important;width:auto !important;max-width:100% !important;max-height:none !important;object-fit:contain;object-position:left center}
 html body.ci .ci-sponsors{gap:12px}
 html body.ci .ci-sponsor-logo{height:30px !important} html body.ci .ci-sponsor-logo img{height:26px !important}
+
+/* ---------- mobile interface (phones and small tablets) ---------- */
+@media(max-width:850px){
+  /* header: brand on top, quick actions as a labelled 3-column row */
+  html body.ci .inventory-topbar.ci-topbar{flex-wrap:wrap !important;height:auto !important;min-height:0 !important;gap:10px;padding:12px 12px 6px !important}
+  html body.ci .results-bar{flex-direction:column;align-items:stretch !important;gap:10px}
+  html body.ci .results-bar>.actions{display:flex;width:100%}
+  html body.ci #downloadResults,html body.ci #bulkBar{flex:1 1 100%;width:100%}
+  html body.ci .view-toggle{flex:1 1 100%}
+  html body.ci .inventory-topbar-right{width:100%;margin:0 !important}
+  html body.ci .inventory-top-actions:not(.hide){display:grid !important;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:8px;width:100%}
+  html body.ci .inventory-top-actions .top-action{min-width:0 !important;width:100%;height:50px !important;padding:4px 6px !important}
+  html body.ci .inventory-top-actions .top-action i{font-size:17px}
+  html body.ci .inventory-top-actions .top-action span{display:block !important;font-size:11px;line-height:1.15;text-align:center}
+  html body.ci .ci-brand-name{font-size:24px}
+
+  /* workspace: module picker, content, then signed-in block and sponsors */
+  html body.ci .inventory-workspace{display:flex !important;flex-direction:column;gap:14px !important}
+  html body.ci .mobile-module-select{order:0;margin:0 !important;width:100%}
+  html body.ci .mobile-module-select label{display:none}
+  html body.ci .mobile-module-select select{height:42px;font-size:15px}
+  html body.ci .inventory-content{order:1;min-width:0;width:100%}
+  html body.ci .ci-menu{display:flex !important;order:2;margin-top:6px;padding-top:14px;border-top:1px solid var(--ci-line);flex-direction:column;width:100%}
+  html body.ci .ci-menu>button,html body.ci .ci-menu>.side-sub,html body.ci .ci-menu .side-group-toggle{display:none !important}
+  html body.ci .ci-signed-in{padding-left:0 !important;margin-top:0 !important}
+  html body.ci .ci-signed-in select{max-width:100%;width:100%;height:38px}
+  html body.ci .ci-sponsors{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px !important;width:100% !important;margin-top:14px}
+  html body.ci .ci-sponsor-label{font-size:9px;line-height:1.2}
+  html body.ci .ci-sponsor-logo{height:30px !important}
+
+  /* panel header bars wrap instead of overflowing */
+  html body.ci .panel>h2,html body.ci .tab-view .panel h2{flex-wrap:wrap;height:auto !important;min-height:42px;padding-top:8px !important;padding-bottom:8px !important}
+  html body.ci .panel>h2 .ci-bar-actions{flex-wrap:wrap;width:100%;margin-left:0 !important}
+  html body.ci .panel>h2 .ci-bar-actions input,html body.ci .panel>h2 .ci-bar-actions select{flex:1 1 150px;width:auto !important;min-width:0;max-width:100%}
+  html body.ci .panel>h2 .ci-bar-actions input[type=search]{flex:1 1 100%}
+  html body.ci .panel>h2 .ci-bar-actions .btn{flex:1 1 auto}
+  html body.ci .panel>h2 .actions{flex-wrap:wrap}
+
+  /* forms and button rows */
+  html body.ci .chemora-search-split{grid-template-columns:1fr !important;gap:16px}
+  html body.ci .search-actions{display:grid !important;grid-template-columns:1fr 1fr;gap:10px}
+  html body.ci .search-actions .split{display:flex;width:100%}
+  html body.ci .search-actions .split>.btn:first-child{flex:1}
+  html body.ci .search-actions>.btn{width:100%}
+  html body.ci .actions{flex-wrap:wrap}
+  html body.ci .actions>.btn{flex:1 1 140px}
+  html body.ci .im-toolbar{display:grid !important;grid-template-columns:1fr 1fr;gap:8px}
+  html body.ci .im-toolbar>*{width:100%;min-width:0;margin:0}
+  html body.ci .im-toolbar>:last-child:nth-child(odd){grid-column:1/-1}
+  html body.ci .im-toolbar .im-menu{position:relative}
+  html body.ci .im-toolbar .im-toggle,html body.ci .im-toolbar>.btn{width:100%;justify-content:center}
+  html body.ci .im-toolbar .im-list{min-width:0;width:max(100%,230px);max-width:calc(100vw - 24px)}
+  html body.ci .im-toolbar .im-menu:nth-child(even) .im-list{left:auto;right:0}
+  /* dialogs fit the phone screen */
+  html body.ci dialog.chemical-dialog{width:calc(100vw - 16px) !important;max-width:none !important;max-height:calc(100dvh - 16px) !important;margin:8px auto !important}
+  html body.ci dialog.chemical-dialog .chemical-dialog-body{padding:12px;overflow-x:hidden}
+  html body.ci #chemicalDialog .chemora-detail-grid{grid-template-columns:minmax(0,1fr) !important;gap:16px !important}
+  html body.ci #chemicalDialog .chemora-detail-middle,html body.ci #chemicalDialog .chemora-detail-right{border-left:0 !important;padding-left:0 !important}
+  html body.ci .chemical-detail-summary{grid-template-columns:1fr !important}
+  html body.ci .inventory-toolbar{flex-wrap:wrap}
+  html body.ci .inventory-toolbar>*{flex:1 1 100%}
+  html body.ci .pad{padding-left:12px;padding-right:12px}
+  html body.ci input,html body.ci select,html body.ci textarea{font-size:16px}
+  html body.ci .shell{padding:0 12px}
+  html body.ci .tab-view,html body.ci .panel{min-width:0;max-width:100%}
+  html body.ci .panel{overflow-x:clip}
+}
+
+/* tables become stacked cards (labels are added by chemora-mobile helper in inventory.js) */
+@media(max-width:700px){
+  html body.ci table[data-cards]{display:block;width:100%;min-width:0 !important;border:0}
+  html body.ci table[data-cards] thead{display:none}
+  html body.ci table[data-cards] tbody{display:block}
+  html body.ci table[data-cards] tr{display:block;margin:0 0 10px;padding:4px 0;background:var(--ci-row);border:1px solid var(--ci-line)}
+  html body.ci table[data-cards] td{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 12px !important;border:0 !important;text-align:right;white-space:normal !important;overflow-wrap:anywhere}
+  html body.ci table[data-cards] td::before{content:attr(data-label);flex:0 0 36%;max-width:36%;text-align:left;color:var(--ci-muted);font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+  html body.ci table[data-cards] td[data-label=""]::before,html body.ci table[data-cards] td:not([data-label])::before{display:none}
+  html body.ci table[data-cards] td[colspan]{display:block;text-align:left}
+  html body.ci table[data-cards] td .cell-v{min-width:0;flex:1 1 auto;text-align:right}
+  html body.ci table[data-cards] td.check-col{justify-content:flex-start}
+  html body.ci table[data-cards] td:last-child:has(button,a){justify-content:flex-end;flex-wrap:wrap}
+  html body.ci .table-scroll,html body.ci .im-list{overflow-x:visible}
+}
