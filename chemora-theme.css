@@ -579,3 +579,15 @@ html body.ci .grid-tile .tile-name{margin-top:12px !important}
   html body.ci #auth .ci-sponsors-login{grid-template-columns:repeat(3,auto);justify-content:space-between;padding-top:16px !important;border-top:1px solid #1f3552}
   html body.ci #auth .ci-sponsors-login .ci-sponsor-label{white-space:nowrap}
 }
+
+/* structure tile: the name sits below the image with a real gap (the span was inline, so its margin had no effect) */
+html body.ci .grid-tile .tile-name{display:block;margin-top:12px !important}
+/* Activity History table styled like the Current Orders table (desktop only; phones keep their card layout) */
+@media(min-width:851px){
+  html body.ci #view-history>.panel>.pad{padding-bottom:0}
+  html body.ci #view-history #historyList{margin:14px -15px 0;max-height:none}
+  html body.ci #view-history .chemora-orders-table{border:1px solid #475569 !important;border-collapse:collapse !important;width:100% !important}
+  html body.ci #view-history .chemora-orders-table th,html body.ci #view-history .chemora-orders-table td{border:1px solid #475569 !important;padding:8px 14px !important;vertical-align:middle !important;text-align:left !important}
+  html body.ci #view-history .chemora-orders-table tbody td{font-weight:400 !important}
+  html body.ci #view-history .chemora-orders-table td:first-child{white-space:nowrap}
+}
