@@ -455,3 +455,19 @@ html body.ci .search-actions .split{display:flex}
 html body.ci .search-actions .split>.btn{flex:1 1 auto;width:100%}
 html body.ci .au-lab{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
 html body.ci .au-remove{width:22px !important;height:22px !important;min-width:0 !important;padding:0 !important;font-size:11px}
+
+/* Catalyst sponsor: TCI mark with its name beside it */
+html body.ci .ci-sponsor-logo{gap:6px}
+html body.ci .ci-sponsor-name{display:block;font-size:11px;line-height:1.15;font-weight:600;letter-spacing:.01em;color:#a3a3a3;white-space:nowrap;text-align:left}
+html body.ci .ci-sponsor-logo img{flex:none}
+@media(max-width:850px){
+  html body.ci .ci-sponsors{grid-template-columns:auto auto auto !important;justify-content:space-between}
+  html body.ci .ci-sponsor-logo{gap:5px}
+  html body.ci .ci-sponsor-name{font-size:9px;line-height:1.15}
+}
+@media(max-width:850px){
+  html body.ci .ci-sponsor-logo{overflow:visible !important;height:24px !important}
+  html body.ci .ci-sponsor-logo img{height:22px !important}
+  html body.ci .ci-sponsor-name{font-size:8.5px}
+}
+@media(max-width:340px){html body.ci .ci-sponsor-name{font-size:7.5px}html body.ci .ci-sponsors{gap:6px !important}}
