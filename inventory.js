@@ -168,7 +168,7 @@ function resetState() {
   show($('labSwitcher'), false); show($('labSwitchLabel'), false); show($('createLabPanel'), false);
 }
 function showLoggedOut() {
-  closeAccountDrawer(); show($('auth'), true); show($('portal'), false); show($('profileCard'), false); show($('topActions'), false);
+  closeAccountDrawer(); setMenuOpen(false); document.body.classList.remove('ci-platform-only'); show($('auth'), true); show($('portal'), false); show($('profileCard'), false); show($('topActions'), false);
   $('who').textContent = '';
 }
 async function rejectSession(message) {
@@ -182,6 +182,9 @@ function applyRoleVisibility() {
   document.querySelectorAll('.manager-only').forEach(el => show(el, isManager()));
   document.querySelectorAll('.admin-only').forEach(el => show(el, isAdmin()));
   document.querySelectorAll('.platform-only').forEach(el => show(el, Boolean(labContext?.platform_admin)));
+  // The Inventory Administrator only works in Labs & All Users.
+  document.body.classList.toggle('ci-platform-only', Boolean(labContext?.platform_admin));
+  document.querySelectorAll('.platform-home').forEach(el => show(el, Boolean(labContext?.platform_admin)));
   document.querySelectorAll('#mobileModule option').forEach(o => {
     const allowed = (!o.hasAttribute('data-manager') || isManager()) && (!o.hasAttribute('data-admin') || isAdmin()) && (!o.hasAttribute('data-platform') || Boolean(labContext?.platform_admin));
     o.hidden = !allowed; o.disabled = !allowed;
@@ -264,6 +267,7 @@ function setGroup(group, open) {
   document.querySelectorAll(`.side-group-toggle[data-group="${group}"]`).forEach(b => { b.setAttribute('aria-expanded', String(open)); b.classList.toggle('open', open); });
 }
 function setTab(name) {
+  if (labContext?.platform_admin) name = 'platform';
   if (!$('view-' + name)) name = 'chemicals';
   if ((['history', 'scan'].includes(name) && !isManager()) || (['users', 'tools'].includes(name) && !isAdmin()) || (name === 'platform' && !labContext?.platform_admin)) return;
   document.querySelectorAll('.tab-view').forEach(el => show(el, el.id === 'view-' + name));
@@ -282,6 +286,16 @@ function setTab(name) {
   if (name === 'collection') loadCollection();
   if (name === 'scan') initScan();
 }
+/* Phone menu (like ChemInventory's "Show Menu"): the Menu button drops the module list down; picking a page closes it. */
+function setMenuOpen(open) {
+  document.body.classList.toggle('ci-menu-open', open);
+  const t = $('menuToggle'); if (!t) return;
+  t.setAttribute('aria-expanded', String(open));
+  t.querySelector('span').textContent = open ? 'Close' : 'Menu';
+  t.querySelector('i').className = open ? 'fa-solid fa-xmark' : 'fa-solid fa-bars';
+}
+$('menuToggle')?.addEventListener('click', () => setMenuOpen(!document.body.classList.contains('ci-menu-open')));
+$('tabs')?.addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (b) setMenuOpen(false); });
 document.querySelectorAll('.side-group-toggle').forEach(b => b.addEventListener('click', () => setGroup(b.dataset.group, b.getAttribute('aria-expanded') !== 'true')));
 $('mobileModule')?.addEventListener('change', e => setTab(e.target.value));
 $('login').addEventListener('submit', async e => {

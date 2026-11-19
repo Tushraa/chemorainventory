@@ -300,14 +300,7 @@ html body.ci .ci-sponsor-logo{height:30px !important} html body.ci .ci-sponsor-l
   html body.ci .ci-brand-name{font-size:24px}
 
   /* workspace: module picker, content, then signed-in block and sponsors */
-  html body.ci .inventory-workspace{display:flex !important;flex-direction:column;gap:14px !important}
-  html body.ci .mobile-module-select{order:0;margin:0 !important;width:100%}
-  html body.ci .mobile-module-select label{display:none}
-  html body.ci .mobile-module-select select{height:42px;font-size:15px}
   html body.ci .inventory-content{order:1;min-width:0;width:100%}
-  html body.ci .ci-menu{display:flex !important;order:2;margin-top:6px;padding-top:14px;border-top:1px solid var(--ci-line);flex-direction:column;width:100%}
-  html body.ci .ci-menu>button,html body.ci .ci-menu>.side-sub,html body.ci .ci-menu .side-group-toggle{display:none !important}
-  html body.ci .ci-sponsors{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px !important;width:100% !important;margin-top:14px}
   html body.ci .ci-sponsor-label{font-size:9px;line-height:1.2}
   html body.ci .ci-sponsor-logo{height:30px !important}
 
@@ -406,4 +399,51 @@ body.ci-drawer-open{overflow:hidden}
   html body.ci #chemicalDialog .chemora-detail-links>*{width:100%;margin:0;min-width:0}
   html body.ci #chemicalDialog .chemora-detail-links>:last-child:nth-child(odd){grid-column:1/-1}
   html body.ci #chemicalDialog .chemora-all-containers-list{grid-template-columns:1fr !important}
+}
+
+/* ---------- brand: heavier wordmark + INVENTORY tagline; smaller avatar ---------- */
+html body.ci .ci-brand-text{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+html body.ci .ci-brand-name{font-weight:500 !important;line-height:1}
+html body.ci .ci-brand-tag{font-family:Montserrat,"Helvetica Neue",Arial,sans-serif;font-weight:600;font-size:11px;line-height:1;letter-spacing:.52em;color:var(--ci-green-hover);padding-left:2px}
+html body.ci .ci-avatar{width:38px;height:38px;font-size:14px;border-width:2px}
+
+/* ---------- Inventory Administrator: Labs & All Users only ---------- */
+html body.ci.ci-platform-only .ci-menu>button:not(.platform-home),html body.ci.ci-platform-only .ci-menu>.side-sub,html body.ci.ci-platform-only .ci-menu .side-group-toggle{display:none !important}
+html body.ci .platform-home.hide{display:none !important}
+
+/* ---------- phone layout: menu button, dropdown module list, sponsors always at the bottom ---------- */
+html body.ci .ci-menu-toggle{display:none}
+@media(max-width:850px){
+  html body.ci .ci-menu-toggle{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:58px;height:44px;margin-right:10px;padding:0 8px;background:var(--ci-btn) !important;color:#fff;border:0;font-size:10px;line-height:1;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.45)}
+  html body.ci .ci-menu-toggle i{font-size:16px}
+  html body.ci.ci-platform-only .ci-menu-toggle{display:none !important}
+  html body.ci .ci-brand svg{width:38px;height:38px}
+  html body.ci .ci-brand{gap:10px}
+  html body.ci .ci-brand-name{font-size:26px}
+  html body.ci .ci-brand-tag{font-size:9px;letter-spacing:.46em}
+
+  /* page fills the screen so the sponsors can sit at the very bottom */
+  html body.ci{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;margin:0}
+  html body.ci main{display:flex;flex-direction:column;flex:1 1 auto}
+  html body.ci main .page-view,html body.ci main .shell{flex:1 1 auto;display:flex;flex-direction:column;min-width:0}
+  html body.ci #portal:not(.hide){flex:1 1 auto;display:flex;flex-direction:column}
+  html body.ci main .shell{margin-bottom:0 !important}
+  html body.ci #portal:not(.hide){padding-bottom:0 !important}
+  html body.ci .inventory-workspace{display:flex !important;flex-direction:column;flex:1 1 auto;gap:0 !important}
+  html body.ci .mobile-module-select{display:none !important}
+  html body.ci .inventory-content{order:1;margin-top:14px}
+
+  /* the dropdown menu: full-width rows like ChemInventory's "Show Menu" */
+  html body.ci .ci-menu{display:contents !important}
+  html body.ci .ci-menu>button,html body.ci .ci-menu>.side-sub{order:0;display:none !important}
+  html body.ci.ci-menu-open .ci-menu>button:not(.hide),html body.ci.ci-menu-open .ci-menu>.side-sub:not(.hide){display:flex !important}
+  html body.ci .ci-menu>button,html body.ci .ci-menu .side-group-toggle{height:48px;min-height:48px !important;border-radius:0 !important;margin:0;border-bottom:1px solid var(--ci-line) !important;box-shadow:none;font-size:17px !important}
+  html body.ci .ci-menu .side-sub{margin:0;border-radius:0;box-shadow:none}
+  html body.ci .ci-menu .side-sub button{height:44px;min-height:44px !important;padding-left:44px !important;font-size:14px !important;border-bottom:1px solid var(--ci-line) !important}
+  html body.ci.ci-menu-open .inventory-content{margin-top:14px}
+
+  /* sponsors: always the last thing on the page, pushed to the bottom on any screen height */
+  html body.ci .ci-sponsors{order:3;display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px !important;width:100% !important;max-width:none !important;margin-top:auto !important;padding:22px 0 14px !important;border-top:0}
+  html body.ci .ci-sponsors::before{content:"";grid-column:1/-1;border-top:1px solid var(--ci-line);margin-bottom:8px}
+  html body.ci .ci-sponsor{min-width:0}
 }
