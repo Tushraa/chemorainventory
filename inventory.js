@@ -248,18 +248,19 @@ $('labForm').addEventListener('submit', async e => {
   e.preventDefault();
   const f = e.currentTarget, name = val(f, 'name'), prefix = val(f, 'prefix').toUpperCase(), adminEmail = val(f, 'admin_email').toLowerCase();
   if (!name) return status('Lab name is required.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) return status('Enter the lab administrator\'s e-mail. Every lab needs an administrator.');
   if (!/^[A-Z0-9]{1,8}$/.test(prefix)) return status('Barcode prefix must be 1-8 letters or numbers.');
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
   if (slug.length < 2) return status('Use a lab name with at least two letters or numbers.');
   const submit = f.querySelector('[type="submit"]');
   submit.disabled = true;
   try {
-    const { error } = await db.rpc('inventory_create_lab', { p_name: name, p_slug: slug, p_prefix: prefix, p_admin_email: adminEmail || null });
+    const { error } = await db.rpc('inventory_create_lab', { p_name: name, p_slug: slug, p_prefix: prefix, p_admin_email: adminEmail });
     if (error) return status(/duplicate key|already exists/i.test(error.message) ? 'A lab with that name already exists.' : error.message);
     f.reset(); f.elements.prefix.value = 'LAB'; $('addLabDialog').close();
     const ctx = await db.rpc('inventory_my_context'); if (!ctx.error && ctx.data) { labContext = ctx.data; renderLabControls(); }
     await loadPlatform();
-    status('Lab "' + name + '" created' + (adminEmail ? '; ' + adminEmail + ' is its administrator.' : '.'));
+    status('Lab "' + name + '" created; ' + adminEmail + ' is its administrator.');
   } finally { submit.disabled = false; }
 });
 const TAB_GROUPS = { orders: ['orders', 'requests'], admin: ['users', 'history', 'tools', 'platform'] };
@@ -2361,14 +2362,20 @@ async function loadPlatform() {
 }
 function renderPlatformLabs() {
   $('labTable').innerHTML = platformLabs.length ? '<table class="inventory-data-table"><thead><tr><th>Lab</th><th>Barcode prefix</th><th>Lab administrators</th><th>Members</th><th>Containers</th><th>Status</th><th>Actions</th></tr></thead><tbody>' +
-    platformLabs.map(l => `<tr class="${l.active ? '' : 'is-locked'}"><td><strong>${esc(l.name)}</strong></td><td>${esc(l.barcode_prefix)}</td><td>${esc(l.admins || '—')}</td><td>${esc(l.member_count)}</td><td>${esc(l.container_count)}</td><td>${l.active ? 'Active' : 'Inactive'}</td><td><span class="row-actions">` +
+    platformLabs.map(l => `<tr class="${l.active ? '' : 'is-locked'}"><td><strong>${esc(l.name)}</strong></td><td>${esc(l.barcode_prefix)}</td><td>${l.admins ? esc(l.admins) : '<span class="order-badge ordered">Administrator required</span>'}</td><td>${esc(l.member_count)}</td><td>${esc(l.container_count)}</td><td>${l.active ? 'Active' : 'Inactive'}</td><td><span class="row-actions">` +
       `<button type="button" class="icon-btn" data-lab-rename="${esc(l.id)}" title="Rename lab" aria-label="Rename lab"><i class="fa-solid fa-pen-to-square"></i></button>` +
+      `<button type="button" class="icon-btn" data-lab-admin="${esc(l.id)}" title="Change lab administrator" aria-label="Change lab administrator"><i class="fa-solid fa-user-shield"></i></button>` +
       `<button type="button" class="icon-btn" data-lab-toggle="${esc(l.id)}" title="${l.active ? 'Deactivate lab' : 'Activate lab'}" aria-label="${l.active ? 'Deactivate lab' : 'Activate lab'}"><i class="fa-solid ${l.active ? 'fa-ban' : 'fa-rotate-left'}"></i></button>` +
       '</span></td></tr>').join('') + '</tbody></table>' : '<p class="muted" style="padding:10px">No labs yet.</p>';
 }
 $('labTable').addEventListener('click', async e => {
-  const open = e.target.closest('[data-lab-open]'), ren = e.target.closest('[data-lab-rename]'), tog = e.target.closest('[data-lab-toggle]');
+  const open = e.target.closest('[data-lab-open]'), ren = e.target.closest('[data-lab-rename]'), tog = e.target.closest('[data-lab-toggle]'), adm = e.target.closest('[data-lab-admin]');
   try {
+    if (adm) {
+      const l = platformLabs.find(x => x.id === adm.dataset.labAdmin);
+      openLabAdminDialog(l.id, l.name, platformUsers.filter(u => !u.platform_admin && u.account_status !== 'locked').map(u => u.email), 'Choose an existing account from the list or type an e-mail address to invite someone new. Current administrator: ' + (l.admins || 'none') + '.');
+      return;
+    }
     if (open) { await switchLab(open.dataset.labOpen); return; }
     if (ren) {
       const l = platformLabs.find(x => x.id === ren.dataset.labRename), name = (prompt('Lab name', l.name) || '').trim();
@@ -2396,6 +2403,38 @@ function renderPlatformUsers() {
 }
 $('allUsersFilter').addEventListener('input', renderPlatformUsers);
 $('refreshPlatform').addEventListener('click', loadPlatform);
+/* ---------- change the lab administrator (Inventory Administrator, or the lab's own administrator) ---------- */
+let labAdminTarget = null;
+function openLabAdminDialog(labId, labName, emails, help) {
+  labAdminTarget = { id: labId, name: labName };
+  $('labAdminHelp').textContent = labName + ': ' + help;
+  $('labAdminList').innerHTML = [...new Set((emails || []).filter(Boolean))].sort().map(m => `<option value="${esc(m)}"></option>`).join('');
+  $('labAdminForm').reset();
+  $('labAdminDialog').showModal();
+}
+$('changeAdminButton')?.addEventListener('click', () => openLabAdminDialog(labContext.lab_id, labContext.lab_name || 'This lab',
+  cachedUsers.filter(u => (u.user_id || u.id) !== user.id && u.account_status !== 'locked').map(u => u.email),
+  'Choose another member of this lab to become the administrator. You will become a Chemical Manager.'));
+$('labAdminForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.currentTarget, email = val(f, 'email').toLowerCase(), submit = f.querySelector('[type="submit"]');
+  if (!labAdminTarget) return;
+  if (email === String(user.email || '').toLowerCase()) { $('labAdminDialog').close(); return status('You are already the administrator.'); }
+  if (!confirm('Make ' + email + ' the administrator of ' + labAdminTarget.name + '? The previous administrator becomes a Chemical Manager.')) return;
+  submit.disabled = true;
+  try {
+    const { data, error } = await db.rpc('inventory_change_lab_admin', { p_lab_id: labAdminTarget.id, p_email: email });
+    if (error) throw error;
+    $('labAdminDialog').close();
+    if (labContext?.platform_admin) {
+      await loadPlatform();
+      status(data === 'pending' ? email + ' will become the administrator of ' + labAdminTarget.name + ' when they register.' : email + ' is now the administrator of ' + labAdminTarget.name + '.');
+    } else {
+      status(email + ' is now the administrator. Reloading…');
+      setTimeout(() => location.reload(), 1200);
+    }
+  } catch (err) { status(errorText(err)); } finally { submit.disabled = false; }
+});
 $('allUsersTable').addEventListener('click', async e => {
   const lock = e.target.closest('[data-au-lock]'), pass = e.target.closest('[data-au-pass]'), del = e.target.closest('[data-au-delete]'), edit = e.target.closest('[data-au-edit]'), rem = e.target.closest('[data-au-remove]');
   const id = (lock || pass || del || edit || rem)?.dataset[lock ? 'auLock' : pass ? 'auPass' : del ? 'auDelete' : edit ? 'auEdit' : 'auRemove']; if (!id) return;

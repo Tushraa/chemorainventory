@@ -1,6 +1,7 @@
 // Edge function "inventory-users": account management.
 //  * A lab administrator manages the accounts of the lab they are currently in. Passwords and e-mail
 //    addresses of people who also belong to other labs cannot be changed by a lab administrator.
+//  * The Inventory Administrator can never be a member of a lab, and a lab always keeps at least one administrator.
 //  * The platform Inventory Administrator manages every lab and every account (pass labId to pick the lab,
 //    and global:true to act on an account regardless of lab) and is the only one who can touch another
 //    platform administrator, except that a lab administrator may remove the Inventory Administrator from their own
@@ -71,7 +72,8 @@ export async function handle(req, admin) {
       return row;
     };
     const otherLabs = async id => (await must(admin.from('inventory_members').select('lab_id').eq('user_id', id).neq('lab_id', labId).limit(1))).length;
-    const adminCountAfter = async (id, newRole) => (await members()).filter(m => (m.user_id === id ? newRole : m.role) === 'admin').length;
+    // The Inventory Administrator never counts as a lab administrator.
+    const adminCountAfter = async (id, newRole) => (await members()).filter(m => !platformIds.has(m.user_id) && (m.user_id === id ? newRole : m.role) === 'admin').length;
 
     if (action === 'list') {
       const rows = await members();
@@ -88,6 +90,7 @@ export async function handle(req, admin) {
       if (!ROLES.includes(role)) fail(400, 'Invalid role.');
       const found = (await must(admin.from('inventory_user_profiles').select('user_id,email').ilike('email', email).limit(50))).find(p => clean(p.email).toLowerCase() === email);
       if (found) {
+        if (platformIds.has(found.user_id)) fail(400, 'The Inventory Administrator cannot be added to a lab.');
         if ((await members()).some(m => m.user_id === found.user_id)) fail(409, 'That person is already a member of this lab.');
         await must(admin.from('inventory_members').insert({ lab_id: labId, user_id: found.user_id, role }));
         return json(200, { ok: true, existing: true, userId: found.user_id });
@@ -152,6 +155,15 @@ export async function handle(req, admin) {
       const target = await requireTarget();
       const id = target.user_id;
       if (id === callerId) fail(400, 'You cannot remove yourself.');
+      // Never leave a lab without an administrator.
+      const adminLabs = await must(admin.from('inventory_members').select('lab_id').eq('user_id', id).eq('role', 'admin').limit(1000));
+      for (const row of adminLabs) {
+        const others = (await must(admin.from('inventory_members').select('user_id').eq('lab_id', row.lab_id).eq('role', 'admin').neq('user_id', id).limit(1000))).filter(m => !platformIds.has(m.user_id));
+        if (!others.length) {
+          const lab = await must(admin.from('inventory_labs').select('name').eq('id', row.lab_id).maybeSingle());
+          fail(400, `This person is the only administrator of ${lab?.name || 'a lab'}. Assign another administrator to that lab first.`);
+        }
+      }
       await must(admin.from('inventory_members').delete().eq('user_id', id));
       await admin.auth.admin.updateUserById(id, { ban_duration: BAN });
       await must(admin.from('inventory_user_profiles').update({ account_status: 'locked', active_lab_id: null }).eq('user_id', id));
@@ -162,7 +174,7 @@ export async function handle(req, admin) {
       const target = await requireTarget(true);
       const id = target.user_id;
       if (id === callerId) fail(400, 'You cannot remove yourself.');
-      if (target.role === 'admin' && await adminCountAfter(id, 'none') < 1) fail(400, 'A lab needs at least one administrator.');
+      if (target.role === 'admin' && !platformIds.has(id) && await adminCountAfter(id, 'none') < 1) fail(400, 'A lab needs at least one administrator. Assign another administrator first.');
       await must(admin.from('inventory_members').delete().eq('lab_id', labId).eq('user_id', id));
       if (platformIds.has(id)) return json(200, { ok: true, removedFromLab: true }); // the Inventory Administrator keeps platform-wide access
       const remaining = await must(admin.from('inventory_members').select('lab_id').eq('user_id', id).limit(1));
