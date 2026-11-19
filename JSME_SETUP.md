@@ -35,7 +35,7 @@ If the editor is missing, the window shows a notice and you can still paste a SM
 | Button | Status |
 | --- | --- |
 | Exact Match Search | Works. Finds the same compound by CAS number (or name when PubChem has no CAS). |
-| Substructure Search | Not available. Needs structures stored as SMILES plus a search engine such as OpenChemLib or RDKit. |
+| Substructure & Similarity Search | Built in. The RDKit engine runs in the browser (loaded from a CDN); structures are looked up once from PubChem and stored per chemical (run `sql/06_structure_search.sql`). |
 | Similarity Search | Not available. Same requirement. |
 
 ## Privacy

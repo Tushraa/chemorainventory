@@ -51,7 +51,7 @@ chemorainventory/
 ├── inventory.css       base styles
 ├── chemora-theme.css   Chemora interface theme
 ├── config.js           Supabase connection (public publishable key)
-├── sql/                database scripts 01 to 05, run in order
+├── sql/                database scripts 01 to 06, run in order
 ├── supabase/functions/inventory-users/   account-management edge function
 ├── jsme/               JSME structure editor (see JSME_SETUP.md)
 └── sponsors/           sponsor logos shown in the menu
@@ -68,9 +68,10 @@ chemorainventory/
 ## Setup
 
 1. Create a Supabase project and enter its URL and publishable key in `config.js`.
-2. Run the scripts in `sql/` in order (`01` to `05`) in the Supabase SQL Editor. Each is safe to run more than once.
+2. Run the scripts in `sql/` in order (`01` to `06`) in the Supabase SQL Editor. Each is safe to run more than once.
    - `04_activity_descriptions.sql` adds readable descriptions to the activity log.
    - `05_platform_admin.sql` adds the Inventory Administrator role, the Labs & All Users page, GHS hazard codes, pre-printed barcodes and bulk container actions.
+   - `06_structure_search.sql` stores each chemical's structure (SMILES) for substructure and similarity search.
 3. Deploy the `inventory-users` edge function from `supabase/functions/inventory-users/`.
 4. Copy the JSME files into `jsme/` as described in `JSME_SETUP.md`.
 5. Open `inventory.html` through a web address.

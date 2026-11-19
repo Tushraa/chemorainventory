@@ -1255,10 +1255,7 @@ async function chemoraRunStructureSearch(mode) {
     if (!smiles) smiles = $('structureSmiles').value.trim();
     if (!smiles) throw Error(api ? 'Draw a chemical structure or paste a SMILES string first.' : 'Paste a SMILES string; the drawing editor is not available.');
     if (/\s/.test(smiles) || smiles.length > 2000) throw Error('That does not look like a valid SMILES string.');
-    if (mode !== 'exact') {
-      message.textContent = `${mode === 'substructure' ? 'Substructure' : 'Similarity'} search needs an RDKit inventory search endpoint and stored chemical SMILES. No results were searched. Use Exact Match to find this compound by identity.`;
-      return;
-    }
+    if (mode !== 'exact') { await runStructureMatch(mode, smiles, message); return; }
     message.textContent = 'Identifying structure through PubChem…';
     const cidResponse = await fetch('https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/cids/JSON', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'smiles=' + encodeURIComponent(smiles) });
     if (!cidResponse.ok) throw Error('PubChem could not identify this structure.');
@@ -1278,6 +1275,115 @@ async function chemoraRunStructureSearch(mode) {
     else { $('type').value = 'name'; $('query').value = synonyms[0]; await loadChemicals('name', synonyms[0]); }
   } catch (err) { message.textContent = errorText(err); }
 }
+
+/* ---------- substructure and similarity search (RDKit in the browser) ---------- */
+const RDKIT_BASE = 'https://cdn.jsdelivr.net/npm/@rdkit/rdkit@2025.3.4-1.0.0/dist/';
+let rdkitPromise = null;
+function loadRdkit() {
+  if (window.__chemoraRdkit) return Promise.resolve(window.__chemoraRdkit);
+  if (!rdkitPromise) rdkitPromise = new Promise((resolve, reject) => {
+    const fail = () => { rdkitPromise = null; reject(Error('Could not load the chemistry engine (RDKit). Check your internet connection and try again.')); };
+    const start = () => window.initRDKitModule({ locateFile: f => RDKIT_BASE + f }).then(m => { window.__chemoraRdkit = m; resolve(m); }, fail);
+    if (typeof window.initRDKitModule === 'function') return start();
+    const tag = document.createElement('script');
+    tag.src = RDKIT_BASE + 'RDKit_minimal.js'; tag.onload = start; tag.onerror = fail;
+    document.head.appendChild(tag);
+  });
+  return rdkitPromise;
+}
+const SMILES_CACHE_KEY = 'chemora-smiles';
+function readSmilesCache() { try { return JSON.parse(localStorage.getItem(SMILES_CACHE_KEY) || '{}') || {}; } catch (_e) { return {}; } }
+function writeSmilesCache(map) { try { localStorage.setItem(SMILES_CACHE_KEY, JSON.stringify(map)); } catch (_e) { /* private mode */ } }
+const smilesKey = c => (labContext?.lab_id || '') + '|' + (c.cas && validCAS(c.cas) ? c.cas : String(c.name || '').toLowerCase());
+const wait = ms => new Promise(r => setTimeout(r, ms));
+// Returns a SMILES string, '' when PubChem does not know the chemical, or null when the lookup failed (try again later).
+async function pubchemSmiles(c) {
+  const key = c.cas && validCAS(c.cas) ? c.cas : String(c.name || '').trim();
+  if (!key) return '';
+  for (const prop of ['SMILES', 'IsomericSMILES']) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let r;
+      try { r = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(key)}/property/${prop}/JSON`); }
+      catch (_e) { await wait(1200); continue; }
+      if (r.status === 404) return '';
+      if (r.status === 429 || r.status === 503) { await wait(1500); continue; }
+      if (!r.ok) break;
+      const p = (await r.json())?.PropertyTable?.Properties?.[0] || {};
+      return String(p.SMILES || p.IsomericSMILES || p.ConnectivitySMILES || p.CanonicalSMILES || '').trim();
+    }
+  }
+  return null;
+}
+async function resolveStructures(chemicals, progress) {
+  const cache = readSmilesCache(), todo = chemicals.filter(c => c.smiles == null && cache[smilesKey(c)] == null);
+  const found = [], failed = [];
+  for (let i = 0; i < todo.length; i++) {
+    progress(i, todo.length);
+    const smiles = await pubchemSmiles(todo[i]);
+    if (smiles === null) failed.push(todo[i]); else { cache[smilesKey(todo[i])] = smiles; found.push({ id: todo[i].id, smiles }); }
+    if (i % 10 === 9) writeSmilesCache(cache);
+    await wait(230); // PubChem allows about 5 requests per second
+  }
+  writeSmilesCache(cache);
+  if (found.length && isManager()) {
+    // Save to the database for everyone (needs sql/06). Falls back silently to this browser's cache.
+    for (let i = 0; i < found.length; i += 500) { try { await db.rpc('inventory_save_smiles', { p_items: found.slice(i, i + 500) }); } catch (_e) { break; } }
+  }
+  return { looked: todo.length, failed: failed.length };
+}
+function bitsTanimoto(a, b) {
+  let both = 0, either = 0;
+  for (let i = 0; i < a.length; i++) { const x = a[i] === '1', y = b[i] === '1'; if (x && y) both++; if (x || y) either++; }
+  return either ? both / either : 0;
+}
+async function runStructureMatch(mode, smiles, message) {
+  const buttons = ['searchExact', 'searchSubstructure', 'searchSimilarity'].map($);
+  buttons.forEach(b => { b.disabled = true; });
+  try {
+    message.textContent = 'Loading the chemistry engine…';
+    const RDKit = await loadRdkit();
+    const query = RDKit.get_mol(smiles);
+    if (!query || !query.is_valid()) { query?.delete(); throw Error('That structure could not be read. Check the drawing or SMILES.'); }
+    const snap = await fetchSnapshot();
+    const inUse = new Set(snap.containers.map(x => x.chemical_id));
+    const chems = snap.chemicals.filter(c => inUse.has(c.id));
+    const stats = await resolveStructures(chems, (i, n) => { message.textContent = `Looking up structures from PubChem (first search only): ${i + 1} of ${n}…`; });
+    message.textContent = 'Searching…';
+    const cache = readSmilesCache();
+    const threshold = Math.min(1, Math.max(0, (Number($('similarityThreshold')?.value) || 50) / 100));
+    const queryFp = mode === 'similarity' ? query.get_morgan_fp(JSON.stringify({ radius: 2, nBits: 2048 })) : null;
+    const hits = new Map();
+    let searched = 0;
+    for (const c of chems) {
+      const target = c.smiles != null ? c.smiles : cache[smilesKey(c)];
+      if (!target) continue;
+      let mol = null;
+      try {
+        mol = RDKit.get_mol(target);
+        if (!mol || !mol.is_valid()) continue;
+        searched++;
+        if (mode === 'substructure') {
+          const m = mol.get_substruct_match(query);
+          if (m && m !== '{}' && JSON.parse(m).atoms?.length) hits.set(c.id, 1);
+        } else {
+          const t = bitsTanimoto(queryFp, mol.get_morgan_fp(JSON.stringify({ radius: 2, nBits: 2048 })));
+          if (t >= threshold) hits.set(c.id, t);
+        }
+      } catch (_e) { /* skip structures RDKit cannot read */ } finally { mol?.delete(); }
+    }
+    query.delete();
+    message.textContent = '';
+    $('structureDialog').close();
+    $('searchChemicalName').value = ''; $('searchChemicalCas').value = ''; $('searchChemicalBarcode').value = '';
+    await runSnapshotSearch(({ c }) => hits.has(c.id), snap);
+    const noStructure = chems.length - searched;
+    status(`${mode === 'substructure' ? 'Substructure' : 'Similarity (at least ' + Math.round(threshold * 100) + '%)'} search: ${hits.size} matching chemical(s) among ${searched} with a known structure.` +
+      (noStructure ? ` ${noStructure} chemical(s) have no structure on record (PubChem did not recognise them) and were not searched.` : '') +
+      (stats.failed ? ` ${stats.failed} lookup(s) failed; search again later to retry.` : ''), 'searchStatus');
+  } catch (err) { message.textContent = errorText(err); }
+  finally { buttons.forEach(b => { b.disabled = false; }); }
+}
+
 $('searchExact').addEventListener('click', () => chemoraRunStructureSearch('exact'));
 $('searchSubstructure').addEventListener('click', () => chemoraRunStructureSearch('substructure'));
 $('searchSimilarity').addEventListener('click', () => chemoraRunStructureSearch('similarity'));
