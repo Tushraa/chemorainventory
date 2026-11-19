@@ -17,8 +17,8 @@
   
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Cuprum:wght@400;700&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="inventory.css?v=20261119b">
-  <link rel="stylesheet" href="chemora-theme.css?v=20261119b">
+  <link rel="stylesheet" href="inventory.css?v=20261119c">
+  <link rel="stylesheet" href="chemora-theme.css?v=20261119c">
   <style>/* critical: keeps the account drawer closed even if a cached stylesheet is older than this page */
   .ci-drawer{position:fixed;top:0;right:0;bottom:0;width:340px;max-width:88vw;z-index:1000;transform:translateX(100%);visibility:hidden}
   .ci-drawer.open{transform:none;visibility:visible}
@@ -37,10 +37,11 @@
       <circle cx="250.6" cy="185" r="13" fill="#F59E0B"/>
       <circle cx="190" cy="150" r="9" fill="#FFFFFF"/>
     </svg>
-    <span class="ci-brand-name">Chemora</span>
+    <span class="ci-brand-text"><span class="ci-brand-name">Chemora</span><span class="ci-brand-tag">INVENTORY</span></span>
   </a>
   <div class="inventory-topbar-right">
     <div id="topActions" class="inventory-top-actions hide" aria-label="Account">
+      <button id="menuToggle" class="ci-menu-toggle" type="button" aria-expanded="false" aria-controls="tabs" aria-label="Show menu"><i class="fa-solid fa-bars" aria-hidden="true"></i><span>Menu</span></button>
       <button id="accountButton" class="ci-avatar" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="accountDrawer" title="Account" aria-label="Open account panel"><span id="profileAvatar">HG</span></button>
     </div>
   </div>
@@ -65,6 +66,7 @@
 <div class="inventory-workspace"><div class="mobile-module-select"><label for="mobileModule">Module</label><select id="mobileModule" aria-label="Choose inventory module"><option value="chemicals">Search</option><option value="add">Add a Container</option><option value="orders">Request an order</option><option value="requests">Current orders</option><option value="locations">Locations</option><option value="users" data-admin>Inventory Management</option><option value="platform" data-platform>Labs &amp; All Users</option><option value="history" data-manager>Activity History &amp; Auditing</option></select></div>
 
 <nav class="nav inventory-sidebar ci-menu" id="tabs" aria-label="Inventory menu">
+<button type="button" data-tab="platform" class="platform-home hide"><i class="fa-solid fa-building-shield" aria-hidden="true"></i><span>Labs &amp; All Users</span></button>
 <button type="button" data-tab="chemicals" class="active"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Search</span></button>
 <button type="button" data-tab="add" class="manager-only hide"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Add a Container</span></button>
 <button type="button" class="side-group-toggle" data-group="orders" aria-expanded="false"><i class="fa-solid fa-flask" aria-hidden="true"></i><span>Order Requests</span><i class="fa-solid fa-chevron-down side-chevron" aria-hidden="true"></i></button>
@@ -247,5 +249,5 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-<script src="inventory.js?v=20261119b"></script>
+<script src="inventory.js?v=20261119c"></script>
 </body></html>
