@@ -2398,7 +2398,7 @@ function renderPlatformUsers() {
   $('allUsersTable').innerHTML = rows.length ? '<table class="inventory-data-table"><thead><tr><th>Name</th><th>Email</th><th>Labs and account type</th><th>Actions</th></tr></thead><tbody>' +
     rows.map(u => { const locked = u.account_status === 'locked', me = u.user_id === user.id;
       return `<tr class="${locked ? 'is-locked' : ''}"><td><strong>${esc(u.full_name || 'User')}</strong>${u.platform_admin ? ' <span class="order-badge received">Inventory Administrator</span>' : ''}${locked ? ' <span class="order-badge ordered">Locked</span>' : ''}</td><td>${esc(u.email || '—')}</td><td>${(u.labs || []).map(l => `<span class="au-lab">${esc(l.lab_name)} <span class="muted">(${esc(roleLabel(l.role))})</span>${u.platform_admin ? '' : ` <button type="button" class="icon-btn au-remove" data-au-remove="${esc(u.user_id)}" data-au-lab="${esc(l.lab_id)}" title="Remove from ${esc(l.lab_name)}" aria-label="Remove from ${esc(l.lab_name)}"><i class="fa-solid fa-xmark"></i></button>`}</span>`).join('<br>') || '<span class="muted">No lab</span>'}</td><td><span class="row-actions">` +
-        (me ? '' : `<button type="button" class="icon-btn" data-au-lock="${esc(u.user_id)}" title="${locked ? 'Unlock account' : 'Lock account'}" aria-label="${locked ? 'Unlock account' : 'Lock account'}"><i class="fa-solid ${locked ? 'fa-lock-open' : 'fa-lock'}"></i></button><button type="button" class="icon-btn" data-au-edit="${esc(u.user_id)}" title="Edit name and e-mail" aria-label="Edit name and e-mail"><i class="fa-solid fa-pen-to-square"></i></button><button type="button" class="icon-btn" data-au-pass="${esc(u.user_id)}" title="Set new password" aria-label="Set new password"><i class="fa-solid fa-key"></i></button><button type="button" class="icon-btn" data-au-delete="${esc(u.user_id)}" title="Delete account (every lab)" aria-label="Delete account (every lab)"><i class="fa-solid fa-trash"></i></button>`) +
+        (me ? '' : `<button type="button" class="icon-btn" data-au-lock="${esc(u.user_id)}" title="${locked ? 'Unlock account' : 'Lock account'}" aria-label="${locked ? 'Unlock account' : 'Lock account'}"><i class="fa-solid ${locked ? 'fa-lock-open' : 'fa-lock'}"></i></button><button type="button" class="icon-btn" data-au-edit="${esc(u.user_id)}" title="Edit name and e-mail" aria-label="Edit name and e-mail"><i class="fa-solid fa-pen-to-square"></i></button><button type="button" class="icon-btn" data-au-pass="${esc(u.user_id)}" title="Set new password" aria-label="Set new password"><i class="fa-solid fa-key"></i></button>${u.platform_admin ? '' : (u.labs || []).length ? `<button type="button" class="icon-btn" data-au-delete="${esc(u.user_id)}" title="Delete account (every lab)" aria-label="Delete account (every lab)"><i class="fa-solid fa-trash"></i></button>` : `<button type="button" class="icon-btn" data-au-purge="${esc(u.user_id)}" title="Delete permanently (not in any lab)" aria-label="Delete permanently"><i class="fa-solid fa-user-xmark"></i></button>`}`) +
         '</span></td></tr>'; }).join('') + '</tbody></table>' : '<p class="muted" style="padding:10px">No matching users.</p>';
 }
 $('allUsersFilter').addEventListener('input', renderPlatformUsers);
@@ -2436,8 +2436,8 @@ $('labAdminForm').addEventListener('submit', async e => {
   } catch (err) { status(errorText(err)); } finally { submit.disabled = false; }
 });
 $('allUsersTable').addEventListener('click', async e => {
-  const lock = e.target.closest('[data-au-lock]'), pass = e.target.closest('[data-au-pass]'), del = e.target.closest('[data-au-delete]'), edit = e.target.closest('[data-au-edit]'), rem = e.target.closest('[data-au-remove]');
-  const id = (lock || pass || del || edit || rem)?.dataset[lock ? 'auLock' : pass ? 'auPass' : del ? 'auDelete' : edit ? 'auEdit' : 'auRemove']; if (!id) return;
+  const lock = e.target.closest('[data-au-lock]'), pass = e.target.closest('[data-au-pass]'), del = e.target.closest('[data-au-delete]'), edit = e.target.closest('[data-au-edit]'), rem = e.target.closest('[data-au-remove]'), purge = e.target.closest('[data-au-purge]');
+  const id = (lock || pass || del || edit || rem || purge)?.dataset[lock ? 'auLock' : pass ? 'auPass' : del ? 'auDelete' : edit ? 'auEdit' : purge ? 'auPurge' : 'auRemove']; if (!id) return;
   const u = platformUsers.find(x => x.user_id === id);
   try {
     if (rem) {
@@ -2454,6 +2454,13 @@ $('allUsersTable').addEventListener('click', async e => {
       const pw = prompt('New password for ' + (u.email || u.full_name) + ' (12+ characters)'); if (!pw) return;
       if (pw.length < 12) return status('Password must contain at least 12 characters.');
       await invokeUsers({ action: 'update', userId: id, password: pw, global: true });
+    } else if (purge) {
+      const who = u.email || u.full_name;
+      const typed = prompt('PERMANENTLY delete the account of ' + who + '? This cannot be undone. Containers and history they created are kept, but will no longer show their name.\n\nType the e-mail address to confirm:');
+      if (typed === null) return;
+      if (typed.trim().toLowerCase() !== String(u.email || '').toLowerCase()) return status('E-mail did not match. Nothing was deleted.');
+      await invokeUsers({ action: 'purge', userId: id, global: true });
+      status('Account deleted permanently.'); await loadPlatform(); return;
     } else if (del) {
       if (!confirm('Delete the account of ' + (u.email || u.full_name) + ' from every lab? It is deactivated and can no longer sign in. Containers and history are kept.')) return;
       await invokeUsers({ action: 'delete', userId: id, global: true });
