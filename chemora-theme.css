@@ -447,3 +447,11 @@ html body.ci .ci-menu-toggle{display:none}
   html body.ci .ci-sponsors::before{content:"";grid-column:1/-1;border-top:1px solid var(--ci-line);margin-bottom:8px}
   html body.ci .ci-sponsor{min-width:0}
 }
+
+/* ---------- structure search: four buttons in two rows; single Structure Search button; lab chips ---------- */
+html body.ci .chemora-structure-actions{display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+html body.ci .chemora-structure-actions .btn{width:100%;flex:none;min-width:0}
+html body.ci .search-actions .split{display:flex}
+html body.ci .search-actions .split>.btn{flex:1 1 auto;width:100%}
+html body.ci .au-lab{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+html body.ci .au-remove{width:22px !important;height:22px !important;min-width:0 !important;padding:0 !important;font-size:11px}

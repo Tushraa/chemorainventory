@@ -17,8 +17,8 @@
   
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Cuprum:wght@400;700&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="inventory.css?v=20261119c">
-  <link rel="stylesheet" href="chemora-theme.css?v=20261119c">
+  <link rel="stylesheet" href="inventory.css?v=20261119d">
+  <link rel="stylesheet" href="chemora-theme.css?v=20261119d">
   <style>/* critical: keeps the account drawer closed even if a cached stylesheet is older than this page */
   .ci-drawer{position:fixed;top:0;right:0;bottom:0;width:340px;max-width:88vw;z-index:1000;transform:translateX(100%);visibility:hidden}
   .ci-drawer.open{transform:none;visibility:visible}
@@ -95,8 +95,7 @@
           <p class="limit-line">Limit search to: <button type="button" class="dotted" id="limitLocationLink">All locations</button></p>
           <select id="searchLocation" class="hide" aria-label="Limit search to location"><option value="">All locations</option></select>
           <div class="search-actions">
-            <div class="split"><button class="btn" id="structureSearchButton" type="button">Structure Search</button><button class="btn caret" id="searchMoreToggle" type="button" aria-label="More search types" aria-haspopup="true"><i class="fa-solid fa-caret-down" aria-hidden="true"></i></button>
-              <div class="menu hide" id="searchMoreMenu"><button type="button" id="openAdvanced">Advanced Search <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button><button type="button" id="openGhs">GHS Search <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></button></div></div>
+            <div class="split"><button class="btn" id="structureSearchButton" type="button">Structure Search</button></div>
             <button class="btn" type="submit">Search</button>
           </div>
         </form>
@@ -201,7 +200,6 @@
   <div class="chemical-dialog-body">
     <p id="structureEditorNotice" class="notice hide" role="alert"></p>
     <div id="jsmeContainer" data-editor-src="jsme/jsme.nocache.js"></div>
-    <label class="field">Or paste a SMILES string<input id="structureSmiles" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. CCO for ethanol"></label>
     <div class="chemora-structure-actions">
       <button id="searchExact" class="btn" type="button">Exact Match Search</button>
       <button id="searchSubstructure" class="btn secondary" type="button">Substructure Search</button>
@@ -249,5 +247,5 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-<script src="inventory.js?v=20261119c"></script>
+<script src="inventory.js?v=20261119d"></script>
 </body></html>
