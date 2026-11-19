@@ -1,7 +1,7 @@
 # Sponsor logos
 
 The Chemora menu shows three sponsor slots, from top to bottom. Add a logo file with exactly these names
-(PNG, SVG or WebP, ideally a transparent or white-background logo about 400 x 160 px) and it appears automatically;
+(PNG with a transparent background; logos are shown in light grey on the navy menu) and it appears automatically;
 until then the slot shows "Your logo here".
 
 | Slot | File |
