@@ -31,3 +31,12 @@ Supabase dashboard > **Authentication**:
 - A new request emails only the Order Settings addresses.
 - The person who made the request: placed, received and cancelled, only if they ticked "Email me when this order is placed, received or cancelled" on the request form (not for their own actions).
 - Each event is emailed once per order; a failed email never blocks the order itself.
+
+## Welcome email when a lab administrator adds a user
+- Add User has an optional password and a ticked box "Email a welcome message with the sign-in link".
+- Leave the password empty (recommended): a random password nobody sees is set, and the welcome email tells the user to choose
+  their own with "Forgot Password?". The administrator never handles a password.
+- Adding an existing account from another lab sends a short "you have been added to this lab" email.
+- Needs the `inventory-users` function to be redeployed (paste the new `supabase/functions/inventory-users/index.ts`) and the
+  same `RESEND_API_KEY` secret. If the email cannot be sent, the user is still created and the page says so.
+- "Forgot Password?" only works once the Supabase SMTP settings above are in place.
