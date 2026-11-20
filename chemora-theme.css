@@ -591,3 +591,16 @@ html body.ci .grid-tile .tile-name{display:block;margin-top:12px !important}
   html body.ci #view-history .chemora-orders-table tbody td{font-weight:400 !important}
   html body.ci #view-history .chemora-orders-table td:first-child{white-space:nowrap}
 }
+
+/* ---------- desktop only: compact search buttons, 3 tiles per row, Actions column at the far right ---------- */
+@media(min-width:851px){
+  html body.ci .search-actions{display:flex !important;justify-content:stretch;gap:8px}
+  html body.ci .search-actions{justify-content:flex-start}
+  html body.ci .search-actions>.btn,html body.ci .search-actions>.split{flex:1 1 0;min-width:max-content;width:auto;max-width:220px}
+  html body.ci .search-actions .btn{padding:0 6px;font-size:13px !important;white-space:nowrap}
+  html body.ci .search-actions .split>.btn{flex:1 1 auto;width:100%}
+  html body.ci .cards>.result-grid{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 20px}
+  html body.ci table.ci-results{width:100%}
+  html body.ci table.ci-results th:last-child,html body.ci table.ci-results td:last-child{width:1%;white-space:nowrap;text-align:right;padding-right:16px}
+  html body.ci table.ci-results td:last-child .row-actions{justify-content:flex-end}
+}
