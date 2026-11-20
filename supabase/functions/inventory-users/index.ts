@@ -35,13 +35,13 @@ export function buildWelcomeMessage({ name, email, labName, role, adminName, exi
   const text = [`Hello ${name || ''},`, '', `${adminName || 'A lab administrator'} added you to ${labName || 'a laboratory'} on Chemora Inventory as ${roleLabel}.`, '',
     `Sign-in page: ${siteUrl}`, `Your email address: ${email}`, '', first, '', 'Nobody has shared a password with you, and nobody else knows your password once you choose it.'].join('\n');
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1f2937">
-<div style="background:#0f1b2d;color:#fff;padding:16px 20px;border-radius:6px 6px 0 0"><strong style="font-size:18px">Chemora</strong> <span style="letter-spacing:2px;font-size:11px;color:#2dd4bf">INVENTORY</span></div>
-<div style="border:1px solid #d6dde6;border-top:0;padding:20px;border-radius:0 0 6px 6px">
+<div style="background:#0f1b2d;color:#fff;padding:14px 20px"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding:0 10px 0 0;vertical-align:middle"><img src="${esc(new URL('email-logo.png', siteUrl).href)}" width="32" height="32" alt="" style="display:block;border:0;outline:none"></td><td style="vertical-align:middle;color:#fff"><strong style="font-size:18px">Chemora</strong> <span style="letter-spacing:2px;font-size:11px;color:#2dd4bf">INVENTORY</span></td></tr></table></div>
+<div style="border:1px solid #d6dde6;border-top:0;padding:20px">
 <h2 style="margin:0 0 8px;font-size:18px">Welcome${name ? ', ' + esc(name) : ''}</h2>
 <p style="margin:0 0 12px">${esc(adminName || 'A lab administrator')} added you to <strong>${esc(labName || 'a laboratory')}</strong> on Chemora Inventory as <strong>${esc(roleLabel)}</strong>.</p>
 <table style="border-collapse:collapse;width:100%;font-size:14px"><tr><td style="padding:6px 10px;border:1px solid #e3e8ef;background:#f6f8fb;width:36%"><strong>Your email address</strong></td><td style="padding:6px 10px;border:1px solid #e3e8ef">${esc(email)}</td></tr></table>
 <p style="margin:16px 0">${esc(first)}</p>
-<p style="margin:20px 0 0"><a href="${esc(siteUrl)}" style="background:#12a58a;color:#fff;text-decoration:none;padding:10px 16px;border-radius:4px;display:inline-block">Open the sign-in page</a></p>
+<p style="margin:20px 0 0"><a href="${esc(siteUrl)}" style="background:#12a58a;color:#fff;text-decoration:none;padding:10px 16px;display:inline-block">Open the sign-in page</a></p>
 </div><p style="font-size:12px;color:#6b7280;text-align:center">No password was shared with you. You choose your own.</p></div>`;
   return { subject, text, html };
 }
