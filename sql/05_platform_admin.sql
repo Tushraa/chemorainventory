@@ -1,6 +1,6 @@
 -- Platform "Inventory Administrator" + per-lab administrators, GHS hazard codes, bulk container actions.
 --
---  * A platform administrator (tushraas@iisc.ac.in) has administrator rights in EVERY lab: can open any lab,
+--  * A platform administrator (the Inventory Administrator) has administrator rights in EVERY lab: can open any lab,
 --    create / rename / deactivate labs, appoint lab administrators and see every user.
 --  * A lab administrator controls only their own lab (members, locations, import, tools).
 --  * Chemicals get GHS hazard codes (H-codes) so containers can be searched by hazard.

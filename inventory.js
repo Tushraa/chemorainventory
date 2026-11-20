@@ -48,7 +48,7 @@ function showToast(message, type = 'success') {
 // Chemora uses a permanent dark appearance.
 document.documentElement.classList.add('ci-root');
 
-const cfg = window.HARI_INVENTORY_CONFIG;
+const cfg = window.CHEMORA_INVENTORY_CONFIG;
 const clean = value => typeof value === 'string' ? value.trim() : value;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 const show = (el, visible) => { if (el) el.classList.toggle('hide', !visible); };
