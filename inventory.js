@@ -80,6 +80,20 @@ let recoveryMode = urlParams.get('type') === 'recovery' && !urlParams.get('error
 const recoveryLinkError = urlParams.get('error_code') || urlParams.get('error') ? 'This reset link has expired or was already used. Request a new one.' : '';
 const db = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
+// The barcode library is only needed when a label is shown or printed, so it is fetched on first use instead of with every page load.
+let barcodeLibPromise = null;
+function loadBarcodeLib() {
+  if (typeof window.JsBarcode === 'function') return Promise.resolve(true);
+  if (!barcodeLibPromise) barcodeLibPromise = new Promise(resolve => {
+    const el = document.createElement('script');
+    el.src = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
+    el.onload = () => resolve(typeof window.JsBarcode === 'function');
+    el.onerror = () => { barcodeLibPromise = null; resolve(false); };
+    document.head.appendChild(el);
+  });
+  return barcodeLibPromise;
+}
+
 /* ---------- state ---------- */
 let user = null, role = null, labContext = null;
 let locations = [], ownerProfiles = [];
@@ -98,24 +112,37 @@ const val = (f, k) => clean(new FormData(f).get(k));
 const chunk = (arr, n) => { const out = []; for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out; };
 
 // PostgREST returns at most 1000 rows per request, so page through results (a stable order is required).
+// A short first page (the usual case) is a single request; a full one means there may be more, and the following
+// pages are then fetched four at a time instead of one after another.
 async function fetchAll(build, pageSize = 1000, max = 50000) {
-  const rows = [];
-  for (let from = 0; from < max; from += pageSize) {
+  const page = async from => {
     const { data, error } = await build().range(from, from + pageSize - 1);
     if (error) throw error;
-    const page = data || [];
-    rows.push(...page);
-    if (page.length < pageSize) break;
+    return data || [];
+  };
+  const rows = await page(0);
+  if (rows.length < pageSize) return rows;
+  const BATCH = 4;
+  for (let from = pageSize; from < max; from += pageSize * BATCH) {
+    const starts = Array.from({ length: BATCH }, (_, i) => from + i * pageSize).filter(start => start < max);
+    const pages = await Promise.all(starts.map(page));
+    let finished = false;
+    for (const part of pages) { rows.push(...part); if (part.length < pageSize) { finished = true; break; } }
+    if (finished) break;
   }
   return rows;
 }
+// Looks rows up by a list of values, 100 per request, with up to five requests running at the same time.
 async function fetchIn(table, column, ids, { select = '*', order = 'id' } = {}) {
-  const rows = [];
-  for (const part of chunk([...new Set(ids)], 100)) {
-    rows.push(...await fetchAll(() => db.from(table).select(select).in(column, part).order(order)));
+  const parts = chunk([...new Set(ids)], 100), rows = [];
+  for (let i = 0; i < parts.length; i += 5) {
+    const results = await Promise.all(parts.slice(i, i + 5).map(part => fetchAll(() => db.from(table).select(select).in(column, part).order(order))));
+    for (const r of results) rows.push(...r);
   }
   return rows;
 }
+// True when the database does not have a function yet (its sql script has not been run), so the app can fall back.
+const isMissingFunction = err => !!err && (err.code === 'PGRST202' || err.code === '42883' || /could not find the function|schema cache/i.test(String(err.message || '')));
 // An UPDATE blocked by row-level security succeeds with zero rows, so check that a row was really changed.
 async function updateRow(table, id, patch) {
   const { data, error } = await db.from(table).update(patch).eq('id', id).select('id');
@@ -198,17 +225,25 @@ function applyRoleVisibility() {
 }
 async function initSession() {
   if (recoveryMode) { await showRecovery(); return; }
-  const { data: { user: current }, error } = await db.auth.getUser();
-  user = error ? null : current; role = null;
+  // Checking the sign-in, loading the lab context and loading the profile do not depend on each other,
+  // so they are requested together instead of one after another.
+  const { data: { session } } = await db.auth.getSession();
+  const uid = session?.user?.id;
+  const [userRes, contextRes, profileRes] = await Promise.all([
+    db.auth.getUser(),
+    uid ? db.rpc('inventory_my_context') : null,
+    uid ? db.from('inventory_user_profiles').select('full_name,account_status').eq('user_id', uid).maybeSingle() : null
+  ]);
+  user = userRes.error ? null : userRes.data.user; role = null;
   let displayName = '';
   if (user) {
-    const result = await db.rpc('inventory_my_context');
+    const result = contextRes || await db.rpc('inventory_my_context');
     if (result.error) { await rejectSession('Could not verify inventory access: ' + result.error.message); return; }
     if (result.data?.lab_deactivated) { await rejectSession('Your laboratory has been deactivated by the Inventory Administrator, so you cannot sign in. Please contact the Inventory Administrator.'); return; }
     if ((!result.data?.lab_id && !result.data?.platform_admin) || !result.data?.role) { await rejectSession('Your account is not approved for inventory access.'); return; }
     role = result.data.role;
     labContext = result.data;
-    const { data: profile } = await db.from('inventory_user_profiles').select('full_name,account_status').eq('user_id', user.id).maybeSingle();
+    const profile = (profileRes || await db.from('inventory_user_profiles').select('full_name,account_status').eq('user_id', user.id).maybeSingle()).data;
     if (profile?.account_status === 'locked') { await rejectSession('This account is locked. Contact the administrator.'); return; }
     displayName = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
   }
@@ -291,7 +326,7 @@ function setTab(name) {
   if (name === 'history') loadHistory();
   if (name === 'users') loadUsers();
   if (name === 'platform') loadPlatform();
-  if (name === 'add') { loadContainerOwners(); renderLocationUi(); }
+  if (name === 'add') { loadContainerOwners(); renderLocationUi(); } // owners are cached for a minute
   if (name === 'collection') loadCollection();
   if (name === 'scan') initScan();
 }
@@ -512,21 +547,27 @@ async function loadChemicals(type, q) {
       })).filter(isActiveContainer);
       matched = new Set(hits.map(x => x.id));
       const chemicalIds = [...new Set(hits.map(x => x.chemical_id))];
-      chemicals = await fetchIn('inventory_chemicals', 'id', chemicalIds);
-      containers = (await fetchIn('inventory_containers', 'chemical_id', chemicalIds)).filter(isActiveContainer);
-    } else {
-      if (type === 'cas') {
-        chemicals = Array.isArray(q)
-          ? await fetchIn('inventory_chemicals', 'cas', q)
-          : await fetchAll(() => db.from('inventory_chemicals').select('*').ilike('cas', likePattern(q)).order('name').order('id'));
-      } else {
-        const byName = await fetchAll(() => db.from('inventory_chemicals').select('*').ilike('name', likePattern(q)).order('name').order('id'));
-        const syn = await db.from('inventory_chemical_synonyms').select('chemical_id').ilike('synonym', likePattern(q)).limit(1000);
-        const have = new Set(byName.map(c => c.id));
-        const extraIds = syn.error ? [] : [...new Set((syn.data || []).map(x => x.chemical_id))].filter(id => !have.has(id));
-        chemicals = byName.concat(await fetchIn('inventory_chemicals', 'id', extraIds));
-      }
+      // The chemicals and all the containers of those chemicals can be asked for at the same time.
+      const [chems, conts] = await Promise.all([fetchIn('inventory_chemicals', 'id', chemicalIds), fetchIn('inventory_containers', 'chemical_id', chemicalIds)]);
+      chemicals = chems; containers = conts.filter(isActiveContainer);
+    } else if (type === 'cas') {
+      chemicals = Array.isArray(q)
+        ? await fetchIn('inventory_chemicals', 'cas', q)
+        : await fetchAll(() => db.from('inventory_chemicals').select('*').ilike('cas', likePattern(q)).order('name').order('id'));
       containers = (await fetchIn('inventory_containers', 'chemical_id', chemicals.map(c => c.id))).filter(isActiveContainer);
+    } else {
+      // Name and synonym searches run together; then the extra chemicals found through synonyms and every container are fetched together.
+      const [byName, syn] = await Promise.all([
+        fetchAll(() => db.from('inventory_chemicals').select('*').ilike('name', likePattern(q)).order('name').order('id')),
+        db.from('inventory_chemical_synonyms').select('chemical_id').ilike('synonym', likePattern(q)).limit(1000)
+      ]);
+      const have = new Set(byName.map(c => c.id));
+      const extraIds = syn.error ? [] : [...new Set((syn.data || []).map(x => x.chemical_id))].filter(id => !have.has(id));
+      const [extra, conts] = await Promise.all([
+        fetchIn('inventory_chemicals', 'id', extraIds),
+        fetchIn('inventory_containers', 'chemical_id', [...byName.map(c => c.id), ...extraIds])
+      ]);
+      chemicals = byName.concat(extra); containers = conts.filter(isActiveContainer);
     }
     if (seq !== searchSeq) return; // a newer search replaced this one
     chemicals.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
@@ -741,7 +782,7 @@ $('closeChemicalDialog').addEventListener('click', () => $('chemicalDialog').clo
 $('chemicalDialog').addEventListener('click', e => { if (e.target === $('chemicalDialog')) $('chemicalDialog').close(); });
 
 /* Phase 7: client-side printable Code 128 label. Never send container data to third parties. */
-function printContainerLabel(containerId) {
+async function printContainerLabel(containerId) {
   const container = lastContainers.find(x => x.id === containerId);
   if (!container || !container.barcode) return;
   const chemical = lastChemicals.find(x => x.id === container.chemical_id);
@@ -751,6 +792,7 @@ function printContainerLabel(containerId) {
   $('phase7LabelLocation').textContent = locations.find(l => l.id === container.location_id)?.name || 'Location not assigned';
   $('phase7LabelAmount').textContent = String(container.container_size ?? '') + ' ' + (container.unit || '');
   const svg = $('phase7Barcode'); svg.replaceChildren();
+  await loadBarcodeLib();
   if (typeof window.JsBarcode === 'function') {
     try {
       window.JsBarcode(svg, container.barcode, { format: 'CODE128', displayValue: false, width: 1.5, height: 58, margin: 5, background: '#fff', lineColor: '#000' });
@@ -768,10 +810,13 @@ function populateOwnerSelects() {
   $('containerOwner')?.replaceChildren(new Option('Current User', ''), ...options.map(o => o.cloneNode(true)));
   $('receiveOwner')?.replaceChildren(new Option('Receiving Manager', ''), ...options.map(o => o.cloneNode(true)));
 }
-async function loadContainerOwners() {
+let ownersLoadedAt = 0;
+async function loadContainerOwners(force = false) {
+  if (!force && ownerProfiles.length && Date.now() - ownersLoadedAt < 60000) return;
   const { data, error } = await db.from('inventory_user_profiles').select('user_id,full_name,account_status').or('account_status.is.null,account_status.neq.locked').limit(1000);
   if (error) return;
   ownerProfiles = (data || []).sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || '')));
+  ownersLoadedAt = Date.now();
   populateOwnerSelects();
 }
 function syncContainerActionFields() {
@@ -1119,9 +1164,26 @@ function fillHistoryUsers() {
   $('historyUser').value = people.some(([id]) => id === keep) ? keep : '';
 }
 function isoDay(d) { return d.toISOString().slice(0, 10); }
+let historySeq = 0;
 async function loadHistory() {
   if (!isManager()) return;
   if (!$('historyFrom').value && !$('historyTo').value) { $('historyFrom').value = isoDay(new Date(Date.now() - 30 * 864e5)); $('historyTo').value = isoDay(new Date()); }
+  const seq = ++historySeq;
+  // One call: the database filters the date range and returns the people's names with the rows.
+  const res = await db.rpc('inventory_history_page', { p_from: $('historyFrom').value || null, p_to: $('historyTo').value || null, p_limit: 2000 });
+  if (seq !== historySeq) return; // a newer request replaced this one
+  if (res.error) {
+    if (isMissingFunction(res.error)) return loadHistoryLegacy();
+    status(res.error.message); return;
+  }
+  cachedHistory = res.data || [];
+  historyNames = {};
+  for (const r of cachedHistory) if (r.performed_by && r.performer_name) historyNames[r.performed_by] = r.performer_name;
+  fillHistoryUsers();
+  renderHistory();
+}
+async function loadHistoryLegacy() {
+  // Used only until sql/13_performance.sql has been run: downloads the newest 2000 rows and looks up the names afterwards.
   let { data, error } = await db.from('inventory_activity_logs').select('created_at,table_name,record_id,action,performed_by,description').order('created_at', { ascending: false }).limit(2000);
   if (error && /description/i.test(error.message)) {
     // Database not upgraded with sql/04_activity_descriptions.sql yet: fall back to generated descriptions.
@@ -1151,7 +1213,10 @@ async function loadHistory() {
   fillHistoryUsers();
   renderHistory();
 }
-for (const id of ['historyFilter', 'historyFrom', 'historyTo', 'historyUser', 'historySubject']) $(id).addEventListener('input', renderHistory);
+for (const id of ['historyFilter', 'historyUser', 'historySubject']) $(id).addEventListener('input', renderHistory);
+// A new date range is fetched from the database (after a short pause while typing); the other filters work on what is loaded.
+let historyDateTimer = null;
+for (const id of ['historyFrom', 'historyTo']) $(id).addEventListener('input', () => { renderHistory(); clearTimeout(historyDateTimer); historyDateTimer = setTimeout(loadHistory, 350); });
 $('historyExport').addEventListener('click', () => {
   if (!isManager()) return;
   downloadCSV('chemora-history.csv', [['Timestamp (UTC)', 'User', 'Subject', 'Event', 'Description'], ...filteredHistory().map(x => [historyStamp(x), historyUser(x), historySubject(x), historyEvent(x), historyText(x)])]);
@@ -1161,7 +1226,7 @@ $('historyExport').addEventListener('click', () => {
 async function loadCollection() {
   status('Loading your containers…', 'collectionStatus');
   try {
-    const rows = (await getContainerRows()).filter(x => isActiveContainer(x) && x.owner_id === user.id);
+    const rows = (await getContainerRows({ ownerId: user.id, scope: 'active' })).filter(x => isActiveContainer(x) && x.owner_id === user.id);
     collectionRows = rows;
     status(rows.length ? '' : 'You do not own any containers yet.', 'collectionStatus');
     renderCollection();
@@ -1266,7 +1331,7 @@ async function runImAction(action) {
 }
 async function showDeletedContainers() {
   try {
-    const rows = (await getContainerRows()).filter(x => !isActiveContainer(x));
+    const rows = (await getContainerRows({ scope: 'disposed' })).filter(x => !isActiveContainer(x));
     rows.sort((a, b) => String(b.disposed_at || b.updated_at || '').localeCompare(String(a.disposed_at || a.updated_at || '')));
     $('toolsResult').innerHTML = rows.length ? '<h3>Deleted Containers</h3><table class="inventory-data-table"><thead><tr><th>Chemical</th><th>Barcode</th><th>Size</th><th>Last Location</th><th>Disposed</th></tr></thead><tbody>' +
       rows.map(x => `<tr><td>${esc(x.chemical?.name)}</td><td>${esc(x.barcode)}</td><td>${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td><td>${esc(String(x.disposed_at || x.updated_at || '').slice(0, 10))}</td></tr>`).join('') + '</tbody></table><p class="muted">Disposed containers are archived here with their history until the chemical record is deleted.</p>' : '<p class="muted">No deleted containers.</p>';
@@ -1504,16 +1569,37 @@ $('searchSubstructure').addEventListener('click', () => chemoraRunStructureSearc
 $('searchSimilarity').addEventListener('click', () => chemoraRunStructureSearch('similarity'));
 
 /* ---------- inventory tools ---------- */
-async function getContainerRows() {
-  const [chems, conts, locs] = await Promise.all([
-    fetchAll(() => db.from('inventory_chemicals').select('id,name,cas').order('id')),
-    fetchAll(() => db.from('inventory_containers').select('*').order('id')),
-    fetchAll(() => db.from('inventory_locations').select('id,name').order('id'))
-  ]);
-  const chemicals = new Map(chems.map(x => [x.id, x])), locNames = new Map(locs.map(x => [x.id, x.name]));
+// Containers with their chemical and location names. Pass { ownerId } for one person's containers or { recent: n } for the
+// newest n containers, so that only those rows (not the whole inventory) are downloaded.
+async function getContainerRows({ ownerId = null, recent = 0, scope = 'all' } = {}) {
+  const notDisposed = q => q.or('status.is.null,status.neq.disposed');
+  // scope 'active' or 'disposed' filters in the database, so containers nobody needs are never downloaded.
+  const scoped = q => scope === 'active' ? notDisposed(q) : scope === 'disposed' ? q.eq('status', 'disposed') : q;
+  let conts = null, chems = null;
+  if (recent) {
+    // Newest first, straight from the database. An older database without created_at falls through to the full load below.
+    const r = await notDisposed(db.from('inventory_containers').select('*')).order('created_at', { ascending: false }).limit(recent);
+    if (!r.error) conts = r.data || [];
+  } else if (ownerId) {
+    conts = await fetchAll(() => scoped(db.from('inventory_containers').select('*').eq('owner_id', ownerId)).order('id'));
+  }
+  if (conts) {
+    const ids = [...new Set(conts.map(x => x.chemical_id))];
+    chems = ids.length ? await fetchIn('inventory_chemicals', 'id', ids, { select: 'id,name,cas' }) : [];
+  } else {
+    [chems, conts] = await Promise.all([
+      fetchAll(() => db.from('inventory_chemicals').select('id,name,cas').order('id')),
+      fetchAll(() => scoped(db.from('inventory_containers').select('*')).order('id'))
+    ]);
+  }
+  const chemicals = new Map(chems.map(x => [x.id, x]));
+  // The locations are already loaded when the app starts; ask again only if one of them is missing.
+  const known = new Map(locations.map(l => [l.id, l]));
+  let locNames = null;
+  if (conts.some(x => x.location_id && !known.has(x.location_id))) locNames = new Map((await fetchAll(() => db.from('inventory_locations').select('id,name').order('id'))).map(x => [x.id, x.name]));
   return conts.map(x => {
-    const loc = locations.find(l => l.id === x.location_id);
-    return { ...x, chemical: chemicals.get(x.chemical_id), location_name: loc ? locationPath(loc) : (locNames.get(x.location_id) || '') };
+    const loc = known.get(x.location_id);
+    return { ...x, chemical: chemicals.get(x.chemical_id), location_name: loc ? locationPath(loc) : (locNames?.get(x.location_id) || '') };
   });
 }
 $('exportInventory').addEventListener('click', async () => {
@@ -1527,7 +1613,7 @@ $('exportInventory').addEventListener('click', async () => {
 $('recentContainers').addEventListener('click', async () => {
   if (!isAdmin()) return;
   try {
-    const rows = (await getContainerRows()).filter(isActiveContainer);
+    const rows = (await getContainerRows({ recent: 40 })).filter(isActiveContainer);
     const key = x => String(x.created_at || x.received_at || '');
     rows.sort((a, b) => key(b).localeCompare(key(a)));
     $('toolsResult').innerHTML = '<table class="inventory-data-table"><thead><tr><th>Chemical</th><th>Barcode</th><th>Size</th><th>Location</th></tr></thead><tbody>' + rows.slice(0, 40).map(x => `<tr><td>${esc(x.chemical?.name)}</td><td>${esc(x.barcode)}</td><td>${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td></tr>`).join('') + `</tbody></table><p class="muted">Newest 40 containers, ordered by ${rows[0]?.created_at ? 'creation time' : 'date received'}.</p>`;
@@ -1555,8 +1641,9 @@ function buildLabelSheet(rows) {
 $('printLabels').addEventListener('click', async () => {
   if (!isAdmin()) return;
   try {
-    const all = (await getContainerRows()).filter(x => x.barcode && isActiveContainer(x));
+    const all = (await getContainerRows({ scope: 'active' })).filter(x => x.barcode && isActiveContainer(x));
     const rows = all.slice(0, 100);
+    await loadBarcodeLib(); // ready before the Print button is pressed
     $('toolsResult').innerHTML = `<p class="muted">${rows.length} Code 128 barcode label(s) ready${all.length > rows.length ? ` (first ${rows.length} of ${all.length}; print in batches)` : ''}. Scan a printed label before attaching it to a bottle.</p><div class="tool-grid">${rows.map(x => `<div class="card"><strong>${esc(x.chemical?.name)}</strong><p class="muted">${esc(x.barcode)}</p></div>`).join('')}</div><button type="button" class="btn secondary" id="printLabelsNow" style="margin-top:14px">Print Labels</button>`;
     $('printLabelsNow').addEventListener('click', () => {
       buildLabelSheet(rows);
@@ -1900,8 +1987,13 @@ function renderUsers() {
 async function loadUsers() {
   $('userList').textContent = 'Loading users…';
   try {
-    const result = await invokeUsers({ action: 'list' });
-    cachedUsers = Array.isArray(result) ? result : Array.isArray(result.users) ? result.users : Array.isArray(result.data) ? result.data : [];
+    // One database call. Until sql/13_performance.sql has been run, the slower account service is used instead.
+    const res = await db.rpc('inventory_lab_users');
+    if (!res.error) cachedUsers = res.data || [];
+    else if (isMissingFunction(res.error)) {
+      const result = await invokeUsers({ action: 'list' });
+      cachedUsers = Array.isArray(result) ? result : Array.isArray(result.users) ? result.users : Array.isArray(result.data) ? result.data : [];
+    } else throw res.error;
     renderUsers();
   } catch (err) { $('userList').textContent = errorText(err); }
 }
@@ -1921,7 +2013,7 @@ $('userForm').addEventListener('submit', async e => {
       : result.emailError ? `User added, but the welcome email failed: ${result.emailError} Ask them to use Forgot Password? on the sign-in page.`
       : 'User added.');
     loadUsers();
-    loadContainerOwners();
+    loadContainerOwners(true);
   } catch (err) { status(errorText(err)); } finally { submit.disabled = false; }
 });
 
@@ -2174,9 +2266,9 @@ async function showLocationContainers(locId) {
     const ids = descendantIds(locId);
     const hits = (await fetchIn('inventory_containers', 'location_id', ids)).filter(isActiveContainer);
     const chemicalIds = [...new Set(hits.map(x => x.chemical_id))];
-    const chems = await fetchIn('inventory_chemicals', 'id', chemicalIds);
+    const [chems, conts] = await Promise.all([fetchIn('inventory_chemicals', 'id', chemicalIds), fetchIn('inventory_containers', 'chemical_id', chemicalIds)]);
     lastChemicals = chems.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
-    lastContainers = (await fetchIn('inventory_containers', 'chemical_id', chemicalIds)).filter(isActiveContainer);
+    lastContainers = conts.filter(isActiveContainer);
     matchedContainerIds = new Set(hits.map(x => x.id)); lastSearch = null;
     status('', 'locationStatus');
     $('locationContents').dataset.locId = locId;
@@ -2399,9 +2491,9 @@ $('openAdvanced')?.addEventListener('click', () => { renderAdvanced(); status(''
 $('advancedRun').addEventListener('click', async () => {
   $('advancedRun').disabled = true; status('Searching…', 'advancedStatus');
   try {
-    const snap = await fetchSnapshot();
     const syn = new Map();
-    try { for (const s of await fetchAll(() => db.from('inventory_chemical_synonyms').select('chemical_id,synonym').order('id'))) { if (!syn.has(s.chemical_id)) syn.set(s.chemical_id, []); syn.get(s.chemical_id).push(s.synonym); } } catch (_e) { /* synonyms are optional */ }
+    const loadSynonyms = async () => { try { for (const s of await fetchAll(() => db.from('inventory_chemical_synonyms').select('chemical_id,synonym').order('id'))) { if (!syn.has(s.chemical_id)) syn.set(s.chemical_id, []); syn.get(s.chemical_id).push(s.synonym); } } catch (_e) { /* synonyms are optional */ } };
+    const [snap] = await Promise.all([fetchSnapshot(), loadSynonyms()]);
     await runSnapshotSearch(({ c, x }) => advEval(advRoot, { c, x, syn }), snap);
     $('advancedDialog').close();
   } catch (err) { status(errorText(err), 'advancedStatus'); } finally { $('advancedRun').disabled = false; }
@@ -2618,7 +2710,7 @@ let bulkRows = [], bulkChanges = [];
 function resetBulk() { bulkChanges = []; $('bulkFile').value = ''; $('bulkPreview').replaceChildren(); show($('bulkApply'), false); status('', 'bulkStatus'); }
 $('bulkDownload').addEventListener('click', async () => {
   try {
-    const rows = (await getContainerRows()).filter(isActiveContainer);
+    const rows = (await getContainerRows({ scope: 'active' })).filter(isActiveContainer);
     downloadCSV('chemora-bulk-update.csv', [['barcode', 'chemical', ...BULK_FIELDS], ...rows.map(x => [x.barcode, x.chemical?.name, ...BULK_FIELDS.map(k => x[k] ?? '')])]);
     status('Downloaded ' + rows.length + ' containers.', 'bulkStatus');
   } catch (e) { status(errorText(e), 'bulkStatus'); }
@@ -2632,7 +2724,7 @@ $('bulkFile').addEventListener('change', async e => {
     const bi = head.indexOf('barcode');
     if (bi < 0) return status('The file needs a "barcode" column (download the current data to start from it).', 'bulkStatus');
     if (rows.length > 500) return status('Up to 500 rows can be updated at once.', 'bulkStatus');
-    bulkRows = (await getContainerRows()).filter(isActiveContainer);
+    bulkRows = (await getContainerRows({ scope: 'active' })).filter(isActiveContainer);
     const byBarcode = new Map(bulkRows.map(x => [String(x.barcode).toLowerCase(), x]));
     const problems = [];
     rows.forEach((r, i) => {
@@ -2683,7 +2775,7 @@ $('stockPick').addEventListener('click', async () => {
   const id = await chooseLocation('Stocktake Location'); if (!id) return;
   try {
     const loc = locations.find(l => l.id === id), ids = new Set($('stockSub').checked ? descendantIds(id) : [id]);
-    const all = (await getContainerRows()).filter(isActiveContainer);
+    const all = (await getContainerRows({ scope: 'active' })).filter(isActiveContainer);
     stock = { loc, all, expected: new Map(all.filter(x => ids.has(x.location_id)).map(x => [x.id, x])), found: new Set(), unexpected: new Map(), unknown: [] };
     $('stockLocation').textContent = locationPath(loc) + ' — ' + stock.expected.size + ' container(s) expected';
     $('stockScan').disabled = false; $('stockScan').focus(); renderStock();
