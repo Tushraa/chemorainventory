@@ -27,9 +27,11 @@ Supabase dashboard > **Authentication**:
 4. In the app: **Order Requests > Current Orders > Order Settings**, enter the addresses, **Save**, then **Send Test Email to Me**.
 
 ## Who gets what
-- Addresses in Order Settings (per lab): every order event (requested, placed, received, cancelled).
+- Addresses in Order Settings (per lab): new requests, and orders marked as placed or received.
 - A new request emails only the Order Settings addresses.
-- The person who made the request: placed, received and cancelled, only if they ticked "Email me when this order is placed, received or cancelled" on the request form (not for their own actions).
+- The person who made the request: placed and received, only if they ticked "Email me when this order is placed, received or cancelled" on the request form (not for their own actions).
+- Cancelling: if the requester cancels their own request, nobody is emailed. If a chemical manager or administrator cancels it, only the requester is emailed (only if they ticked the option); the Order Settings addresses are not.
+- The requester can edit their own request until a manager marks it as ordered. Editing sends no email.
 - Each event is emailed once per order; a failed email never blocks the order itself.
 
 ## Welcome email when a lab administrator adds a user
@@ -40,3 +42,8 @@ Supabase dashboard > **Authentication**:
 - Needs the `inventory-users` function to be redeployed (paste the new `supabase/functions/inventory-users/index.ts`) and the
   same `RESEND_API_KEY` secret. If the email cannot be sent, the user is still created and the page says so.
 - "Forgot Password?" only works once the Supabase SMTP settings above are in place.
+
+## Updating an existing setup (order edit / cancel rules)
+1. Run `sql/12_order_edit_and_cancel_rules.sql` in the SQL editor (adds who-cancelled tracking and lets requesters edit their own open request).
+2. Redeploy the `inventory-notify` function from `supabase/functions/inventory-notify/index.ts`.
+3. The email header logo is `email-logo.png` in the site root, so it appears once the site is published.
