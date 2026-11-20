@@ -1,7 +1,8 @@
 // Edge function "inventory-notify": e-mails about order activity, sent through Resend.
 //  * The app calls it right after an order is requested, marked as ordered, received or cancelled.
-//  * Lab recipients (Order Settings) get every event. The person who made the request also gets the
-//    ordered / received / cancelled updates (unless they did that action themselves).
+//  * Lab recipients (Order Settings) get every event. A new request e-mails only them. The person who made the
+//    request gets the later ordered / received / cancelled updates only if they ticked the e-mail option on the
+//    request form (notify_requester), and not for actions they did themselves.
 //  * The function re-reads the order from the database and only sends when the order really is in the
 //    state the caller claims, and only once per event, so the endpoint cannot be used to spam anyone.
 //  * event "test" sends a sample message to the caller's own address (managers only) to check the setup.
@@ -124,7 +125,7 @@ export async function handle(req, admin, send = sendWithResend, siteUrl = 'https
     if (!lab?.active) return json(200, { sent: 0, skipped: 'Laboratory is not active.' });
 
     const recipients = new Set((await must(admin.from('inventory_order_recipients').select('email').eq('lab_id', order.lab_id).limit(100))).map(r => r.email));
-    if (event !== 'requested' && order.requested_by && order.requested_by !== caller.id) {
+    if (event !== 'requested' && order.notify_requester === true && order.requested_by && order.requested_by !== caller.id) {
       const rp = await must(admin.from('inventory_user_profiles').select('email,account_status').eq('user_id', order.requested_by).maybeSingle());
       let to = clean(rp?.email).toLowerCase();
       if (!to) { const { data: u } = await admin.auth.admin.getUserById(order.requested_by); to = clean(u?.user?.email).toLowerCase(); }

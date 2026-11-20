@@ -19,7 +19,7 @@ Supabase dashboard > **Authentication**:
 4. Optional: **Rate Limits** to raise the default of 30 auth emails per hour.
 
 ## 3. Order emails
-1. SQL editor: run `sql/10_order_notifications.sql` (recipient list table, save function, once-per-event log).
+1. SQL editor: run `sql/10_order_notifications.sql` (recipient list table, save function, once-per-event log) and `sql/11_order_email_choice.sql` (the requester's email option).
 2. Edge Functions > **Deploy a new function** named `inventory-notify`, paste `supabase/functions/inventory-notify/index.ts`.
    Use the same JWT setting as `inventory-users` (the function checks the sign-in token itself).
 3. Edge Functions > **Secrets**: add `RESEND_API_KEY` (the key from step 1).
@@ -28,5 +28,6 @@ Supabase dashboard > **Authentication**:
 
 ## Who gets what
 - Addresses in Order Settings (per lab): every order event (requested, placed, received, cancelled).
-- The person who made the request: placed, received and cancelled (not for their own actions).
+- A new request emails only the Order Settings addresses.
+- The person who made the request: placed, received and cancelled, only if they ticked "Email me when this order is placed, received or cancelled" on the request form (not for their own actions).
 - Each event is emailed once per order; a failed email never blocks the order itself.

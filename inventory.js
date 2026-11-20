@@ -892,8 +892,8 @@ $('orderForm').addEventListener('submit', async e => {
   const submit = f.querySelector('[type="submit"]');
   submit.disabled = true;
   try {
-    const { data: created, error } = await db.from('inventory_orders').insert({ chemical_name: name, cas: optional(cas), container_size: size, unit: val(f, 'unit'), supplier: optional(val(f, 'supplier')), comments: optional(val(f, 'comments')), requested_by: user.id }).select('id').single();
-    if (error) return status(error.message);
+    const { data: created, error } = await db.from('inventory_orders').insert({ chemical_name: name, cas: optional(cas), container_size: size, unit: val(f, 'unit'), supplier: optional(val(f, 'supplier')), comments: optional(val(f, 'comments')), requested_by: user.id, notify_requester: !!f.elements.namedItem('notify_requester')?.checked }).select('id').single();
+    if (error) return status(/notify_requester|schema cache/.test(error.message) ? 'Run sql/11_order_email_choice.sql in Supabase to enable the email option.' : error.message);
     if (created?.id) notifyOrder(created.id, 'requested');
     f.reset();
     status('Order request submitted.');
@@ -948,7 +948,7 @@ $('orderList').addEventListener('click', async e => {
   const o = cachedOrders.find(x => String(x.id) === b.dataset.orderId);
   if (!o) return;
   const action = b.dataset.orderAction;
-  if (action === 'info') { alert(`Chemical: ${o.chemical_name}\nCAS: ${o.cas || '—'}\nSupplier: ${o.supplier || '—'}\nSize: ${o.container_size} ${o.unit}\nStatus: ${o.status}\nComments: ${o.comments || '—'}`); return; }
+  if (action === 'info') { alert(`Chemical: ${o.chemical_name}\nCAS: ${o.cas || '—'}\nSupplier: ${o.supplier || '—'}\nSize: ${o.container_size} ${o.unit}\nStatus: ${o.status}\nEmail updates to requester: ${o.notify_requester ? 'Yes' : 'No'}\nComments: ${o.comments || '—'}`); return; }
   if (action === 'edit' && o.status === 'requested' && isManager()) {
     const f = $('editOrderForm'); f.reset();
     for (const key of ['chemical_name', 'cas', 'container_size', 'unit', 'supplier', 'comments']) f.elements.namedItem(key).value = o[key] ?? '';
