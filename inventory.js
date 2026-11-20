@@ -1911,9 +1911,11 @@ $('userForm').addEventListener('submit', async e => {
   const submit = f.querySelector('[type="submit"]');
   submit.disabled = true;
   try {
-    await invokeUsers({ action: 'create', name: val(f, 'name'), email: val(f, 'email'), password: val(f, 'password'), role: val(f, 'role') });
+    const result = await invokeUsers({ action: 'create', name: val(f, 'name'), email: val(f, 'email'), password: val(f, 'password'), role: val(f, 'role'), welcome: !!f.elements.namedItem('welcome')?.checked });
     f.reset(); $('addUserDialog').close();
-    status('User added.');
+    status(result.emailSent ? 'User added. Welcome email sent.'
+      : result.emailError ? `User added, but the welcome email failed: ${result.emailError} Ask them to use Forgot Password? on the sign-in page.`
+      : 'User added.');
     loadUsers();
     loadContainerOwners();
   } catch (err) { status(errorText(err)); } finally { submit.disabled = false; }

@@ -5,6 +5,9 @@
 //  * The Inventory Administrator can never be a member of a lab, and a lab always keeps at least one administrator.
 //  * The platform Inventory Administrator manages every lab and every account (pass labId to pick the lab,
 //    and global:true to act on an account regardless of lab) and is the only one who can touch another
+//  * When a lab administrator adds someone, an optional welcome e-mail (Resend) carries the sign-in link and the
+//    person's e-mail address. With no password given, a random one is set that nobody sees and the person chooses
+//    their own through "Forgot Password?". Secrets: RESEND_API_KEY, optional MAIL_FROM and SITE_URL.
 //    platform administrator, except that a lab administrator may remove the Inventory Administrator from their own
 //    lab (membership only: the account is never locked or deactivated by a lab administrator).
 const CORS = {
@@ -18,6 +21,45 @@ class HttpError extends Error { constructor(status, message) { super(message); t
 const fail = (status, message) => { throw new HttpError(status, message); };
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 const clean = v => String(v ?? '').trim();
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ROLE_LABELS = { member: 'Member', manager: 'Chemical Manager', admin: 'Administrator' };
+// A password nobody sees: used when the administrator leaves the field empty, so the person must pick their own.
+const randomPassword = () => btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(24)))).replace(/[+/=]/g, 'x') + 'Aa1!';
+
+export function buildWelcomeMessage({ name, email, labName, role, adminName, existing, siteUrl }) {
+  const roleLabel = ROLE_LABELS[role] || 'Member';
+  const subject = `[Chemora] You have been added to ${labName || 'a laboratory'}`;
+  const first = existing
+    ? 'Sign in with your existing Chemora password. If you have forgotten it, choose "Forgot Password?" on the sign-in page.'
+    : 'This is your first sign-in, so you need to choose a password: open the sign-in page, enter the email address above, choose "Forgot Password?" and follow the link that is emailed to you.';
+  const text = [`Hello ${name || ''},`, '', `${adminName || 'A lab administrator'} added you to ${labName || 'a laboratory'} on Chemora Inventory as ${roleLabel}.`, '',
+    `Sign-in page: ${siteUrl}`, `Your email address: ${email}`, '', first, '', 'Nobody has shared a password with you, and nobody else knows your password once you choose it.'].join('\n');
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1f2937">
+<div style="background:#0f1b2d;color:#fff;padding:16px 20px;border-radius:6px 6px 0 0"><strong style="font-size:18px">Chemora</strong> <span style="letter-spacing:2px;font-size:11px;color:#2dd4bf">INVENTORY</span></div>
+<div style="border:1px solid #d6dde6;border-top:0;padding:20px;border-radius:0 0 6px 6px">
+<h2 style="margin:0 0 8px;font-size:18px">Welcome${name ? ', ' + esc(name) : ''}</h2>
+<p style="margin:0 0 12px">${esc(adminName || 'A lab administrator')} added you to <strong>${esc(labName || 'a laboratory')}</strong> on Chemora Inventory as <strong>${esc(roleLabel)}</strong>.</p>
+<table style="border-collapse:collapse;width:100%;font-size:14px"><tr><td style="padding:6px 10px;border:1px solid #e3e8ef;background:#f6f8fb;width:36%"><strong>Your email address</strong></td><td style="padding:6px 10px;border:1px solid #e3e8ef">${esc(email)}</td></tr></table>
+<p style="margin:16px 0">${esc(first)}</p>
+<p style="margin:20px 0 0"><a href="${esc(siteUrl)}" style="background:#12a58a;color:#fff;text-decoration:none;padding:10px 16px;border-radius:4px;display:inline-block">Open the sign-in page</a></p>
+</div><p style="font-size:12px;color:#6b7280;text-align:center">No password was shared with you. You choose your own.</p></div>`;
+  return { subject, text, html };
+}
+
+export async function sendWithResend(message, env = (k => Deno.env.get(k)), fetchImpl = fetch) {
+  const key = env('RESEND_API_KEY');
+  if (!key) fail(500, 'E-mail is not set up yet (RESEND_API_KEY is missing).');
+  const from = env('MAIL_FROM') || 'Chemora Inventory <noreply@chemora.art>';
+  const r = await fetchImpl('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to: [message.to], subject: message.subject, html: message.html, text: message.text })
+  });
+  if (!r.ok) {
+    console.error('Resend error', r.status, await r.text().catch(() => ''));
+    fail(502, r.status === 403 || r.status === 422 ? 'The e-mail service rejected the message. Check that the sender domain is verified in Resend.' : 'The e-mail service could not send the message.');
+  }
+}
 
 async function must(promise, message) {
   const { data, error } = await promise;
@@ -25,7 +67,7 @@ async function must(promise, message) {
   return data;
 }
 
-export async function handle(req, admin) {
+export async function handle(req, admin, send = sendWithResend, siteUrl = 'https://app.chemora.art/') {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   try {
     if (req.method !== 'POST') fail(405, 'Use POST.');
@@ -86,24 +128,38 @@ export async function handle(req, admin) {
 
     if (action === 'create') {
       const name = clean(body.name), email = clean(body.email).toLowerCase(), role = clean(body.role) || 'member', password = String(body.password ?? '');
+      const welcome = body.welcome === true;
       if (!name) fail(400, 'Full name is required.');
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail(400, 'Enter a valid e-mail address.');
       if (!ROLES.includes(role)) fail(400, 'Invalid role.');
-      const found = (await must(admin.from('inventory_user_profiles').select('user_id,email').ilike('email', email).limit(50))).find(p => clean(p.email).toLowerCase() === email);
+      // The welcome e-mail never fails the creation: the result tells the page whether it went out.
+      const welcomeResult = async (displayName, existing) => {
+        if (!welcome) return {};
+        try {
+          const lab = await must(admin.from('inventory_labs').select('name').eq('id', labId).maybeSingle());
+          const me = await must(admin.from('inventory_user_profiles').select('full_name').eq('user_id', callerId).maybeSingle());
+          await send({ to: email, ...buildWelcomeMessage({ name: displayName, email, labName: lab?.name, role, adminName: clean(me?.full_name), existing, siteUrl }) });
+          return { emailSent: true };
+        } catch (err) {
+          console.error('Welcome e-mail failed:', err?.message);
+          return { emailSent: false, emailError: err instanceof HttpError ? err.message : 'The welcome e-mail could not be sent.' };
+        }
+      };
+      const found = (await must(admin.from('inventory_user_profiles').select('user_id,email,full_name').ilike('email', email).limit(50))).find(p => clean(p.email).toLowerCase() === email);
       if (found) {
         if (platformIds.has(found.user_id)) fail(400, 'The Inventory Administrator cannot be added to a lab.');
         if ((await members()).some(m => m.user_id === found.user_id)) fail(409, 'That person is already a member of this lab.');
         await must(admin.from('inventory_members').insert({ lab_id: labId, user_id: found.user_id, role }));
-        return json(200, { ok: true, existing: true, userId: found.user_id });
+        return json(200, { ok: true, existing: true, userId: found.user_id, ...(await welcomeResult(clean(found.full_name) || name, true)) });
       }
-      if (password.length < 12) fail(400, 'Password must contain at least 12 characters.');
-      const { data: created, error: createError } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: name } });
+      if (password && password.length < 12) fail(400, 'Password must contain at least 12 characters.');
+      const { data: created, error: createError } = await admin.auth.admin.createUser({ email, password: password || randomPassword(), email_confirm: true, user_metadata: { full_name: name } });
       if (createError || !created?.user) fail(400, createError?.message || 'Could not create the account.');
       const id = created.user.id;
       await must(admin.from('inventory_user_profiles').upsert({ user_id: id, full_name: name, email }, { onConflict: 'user_id' }));
       await must(admin.from('inventory_members').upsert({ lab_id: labId, user_id: id, role }, { onConflict: 'lab_id,user_id' }));
       await must(admin.from('inventory_user_profiles').update({ active_lab_id: labId }).eq('user_id', id).is('active_lab_id', null));
-      return json(200, { ok: true, userId: id });
+      return json(200, { ok: true, userId: id, passwordSet: !!password, ...(await welcomeResult(name, false)) });
     }
 
     if (action === 'update') {
@@ -220,5 +276,5 @@ if (typeof Deno !== 'undefined') {
   let serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!serviceKey) { try { serviceKey = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}').default; } catch (_e) { /* no secret key available */ } }
   const admin = createClient(Deno.env.get('SUPABASE_URL'), serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  Deno.serve(req => handle(req, admin));
+  Deno.serve(req => handle(req, admin, undefined, Deno.env.get('SITE_URL') || 'https://app.chemora.art/'));
 }
