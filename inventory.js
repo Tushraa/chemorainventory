@@ -73,6 +73,11 @@ if (!cfg || !cfg.supabaseUrl || !cfg.supabaseAnonKey || !window.supabase) {
   show($('auth'), false);
   return;
 }
+// A password-reset e-mail link returns here with "type=recovery" in the URL fragment (or an error when it has expired).
+// supabase-js removes the fragment while it starts up, so it is read first.
+const urlParams = new URLSearchParams(location.hash.replace(/^#/, '') + '&' + location.search.replace(/^\?/, ''));
+let recoveryMode = urlParams.get('type') === 'recovery' && !urlParams.get('error');
+const recoveryLinkError = urlParams.get('error_code') || urlParams.get('error') ? 'This reset link has expired or was already used. Request a new one.' : '';
 const db = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
 /* ---------- state ---------- */
@@ -168,6 +173,7 @@ function resetState() {
   show($('labSwitcher'), false); show($('labSwitchLabel'), false); show($('createLabPanel'), false);
 }
 function showLoggedOut() {
+  if (!recoveryMode) setAuthMode('login');
   closeAccountDrawer(); setMenuOpen(false); document.body.classList.remove('ci-platform-only'); show($('auth'), true); show($('portal'), false); show($('profileCard'), false); show($('topActions'), false);
   $('who').textContent = '';
 }
@@ -191,6 +197,7 @@ function applyRoleVisibility() {
   });
 }
 async function initSession() {
+  if (recoveryMode) { await showRecovery(); return; }
   const { data: { user: current }, error } = await db.auth.getUser();
   user = error ? null : current; role = null;
   let displayName = '';
@@ -325,8 +332,63 @@ $('logout').addEventListener('click', async () => {
   status('');
   await initSession();
 });
+/* ---------- forgot password ---------- */
+const AUTH_MODES = {
+  login: ['Member Sign In', 'Sign in with an approved inventory account.', 'login'],
+  reset: ['Reset Password', 'Enter your account email and we will send you a link to choose a new password.', 'resetForm'],
+  recovery: ['Set New Password', 'Choose a new password for your account.', 'recoveryForm']
+};
+function setAuthMode(mode) {
+  const [title, intro, formId] = AUTH_MODES[mode] || AUTH_MODES.login;
+  $('authTitle').textContent = title; $('authIntro').textContent = intro;
+  for (const id of ['login', 'resetForm', 'recoveryForm']) show($(id), id === formId);
+}
+async function showRecovery() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) {
+    recoveryMode = false; history.replaceState(null, '', location.pathname);
+    showLoggedOut(); status('This reset link is invalid or has expired. Request a new one.', 'loginError');
+    return;
+  }
+  user = null; role = null; resetState(); showLoggedOut(); setAuthMode('recovery');
+}
+$('forgotLink').addEventListener('click', () => {
+  $('resetEmail').value = $('email').value.trim(); status('', 'resetStatus'); setAuthMode('reset'); $('resetEmail').focus();
+});
+document.querySelectorAll('[data-auth-back]').forEach(b => b.addEventListener('click', () => { status('', 'loginError'); setAuthMode('login'); }));
+$('resetForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = $('resetEmail').value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return status('Enter your account email address.', 'resetStatus');
+  const submit = e.currentTarget.querySelector('[type="submit"]');
+  submit.disabled = true; status('Sending…', 'resetStatus');
+  try {
+    const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+    if (error && (error.status === 429 || /rate limit|too many|only request this after/i.test(error.message))) status('Please wait a minute before asking for another link.', 'resetStatus');
+    else if (error && (error.status >= 500 || /sending/i.test(error.message))) status('The email could not be sent right now. Please try again later or contact your administrator.', 'resetStatus');
+    else status('If that email belongs to an approved account, a reset link is on its way. Check your inbox and spam folder.', 'resetStatus');
+  } catch (err) { status(errorText(err), 'resetStatus'); } finally { submit.disabled = false; }
+});
+$('recoveryForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const p1 = $('newPassword').value, p2 = $('newPassword2').value, msg = t => status(t, 'recoveryStatus');
+  if (p1.length < 12) return msg('Password must contain at least 12 characters.');
+  if (p1 !== p2) return msg('The two passwords do not match.');
+  const submit = e.currentTarget.querySelector('[type="submit"]');
+  submit.disabled = true; msg('Saving…');
+  try {
+    const { error } = await db.auth.updateUser({ password: p1 });
+    if (error) { msg(error.message); return; }
+    $('newPassword').value = ''; $('newPassword2').value = ''; msg('');
+    recoveryMode = false; history.replaceState(null, '', location.pathname);
+    await db.auth.signOut();
+    resetState(); showLoggedOut();
+    status('Password updated. Sign in with your new password.', 'loginError');
+  } catch (err) { msg(errorText(err)); } finally { submit.disabled = false; }
+});
 // Session expired or ended in another tab: return to the sign-in form and drop cached data.
 db.auth.onAuthStateChange(event => {
+  if (event === 'PASSWORD_RECOVERY') { recoveryMode = true; setTimeout(showRecovery, 0); return; }
   if (event === 'SIGNED_OUT' && user) {
     user = null; role = null;
     resetState(); showLoggedOut();
@@ -830,8 +892,9 @@ $('orderForm').addEventListener('submit', async e => {
   const submit = f.querySelector('[type="submit"]');
   submit.disabled = true;
   try {
-    const { error } = await db.from('inventory_orders').insert({ chemical_name: name, cas: optional(cas), container_size: size, unit: val(f, 'unit'), supplier: optional(val(f, 'supplier')), comments: optional(val(f, 'comments')), requested_by: user.id });
+    const { data: created, error } = await db.from('inventory_orders').insert({ chemical_name: name, cas: optional(cas), container_size: size, unit: val(f, 'unit'), supplier: optional(val(f, 'supplier')), comments: optional(val(f, 'comments')), requested_by: user.id }).select('id').single();
     if (error) return status(error.message);
+    if (created?.id) notifyOrder(created.id, 'requested');
     f.reset();
     status('Order request submitted.');
     loadOrders();
@@ -898,6 +961,8 @@ $('orderList').addEventListener('click', async e => {
     if (!confirm(`Confirm ${action} for ${o.chemical_name}?`)) return;
     const { error } = await db.rpc('inventory_order_action_phase4', { p_order_id: o.id, p_action: action, p: {} });
     status(error ? error.message : 'Order updated.');
+    if (!error && action === 'ordered') notifyOrder(o.id, 'ordered');
+    if (!error && action === 'cancel') notifyOrder(o.id, 'cancelled');
     if (!error) await loadOrders();
     return;
   }
@@ -956,6 +1021,7 @@ $('receiveOrderForm').addEventListener('submit', async e => {
     if (error) throw error;
     $('receiveOrderDialog').close();
     status(`Received and added to inventory. Barcode: ${data?.barcode ?? '—'}`);
+    notifyOrder(activeReceiveOrder.id, 'received');
     activeReceiveOrder = null;
     if (!$('chemoraResultsPanel').classList.contains('hide')) clearResults();
     await loadOrders();
@@ -977,19 +1043,50 @@ $('exportOrders').addEventListener('click', async () => {
     status(`Exported ${all.length} orders.`);
   } catch (err) { status(errorText(err)); }
 });
-$('orderSettingsButton').addEventListener('click', () => {
+async function invokeNotify(payload) {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) throw Error('Session expired. Sign in again.');
+  const r = await fetch(cfg.supabaseUrl.replace(/\/$/, '') + '/functions/v1/inventory-notify', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token, 'apikey': cfg.supabaseAnonKey }, body: JSON.stringify(payload) });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok || body.error) throw Error(body.error || `Request failed (${r.status})`);
+  return body;
+}
+// Fire-and-forget: a failed e-mail must never block the order itself.
+function notifyOrder(orderId, event) {
+  invokeNotify({ order_id: orderId, event }).catch(e => console.warn('Order email not sent:', e.message));
+}
+$('orderSettingsButton').addEventListener('click', async () => {
   if (!isManager()) return;
-  try { $('orderNotifyEmails').value = localStorage.getItem('hari-order-emails') || ''; } catch (_) { /* storage unavailable */ }
+  $('orderNotifyEmails').value = '';
+  status('Loading…', 'orderSettingsStatus');
   $('orderSettingsDialog').showModal();
+  const { data, error } = await db.from('inventory_order_recipients').select('email').order('email');
+  if (error) return status(/inventory_order_recipients|schema cache/.test(error.message) ? 'Run sql/10_order_notifications.sql in Supabase to enable order emails.' : error.message, 'orderSettingsStatus');
+  $('orderNotifyEmails').value = (data || []).map(r => r.email).join('\n');
+  status('', 'orderSettingsStatus');
 });
 $('closeOrderSettings').addEventListener('click', () => $('orderSettingsDialog').close());
-$('saveOrderSettings').addEventListener('click', () => {
+$('saveOrderSettings').addEventListener('click', async () => {
   if (!isManager()) return;
-  try { localStorage.setItem('hari-order-emails', $('orderNotifyEmails').value); $('orderSettingsStatus').textContent = 'Saved on this browser only. Email notifications are not enabled.'; }
-  catch (e) { $('orderSettingsStatus').textContent = e.message; }
+  const emails = [...new Set($('orderNotifyEmails').value.split(/[\s,;]+/).map(x => x.trim().toLowerCase()).filter(Boolean))];
+  const bad = emails.find(x => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x));
+  if (bad) return status(`Not a valid email address: ${bad}`, 'orderSettingsStatus');
+  const btn = $('saveOrderSettings'); btn.disabled = true; status('Saving…', 'orderSettingsStatus');
+  try {
+    const { error } = await db.rpc('inventory_set_order_recipients', { p_emails: emails });
+    if (error) throw error;
+    $('orderNotifyEmails').value = emails.join('\n');
+    status(emails.length ? `Saved. ${emails.length} address${emails.length === 1 ? '' : 'es'} will receive order emails.` : 'Saved. No one is set to receive order emails.', 'orderSettingsStatus');
+  } catch (err) {
+    status(/inventory_set_order_recipients|schema cache/.test(err.message || '') ? 'Run sql/10_order_notifications.sql in Supabase to enable order emails.' : errorText(err), 'orderSettingsStatus');
+  } finally { btn.disabled = false; }
 });
-
-/* ---------- history ---------- */
+$('testOrderEmail').addEventListener('click', async () => {
+  if (!isManager()) return;
+  const btn = $('testOrderEmail'); btn.disabled = true; status('Sending…', 'orderSettingsStatus');
+  try { await invokeNotify({ event: 'test' }); status('Test email sent to your own address. Check your inbox and spam folder.', 'orderSettingsStatus'); }
+  catch (err) { status(errorText(err), 'orderSettingsStatus'); } finally { btn.disabled = false; }
+});
 const SUBJECT_LABELS = { inventory_containers: 'Container', inventory_chemicals: 'Substance', inventory_locations: 'Location', inventory_orders: 'Order' };
 const EVENT_LABELS = { insert: 'Creation', update: 'Edit', delete: 'Deletion' };
 const historySubject = x => SUBJECT_LABELS[x.table_name] || x.table_name;
@@ -2673,5 +2770,7 @@ document.querySelectorAll('[data-sponsor-link]').forEach(a => a.addEventListener
   new MutationObserver(queue).observe(document.body, { childList: true, subtree: true });
   queue();
 })();
-initSession().catch(e => { showLoggedOut(); status(errorText(e), 'loginError'); });
+initSession().then(() => {
+  if (recoveryLinkError && !user) { status(recoveryLinkError, 'loginError'); history.replaceState(null, '', location.pathname); }
+}).catch(e => { showLoggedOut(); status(errorText(e), 'loginError'); });
 })();
