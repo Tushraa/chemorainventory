@@ -900,6 +900,8 @@ $('orderForm').addEventListener('submit', async e => {
     loadOrders();
   } finally { submit.disabled = false; }
 });
+// Managers can edit any open request; the person who made a request can edit it until it is marked as ordered.
+const canEditOrder = o => o.status === 'requested' && (isManager() || (!!user && o.requested_by === user.id));
 function renderOrders() {
   const q = $('orderFilter').value.trim().toLowerCase(), state = $('orderStatusFilter').value;
   const filtered = cachedOrders.filter(o => ['requested', 'ordered'].includes(o.status) && (!state || o.status === state) && (!q || [o.chemical_name, o.cas, o.supplier, o.status, o.comments].some(v => String(v || '').toLowerCase().includes(q))));
@@ -915,7 +917,7 @@ function renderOrders() {
 <td>${esc(fmtDate(o.ordered_at))}</td>
 <td class="row-actions"><div class="chemora-order-actions">
 ${btn('info', o.id, 'Order information', 'fa-circle-info')}
-${o.status === 'requested' && isManager() ? btn('edit', o.id, 'Edit request', 'fa-pen') : ''}
+${canEditOrder(o) ? btn('edit', o.id, 'Edit request', 'fa-pen') : ''}
 ${o.status === 'requested' && isManager() ? btn('ordered', o.id, 'Mark as ordered', 'fa-cart-shopping') : ''}
 ${o.status === 'ordered' && isManager() ? btn('receive', o.id, 'Receive and add to inventory', 'fa-box-open') + btn('undo', o.id, 'Undo order', 'fa-rotate-left') : ''}
 ${o.status === 'requested' && (isManager() || o.requested_by === user?.id) ? btn('cancel', o.id, 'Cancel request', 'fa-xmark') : ''}
@@ -949,7 +951,7 @@ $('orderList').addEventListener('click', async e => {
   if (!o) return;
   const action = b.dataset.orderAction;
   if (action === 'info') { alert(`Chemical: ${o.chemical_name}\nCAS: ${o.cas || '—'}\nSupplier: ${o.supplier || '—'}\nSize: ${o.container_size} ${o.unit}\nStatus: ${o.status}\nEmail updates to requester: ${o.notify_requester ? 'Yes' : 'No'}\nComments: ${o.comments || '—'}`); return; }
-  if (action === 'edit' && o.status === 'requested' && isManager()) {
+  if (action === 'edit' && canEditOrder(o)) {
     const f = $('editOrderForm'); f.reset();
     for (const key of ['chemical_name', 'cas', 'container_size', 'unit', 'supplier', 'comments']) f.elements.namedItem(key).value = o[key] ?? '';
     f.elements.namedItem('order_id').value = o.id;
@@ -962,7 +964,8 @@ $('orderList').addEventListener('click', async e => {
     const { error } = await db.rpc('inventory_order_action_phase4', { p_order_id: o.id, p_action: action, p: {} });
     status(error ? error.message : 'Order updated.');
     if (!error && action === 'ordered') notifyOrder(o.id, 'ordered');
-    if (!error && action === 'cancel') notifyOrder(o.id, 'cancelled');
+    // Cancelling your own request e-mails nobody; only a manager/administrator cancelling someone else's request does.
+    if (!error && action === 'cancel' && o.requested_by !== user?.id) notifyOrder(o.id, 'cancelled');
     if (!error) await loadOrders();
     return;
   }
@@ -981,8 +984,9 @@ $('closeEditOrder').addEventListener('click', () => $('editOrderDialog').close()
 $('cancelEditOrder').addEventListener('click', () => $('editOrderDialog').close());
 $('editOrderForm').addEventListener('submit', async e => {
   e.preventDefault();
-  if (!isManager()) return;
   const f = e.currentTarget, orderId = val(f, 'order_id');
+  const target = cachedOrders.find(x => String(x.id) === orderId);
+  if (!target || !canEditOrder(target)) return;
   const size = Number(val(f, 'container_size')), cas = val(f, 'cas');
   const msg = text => status(text, 'editOrderStatus');
   if (!val(f, 'chemical_name')) return msg('Chemical name is required.');

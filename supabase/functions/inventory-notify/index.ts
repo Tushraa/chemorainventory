@@ -1,8 +1,10 @@
 // Edge function "inventory-notify": e-mails about order activity, sent through Resend.
 //  * The app calls it right after an order is requested, marked as ordered, received or cancelled.
-//  * Lab recipients (Order Settings) get every event. A new request e-mails only them. The person who made the
-//    request gets the later ordered / received / cancelled updates only if they ticked the e-mail option on the
-//    request form (notify_requester), and not for actions they did themselves.
+//  * Lab recipients (Order Settings) get new requests and "ordered" / "received" updates. The person who made the
+//    request gets the later ordered / received updates only if they ticked the e-mail option on the request form
+//    (notify_requester), and not for actions they did themselves.
+//  * Cancelling: if the requester cancels their own request, nobody is e-mailed. If a chemical manager or
+//    administrator cancels it, only the requester is e-mailed (and only if they ticked the option).
 //  * The function re-reads the order from the database and only sends when the order really is in the
 //    state the caller claims, and only once per event, so the endpoint cannot be used to spam anyone.
 //  * event "test" sends a sample message to the caller's own address (managers only) to check the setup.
@@ -47,15 +49,16 @@ export function buildMessage(event, order, labName, actorName, siteUrl) {
   ];
   const intro = event === 'test'
     ? 'This is a test message from Chemora Inventory. If you can read it, order e-mails are working.'
-    : { requested: 'A new order request was submitted.', ordered: 'This order request was marked as ordered.', received: 'This order was received and added to the inventory.', cancelled: 'This order request was cancelled.' }[event];
+    : { requested: 'A new order request was submitted.', ordered: 'This order request was marked as ordered.', received: 'This order was received and added to the inventory.', cancelled: 'Your order request was cancelled by a chemical manager or administrator.' }[event];
   const text = [head, '', intro, '', ...rows.map(([k, v]) => `${k}: ${v}`), '', `Open Chemora Inventory: ${siteUrl}`].join('\n');
+  const logo = new URL('email-logo.png', siteUrl).href;
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1f2937">
-<div style="background:#0f1b2d;color:#fff;padding:16px 20px;border-radius:6px 6px 0 0"><strong style="font-size:18px">Chemora</strong> <span style="letter-spacing:2px;font-size:11px;color:#2dd4bf">INVENTORY</span></div>
-<div style="border:1px solid #d6dde6;border-top:0;padding:20px;border-radius:0 0 6px 6px">
+<div style="background:#0f1b2d;color:#fff;padding:14px 20px"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding:0 10px 0 0;vertical-align:middle"><img src="${esc(logo)}" width="32" height="32" alt="" style="display:block;border:0;outline:none"></td><td style="vertical-align:middle;color:#fff"><strong style="font-size:18px">Chemora</strong> <span style="letter-spacing:2px;font-size:11px;color:#2dd4bf">INVENTORY</span></td></tr></table></div>
+<div style="border:1px solid #d6dde6;border-top:0;padding:20px">
 <h2 style="margin:0 0 8px;font-size:18px">${esc(head)}</h2><p style="margin:0 0 16px">${esc(intro)}</p>
 ${rows.length ? `<table style="border-collapse:collapse;width:100%;font-size:14px">${rows.map(([k, v]) => `<tr><td style="padding:6px 10px;border:1px solid #e3e8ef;background:#f6f8fb;width:36%"><strong>${esc(k)}</strong></td><td style="padding:6px 10px;border:1px solid #e3e8ef">${esc(v)}</td></tr>`).join('')}</table>` : ''}
-<p style="margin:20px 0 0"><a href="${esc(siteUrl)}" style="background:#12a58a;color:#fff;text-decoration:none;padding:10px 16px;border-radius:4px;display:inline-block">Open Chemora Inventory</a></p>
-</div><p style="font-size:12px;color:#6b7280;text-align:center">Sent by Chemora Inventory. Lab managers can change who receives order e-mails in Order Settings.</p></div>`;
+<p style="margin:20px 0 0"><a href="${esc(siteUrl)}" style="background:#12a58a;color:#fff;text-decoration:none;padding:10px 16px;display:inline-block">Open Chemora Inventory</a></p>
+</div><p style="font-size:12px;color:#6b7280;text-align:center">${esc(event === 'cancelled' ? 'Sent by Chemora Inventory.' : 'Sent by Chemora Inventory. Lab managers can change who receives order e-mails in Order Settings.')}</p></div>`;
   return { subject, text, html };
 }
 
@@ -124,8 +127,16 @@ export async function handle(req, admin, send = sendWithResend, siteUrl = 'https
     const lab = await must(admin.from('inventory_labs').select('name,active').eq('id', order.lab_id).maybeSingle());
     if (!lab?.active) return json(200, { sent: 0, skipped: 'Laboratory is not active.' });
 
-    const recipients = new Set((await must(admin.from('inventory_order_recipients').select('email').eq('lab_id', order.lab_id).limit(100))).map(r => r.email));
-    if (event !== 'requested' && order.notify_requester === true && order.requested_by && order.requested_by !== caller.id) {
+    // Cancelled: a requester cancelling their own request e-mails nobody. A manager/administrator cancelling it
+    // e-mails only the requester (if they chose e-mail updates); the lab's Order Settings list is not used.
+    const recipients = new Set();
+    if (event === 'cancelled') {
+      if (!order.cancelled_by || order.cancelled_by === order.requested_by) return json(200, { sent: 0, skipped: 'Cancelled by the requester.' });
+      if (order.notify_requester !== true || !order.requested_by) return json(200, { sent: 0, skipped: 'Requester did not ask for e-mail updates.' });
+    } else {
+      (await must(admin.from('inventory_order_recipients').select('email').eq('lab_id', order.lab_id).limit(100))).forEach(r => recipients.add(r.email));
+    }
+    if (event === 'cancelled' || (event !== 'requested' && order.notify_requester === true && order.requested_by && order.requested_by !== caller.id)) {
       const rp = await must(admin.from('inventory_user_profiles').select('email,account_status').eq('user_id', order.requested_by).maybeSingle());
       let to = clean(rp?.email).toLowerCase();
       if (!to) { const { data: u } = await admin.auth.admin.getUserById(order.requested_by); to = clean(u?.user?.email).toLowerCase(); }
