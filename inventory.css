@@ -1,4 +1,4 @@
-/* Hari Group team.html-inspired light navy/amber inventory theme */
+/* Chemora light navy/amber inventory theme */
 :root{font-family:Inter,system-ui,Arial,sans-serif;color:#1e293b;background:#f8fafc}
 *{box-sizing:border-box}
 body{margin:0;background:#f8fafc;color:#1e293b}
@@ -229,7 +229,7 @@ html.inventory-dark,html.inventory-dark body{background:#111713!important;color:
 /* Phase 1: container-level search cards */
 .container-card-details{display:grid;grid-template-columns:1fr;gap:5px;text-align:left;width:100%;font-size:12px;color:#64748b;line-height:1.5}.container-card-details b{color:#475569}.chemical-result{justify-content:flex-start;min-height:0}.chemical-result img{height:100px}.inventory-search-form{grid-template-columns:minmax(130px,1fr) minmax(180px,2fr) minmax(140px,1fr) auto}@media(max-width:1050px){.inventory-search-form{grid-template-columns:1fr 1fr}}@media(max-width:650px){.inventory-search-form{grid-template-columns:1fr}}.inventory-dark .container-card-details,.inventory-dark .container-card-details b{color:#b7c8bd}
 
-/* Hari Group workspace redesign — original branding and role-aware modules */
+/* Chemora workspace redesign: original branding and role-aware modules */
 .workspace-side-brand{display:flex;align-items:center;gap:10px;padding:12px 11px 19px;margin-bottom:10px;border-bottom:1px solid #34363b;color:#f4f4f5;font-size:16px}
 .workspace-side-brand i{color:#73a6ff;font-size:19px}
 .workspace-side-brand span{margin-left:auto;font-size:9px;letter-spacing:.12em;color:#8f939e}
