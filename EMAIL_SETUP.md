@@ -47,3 +47,8 @@ Supabase dashboard > **Authentication**:
 1. Run `sql/12_order_edit_and_cancel_rules.sql` in the SQL editor (adds who-cancelled tracking and lets requesters edit their own open request).
 2. Redeploy the `inventory-notify` function from `supabase/functions/inventory-notify/index.ts`.
 3. The email header logo is `email-logo.png` in the site root, so it appears once the site is published.
+
+## Sign-in emails (reset password, confirm, invite, magic link, change email, reauthentication)
+These are sent by Supabase Auth, not by the functions. Branded versions (square header, Chemora logo) are in `supabase/email-templates/`;
+paste each into Authentication > Emails > Templates. See `supabase/email-templates/README.md` for the list and subjects.
+
