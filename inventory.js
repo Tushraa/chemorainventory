@@ -50,6 +50,8 @@ document.documentElement.classList.add('ci-root');
 
 const cfg = window.CHEMORA_INVENTORY_CONFIG;
 const clean = value => typeof value === 'string' ? value.trim() : value;
+// Escaped text that may break after ) ] - , / so long chemical names wrap at a sensible place, not inside a word.
+const softBreak = value => esc(value).replace(/([)\]\-,/])/g, '$1<wbr>');
 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 const show = (el, visible) => { if (el) el.classList.toggle('hide', !visible); };
 const errorText = e => e?.message || String(e);
@@ -721,7 +723,7 @@ function openChemical(id, containerId = null) {
   $('chemicalDialogBody').innerHTML = `<div class="chemora-detail-grid">
    <div class="chemora-detail-column chemora-detail-left">
     <div class="chemora-detail-structure"><img src="${esc(structureUrl(c))}" alt="Structure of ${esc(c.name)}" onerror="this.style.display='none'"></div>
-    <div class="chemora-ghs-summary"><h3>GHS Safety Summary${isManager() ? ' <button type="button" class="chemora-detail-edit" data-ghs-edit>Edit</button>' : ''}</h3>${ghsSummaryHtml(c)}<a href="${esc('https://pubchem.ncbi.nlm.nih.gov/#query=' + encodeURIComponent(c.cas || c.name))}" target="_blank" rel="noopener noreferrer">View PubChem safety information</a></div>
+    <div class="chemora-ghs-summary"><h3>GHS Safety Summary${isManager() ? ' <button type="button" class="chemora-detail-edit" data-ghs-edit>Edit</button>' : ''}</h3>${ghsSummaryHtml(c)}<a href="${esc('https://pubchem.ncbi.nlm.nih.gov/#query=' + encodeURIComponent(c.cas || c.name))}" target="_blank" rel="noopener noreferrer">View PubChem Safety Information</a></div>
    </div>
    <div class="chemora-detail-column chemora-detail-middle">
     ${row('Container Name', display(c.name), 'name', 'chemical')}
@@ -735,7 +737,7 @@ function openChemical(id, containerId = null) {
     ${row('Comments', display(selected?.notes || c.notes), 'notes', selected ? 'container' : 'chemical')}
    </div>
    <div class="chemora-detail-column chemora-detail-right">
-    <div class="chemora-molecular-details">${row('Formula', display(c.formula, 'Not recorded'), 'formula', 'chemical')}${row('Status', display(selected?.status, 'Not recorded'))}${row('Ordered By', '<span data-ordered-by>Checking order record…</span>')}${row('Expiry', expiry, selected ? 'expires_at' : '', 'container')}</div>
+    <div class="chemora-molecular-details">${row('Formula', display(c.formula, 'Not recorded'), 'formula', 'chemical')}${row('Status', display(selected?.status ? String(selected.status).charAt(0).toUpperCase() + String(selected.status).slice(1) : selected?.status, 'Not recorded'))}${row('Ordered By', '<span data-ordered-by>Checking order record…</span>')}${row('Expiry', expiry, selected ? 'expires_at' : '', 'container')}</div>
     <div class="chemora-detail-links">${isManager() && selected ? `<button class="btn secondary" type="button" data-duplicate="${esc(selected.id)}">Duplicate Container</button>` : ''}${isManager() && selected ? `<button class="btn secondary" type="button" data-history="${esc(selected.id)}">View History</button>` : ''}${selected?.barcode ? `<button class="btn secondary" type="button" data-print-container="${esc(selected.id)}">Print Barcode Label</button>` : ''}${isManager() && selected ? `<button class="btn secondary" type="button" data-lifecycle="${esc(selected.id)}">Manage Container</button>` : ''}${isManager() ? '<button class="btn danger" type="button" data-delete-chemical-inline>Delete Chemical</button>' : ''}</div>
    </div>
   </div>
@@ -2260,12 +2262,12 @@ function renderRowsInto(target, rows, mode) {
   const manager = isManager();
   if (!rows.length) { target.innerHTML = '<p class="muted" style="padding:10px">No matching containers.</p>'; return; }
   if (mode === 'grid') {
-    target.innerHTML = '<div class="result-grid">' + rows.map(r => `<button type="button" class="grid-tile" data-act="info" data-key="${esc(rowKey(r))}"><span class="tile-img"><img src="${esc(structureUrl(r.c))}" alt="Structure of ${esc(r.c.name)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'fa-solid fa-flask-vial',style:'font-size:46px;color:#9aa3a7'}))"></span><span class="tile-name"><b>Name:</b> ${esc(r.c.name)}</span></button>`).join('') + '</div>';
+    target.innerHTML = '<div class="result-grid">' + rows.map(r => `<button type="button" class="grid-tile" data-act="info" data-key="${esc(rowKey(r))}"><span class="tile-img"><img src="${esc(structureUrl(r.c))}" alt="Structure of ${esc(r.c.name)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'fa-solid fa-flask-vial',style:'font-size:46px;color:#9aa3a7'}))"></span><span class="tile-name"><b>Name:</b> ${softBreak(r.c.name)}</span></button>`).join('') + '</div>';
     return;
   }
   const cols = tableColumns;
-  target.innerHTML = '<table class="inventory-data-table ci-results"><thead><tr>' + (manager ? '<th class="check-col"><input type="checkbox" data-check-all aria-label="Select all"></th>' : '') + '<th><i>Container Name</i></th>' + cols.map(k => `<th>${COLUMN_DEFS[k]}</th>`).join('') + '<th>Actions</th></tr></thead><tbody>' +
-    rows.map(r => `<tr data-key="${esc(rowKey(r))}">${manager ? `<td class="check-col">${r.x ? `<input type="checkbox" data-check ${selectedKeys.has(rowKey(r)) ? 'checked' : ''} aria-label="Select ${esc(r.c.name)}">` : ''}</td>` : ''}<td><button type="button" class="name-link" data-act="info">${esc(r.c.name)}</button></td>${cols.map(k => `<td>${esc(cellText(k, r))}</td>`).join('')}<td><span class="row-actions">${iconBtn('info', 'fa-circle-info', 'Container details')}${manager && r.x ? iconBtn('move', 'fa-house', 'Move container') : ''}${iconBtn('order', 'fa-cart-shopping', 'Request an order')}${manager && r.x ? iconBtn('delete', 'fa-trash', 'Delete container', 'danger') : ''}</span></td></tr>`).join('') + '</tbody></table>';
+  target.innerHTML = '<table class="inventory-data-table ci-results"><thead><tr>' + (manager ? '<th class="check-col"><input type="checkbox" data-check-all aria-label="Select all"></th>' : '') + '<th>Container Name</th>' + cols.map(k => `<th>${COLUMN_DEFS[k]}</th>`).join('') + '<th>Actions</th></tr></thead><tbody>' +
+    rows.map(r => `<tr data-key="${esc(rowKey(r))}">${manager ? `<td class="check-col">${r.x ? `<input type="checkbox" data-check ${selectedKeys.has(rowKey(r)) ? 'checked' : ''} aria-label="Select ${esc(r.c.name)}">` : ''}</td>` : ''}<td><button type="button" class="name-link" data-act="info">${softBreak(r.c.name)}</button></td>${cols.map(k => `<td>${esc(cellText(k, r))}</td>`).join('')}<td><span class="row-actions">${iconBtn('info', 'fa-circle-info', 'Container details')}${manager && r.x ? iconBtn('move', 'fa-house', 'Move container') : ''}${iconBtn('order', 'fa-cart-shopping', 'Request an order')}${manager && r.x ? iconBtn('delete', 'fa-trash', 'Delete container', 'danger') : ''}</span></td></tr>`).join('') + '</tbody></table>';
 }
 function renderList() {
   const rows = computeRows(); currentRows = rows;
