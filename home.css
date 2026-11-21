@@ -102,3 +102,31 @@ html body.ci .chem-name{display:inline !important;overflow:visible !important;-w
   html body.ci .inventory-data-table tbody td{font-size:13px;font-weight:400}
   html body.ci .inventory-data-table tbody td strong,html body.ci .inventory-data-table tbody td .order-name{font-weight:400}
 }
+
+/* Sponsor panel (desktop sidebar) and real-colour logos on hover */
+html body.ci .ci-sponsors-title,html body.ci .ci-sponsors-thanks{display:none}
+html body.ci .ci-sponsor-logo img.sp-color{display:none}
+@supports selector(:has(a)){
+  html body.ci .ci-sponsor:is(:hover,:focus-visible) .ci-sponsor-logo:has(img.sp-color) img.sp-grey{display:none}
+  html body.ci .ci-sponsor:is(:hover,:focus-visible) .ci-sponsor-logo img.sp-color{display:block}
+  html body.ci .ci-sponsor-logo{transition:background-color .15s,border-color .15s}
+  html body.ci .ci-sponsor:is(:hover,:focus-visible) .ci-sponsor-logo:has(img.sp-color){background:#f4f7fb !important}
+  html body.ci .ci-sponsor:is(:hover,:focus-visible) .ci-sponsor-logo:has(img.sp-color) .ci-sponsor-name{color:#1e53a5}
+}
+@media(min-width:851px){
+  html body.ci .ci-sponsors:not(.ci-sponsors-login){display:flex !important;flex-direction:column;gap:0 !important;width:100% !important;max-width:none !important;margin:18px 0 0 !important;padding:0 !important;background:linear-gradient(180deg,#152a44,#12233a);border:1px solid #2b4a6b}
+  html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsors-title{display:block;margin:0;padding:10px 14px;background:#1e3a5f;color:#fff;border-bottom:1px solid #2b4a6b;font-family:var(--ci-font-mono) !important;font-weight:600 !important;font-size:13px !important;text-transform:none;letter-spacing:0}
+  html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsor{padding:10px 12px 12px;border-bottom:1px solid #1f3552}
+  html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsor-label{margin:0 0 6px;padding:0;font-family:var(--ci-font-mono) !important;font-size:11px;font-weight:400;letter-spacing:.06em;color:#14a38b}
+  html body.ci .ci-sponsors:not(.ci-sponsors-login) .sp-sfx{display:none}
+  html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsor-logo{height:44px !important;justify-content:center !important;gap:8px;background:#0f2038 !important;border:1px solid #2b4a6b !important;border-radius:0 !important;overflow:hidden}
+  html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsor-logo img{height:28px !important;width:auto !important;max-width:80% !important;max-height:28px !important;object-position:center}
+  html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsor-ph{border:0;margin:0;font-size:11px;color:#8fa6bd}
+  html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsor:is(:hover,:focus-visible) .ci-sponsor-logo{border-color:#14a38b !important}
+  html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsors-thanks{display:block;margin:0;padding:9px 12px;text-align:center;font-size:12px;color:#8fa6bd}
+}
+@supports selector(:has(a)){
+  @media(min-width:851px){
+    html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsor-logo:not(:has(img)){border-style:dashed !important}
+  }
+}
