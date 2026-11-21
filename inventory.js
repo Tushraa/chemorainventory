@@ -424,6 +424,11 @@ $('menuToggle')?.addEventListener('click', () => setMenuOpen(!document.body.clas
 $('tabs')?.addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (b) setMenuOpen(false); });
 document.querySelectorAll('.side-group-toggle').forEach(b => b.addEventListener('click', () => setGroup(b.dataset.group, b.getAttribute('aria-expanded') !== 'true')));
 $('mobileModule')?.addEventListener('change', e => setTab(e.target.value));
+{ // Home search hint: a shorter text on narrow screens so it is not cut off.
+  const mq = window.matchMedia('(max-width: 850px)'), input = $('homeSearchInput');
+  const apply = () => { if (input) input.placeholder = mq.matches ? 'Name, CAS or barcode' : 'e.g. toluene, 108-88-3 or a barcode'; };
+  apply(); mq.addEventListener?.('change', apply);
+}
 $('login').addEventListener('submit', async e => {
   e.preventDefault();
   const submit = e.currentTarget.querySelector('[type="submit"]');
@@ -530,7 +535,7 @@ function refreshLocationParent() {
   if (!$('locationParent')) return;
   const prev = $('locationParent').value;
   const options = activeLocations().filter(l => PARENT_TYPES.includes(l.location_type));
-  $('locationParent').replaceChildren(new Option('No Parent (top level)', ''), ...options.map(l => new Option(locationPath(l), l.id)));
+  $('locationParent').replaceChildren(new Option('No Parent (Top Level)', ''), ...options.map(l => new Option(locationPath(l), l.id)));
   $('locationParent').value = options.some(l => l.id === prev) ? prev : '';
   $('locationParent').required = false;
   $('locationParent').disabled = false;
@@ -1435,8 +1440,8 @@ async function showDeletedContainers() {
   try {
     const rows = (await getContainerRows({ scope: 'disposed' })).filter(x => !isActiveContainer(x));
     rows.sort((a, b) => String(b.disposed_at || b.updated_at || '').localeCompare(String(a.disposed_at || a.updated_at || '')));
-    $('toolsResult').innerHTML = rows.length ? '<h3>Deleted Containers</h3><table class="inventory-data-table"><thead><tr><th>Chemical</th><th>Barcode</th><th>Size</th><th>Last Location</th><th>Disposed</th></tr></thead><tbody>' +
-      rows.map(x => `<tr><td>${esc(x.chemical?.name)}</td><td>${esc(x.barcode)}</td><td>${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td><td>${esc(String(x.disposed_at || x.updated_at || '').slice(0, 10))}</td></tr>`).join('') + '</tbody></table><p class="muted">Disposed containers are archived here with their history until the chemical record is deleted.</p>' : '<p class="muted">No deleted containers.</p>';
+    $('toolsResult').innerHTML = '<h3 class="ci-bar">Deleted Containers</h3>' + (rows.length ? '<table class="inventory-data-table"><thead><tr><th>Chemical</th><th>Barcode</th><th>Size</th><th>Last Location</th><th>Disposed</th></tr></thead><tbody>' +
+      rows.map(x => `<tr><td>${esc(x.chemical?.name)}</td><td>${esc(x.barcode)}</td><td>${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td><td>${esc(String(x.disposed_at || x.updated_at || '').slice(0, 10))}</td></tr>`).join('') + '</tbody></table><p class="muted">Disposed containers are archived here with their history until the chemical record is deleted.</p>' : '<p class="muted">No deleted containers.</p>');
   } catch (e) { status(errorText(e)); }
 }
 async function showLabSettings() {
@@ -1445,7 +1450,7 @@ async function showLabSettings() {
     const active = rows.filter(isActiveContainer).length;
     const roleName = role === 'admin' ? 'Administrator' : role === 'manager' ? 'Chemical Manager' : 'Member';
     const items = [['Lab', labContext?.lab_name || '—'], ['Your Role', roleName + (labContext?.platform_admin ? ' (platform administrator)' : '')], ['Active Containers', active], ['Archived Containers', rows.length - active], ['Locations', locations.length], ['Labs You Belong To', (labContext?.labs || []).length || 1]];
-    $('toolsResult').innerHTML = '<h3>License &amp; Settings</h3><table class="inventory-data-table"><tbody>' + items.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('') + '</tbody></table>';
+    $('toolsResult').innerHTML = '<h3 class="ci-bar">License &amp; Settings</h3><table class="inventory-data-table"><tbody>' + items.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('') + '</tbody></table>';
   } catch (e) { status(errorText(e)); }
 }
 
@@ -1709,6 +1714,7 @@ $('exportInventory').addEventListener('click', async () => {
   try {
     const rows = await getContainerRows();
     downloadCSV('chemora-inventory.csv', [['Chemical', 'CAS', 'Barcode', 'Size', 'Remaining', 'Unit', 'Location', 'Supplier', 'Status'], ...rows.map(x => [x.chemical?.name, x.chemical?.cas, x.barcode, x.container_size, x.remaining_amount, x.unit, x.location_name, x.supplier, x.status])]);
+    $('toolsResult').innerHTML = '<h3 class="ci-bar">Export Your Inventory</h3><p class="muted">Exported ' + rows.length + ' containers to chemora-inventory.csv. Check your downloads folder.</p>';
     status('Exported ' + rows.length + ' containers.');
   } catch (e) { status(errorText(e)); }
 });
@@ -1718,7 +1724,7 @@ $('recentContainers').addEventListener('click', async () => {
     const rows = (await getContainerRows({ recent: 40 })).filter(isActiveContainer);
     const key = x => String(x.created_at || x.received_at || '');
     rows.sort((a, b) => key(b).localeCompare(key(a)));
-    $('toolsResult').innerHTML = '<table class="inventory-data-table"><thead><tr><th>Chemical</th><th>Barcode</th><th>Size</th><th>Location</th></tr></thead><tbody>' + rows.slice(0, 40).map(x => `<tr><td>${esc(x.chemical?.name)}</td><td>${esc(x.barcode)}</td><td>${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td></tr>`).join('') + `</tbody></table><p class="muted">Newest 40 containers, ordered by ${rows[0]?.created_at ? 'creation time' : 'date received'}.</p>`;
+    $('toolsResult').innerHTML = '<h3 class="ci-bar">Recently Added</h3><table class="inventory-data-table"><thead><tr><th>Chemical</th><th>Barcode</th><th>Size</th><th>Location</th></tr></thead><tbody>' + rows.slice(0, 40).map(x => `<tr><td>${esc(x.chemical?.name)}</td><td>${esc(x.barcode)}</td><td>${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td></tr>`).join('') + `</tbody></table><p class="muted">Newest 40 containers, ordered by ${rows[0]?.created_at ? 'creation time' : 'date received'}.</p>`;
   } catch (e) { status(errorText(e)); }
 });
 // Batch label sheet: a dedicated print area, because the global print rules hide everything else on the page.
@@ -1746,7 +1752,7 @@ $('printLabels').addEventListener('click', async () => {
     const all = (await getContainerRows({ scope: 'active' })).filter(x => x.barcode && isActiveContainer(x));
     const rows = all.slice(0, 100);
     await loadBarcodeLib(); // ready before the Print button is pressed
-    $('toolsResult').innerHTML = `<p class="muted">${rows.length} Code 128 barcode label(s) ready${all.length > rows.length ? ` (first ${rows.length} of ${all.length}; print in batches)` : ''}. Scan a printed label before attaching it to a bottle.</p><div class="tool-grid">${rows.map(x => `<div class="card"><strong>${esc(x.chemical?.name)}</strong><p class="muted">${esc(x.barcode)}</p></div>`).join('')}</div><button type="button" class="btn secondary" id="printLabelsNow" style="margin-top:14px">Print Labels</button>`;
+    $('toolsResult').innerHTML = `<h3 class="ci-bar">Print Barcode Labels</h3><p class="muted">${rows.length} Code 128 barcode label(s) ready${all.length > rows.length ? ` (first ${rows.length} of ${all.length}; print in batches)` : ''}. Scan a printed label before attaching it to a bottle.</p><div class="tool-grid">${rows.map(x => `<div class="card"><strong>${esc(x.chemical?.name)}</strong><p class="muted">${esc(x.barcode)}</p></div>`).join('')}</div><button type="button" class="btn secondary" id="printLabelsNow" style="margin-top:14px">Print Labels</button>`;
     $('printLabelsNow').addEventListener('click', () => {
       buildLabelSheet(rows);
       const cleanup = () => document.body.classList.remove('print-batch');
@@ -2766,7 +2772,7 @@ $('allUsersTable').addEventListener('click', async e => {
       await invokeUsers({ action: 'delete', userId: id, labId: rem.dataset.auLab });
     } else if (edit) {
       const name = prompt('Full name', u.full_name || ''); if (name === null) return;
-      const email = prompt('E-mail address', u.email || ''); if (email === null) return;
+      const email = prompt('Email address', u.email || ''); if (email === null) return;
       if (!name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return status('Enter a name and a valid e-mail address.');
       await invokeUsers({ action: 'update', userId: id, name: name.trim(), email: email.trim().toLowerCase(), global: true });
     } else if (lock) await invokeUsers({ action: u.account_status === 'locked' ? 'unlock' : 'lock', userId: id, global: true });
@@ -2778,7 +2784,7 @@ $('allUsersTable').addEventListener('click', async e => {
       const who = u.email || u.full_name;
       const typed = prompt('PERMANENTLY delete the account of ' + who + '? This cannot be undone. Containers and history they created are kept, but will no longer show their name.\n\nType the e-mail address to confirm:');
       if (typed === null) return;
-      if (typed.trim().toLowerCase() !== String(u.email || '').toLowerCase()) return status('E-mail did not match. Nothing was deleted.');
+      if (typed.trim().toLowerCase() !== String(u.email || '').toLowerCase()) return status('Email did not match. Nothing was deleted.');
       await invokeUsers({ action: 'purge', userId: id, global: true });
       status('Account deleted permanently.'); await loadPlatform(); return;
     } else if (del) {
