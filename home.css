@@ -130,3 +130,6 @@ html body.ci .ci-sponsor-logo img.sp-color{display:none}
     html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsor-logo:not(:has(img)){border-style:dashed !important}
   }
 }
+@media(min-width:851px){
+  html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsor-logo img.sp-tall{height:38px !important;max-height:38px !important}
+}

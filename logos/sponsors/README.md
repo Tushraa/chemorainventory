@@ -8,7 +8,7 @@ until then the slot shows "Your logo here".
 |---|---|---|
 | Building Block | `building-block.png` | `building-block-color.svg` |
 | Catalyst | `catalyst.png` | `catalyst-color.svg` |
-| Solvent | `solvent.png` | none yet (the grey logo stays on hover) |
+| Solvent | `solvent.png` | `solvent-color.png` |
 
 The hover logo must have the same proportions as the resting logo so the slot does not jump. To add a hover logo for a slot,
 add an `<img class="sp-color" ...>` after the `sp-grey` image of that slot in `inventory.html` (both `ci-sponsors` blocks).
