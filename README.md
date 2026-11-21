@@ -48,13 +48,12 @@ chemorainventory/
 ├── logos/              logos and icons: site icon (same as www.chemora.art) and Chemora logo
 ├── favicon.ico         site icon for browsers that ask for it at the root
 ├── email-logo.png      logo used in e-mails (linked by URL, so it stays at the root)
-├── sql/                database scripts 01 to 18, run in order
+├── sql/                database scripts
 ├── supabase/
 │   ├── functions/inventory-users/    account-management edge function (welcome email)
 │   ├── functions/inventory-notify/   order email edge function
-│   └── email-templates/              sign-in email templates (paste into Supabase)
-├── EMAIL_SETUP.md      email setup (Resend + Supabase)
-└── jsme/               JSME structure editor (see JSME_SETUP.md)
+│   └── email-templates/              sign-in email templates
+└── jsme/               JSME structure editor
 ```
 
 ## Technologies
@@ -65,21 +64,6 @@ chemorainventory/
 - Font Awesome icons
 - Typefaces: Roboto Condensed for text and JetBrains Mono for headings, menus and numbers
 - Responsive layout for desktop, tablet and mobile
-
-## Setup
-
-1. Create a Supabase project and enter its URL and publishable key in `config.js`.
-2. Run the scripts in `sql/` in order (`01` to `18`) in the Supabase SQL Editor. Each is safe to run more than once.
-   - `04_activity_descriptions.sql` adds readable descriptions to the activity log.
-   - `05_platform_admin.sql` adds the Inventory Administrator role, the Labs & All Users page, GHS hazard codes, pre-printed barcodes and bulk container actions.
-   - `06_structure_search.sql` stores each chemical's structure (SMILES) for substructure and similarity search.
-   - `10_order_notifications.sql` to `12_order_edit_and_cancel_rules.sql` add order emails and the order edit and cancel rules.
-   - `13_performance.sql` and `14_hardening.sql` add indexes and tighten database permissions.
-   - `15_delete_location.sql` and `16_delete_location_with_disposed.sql` add safe deletion of locations.
-   - `17_my_summary.sql` and `18_merge_substance_history.sql` add the account summary and the merged Activity History.
-3. Deploy the `inventory-users` and `inventory-notify` edge functions from `supabase/functions/`, and set up email as described in `EMAIL_SETUP.md`.
-4. Copy the JSME files into `jsme/` as described in `JSME_SETUP.md`.
-5. Open `inventory.html` through a web address.
 
 ## Developed By
 
