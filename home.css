@@ -14,10 +14,10 @@
 .ci .ci-home.is-member .q{grid-column:span 4}
 .ci .ci-home .home-search{display:flex;gap:8px;margin:14px 0 0}
 .ci .ci-home .home-search input{flex:1;min-width:0;margin:0;background:var(--ci-input);border:1px solid var(--ci-line);color:var(--ci-text);padding:9px 11px;border-radius:0;font-size:13px}
-.ci .ci-home .home-search button{background:var(--ci-green);color:#fff;border:0;padding:0 18px;font-weight:700;border-radius:0;cursor:pointer}
-.ci .ci-home .home-search button:hover{background:var(--ci-green-hover)}
+.ci .ci-home .home-search .chip{padding:0 18px;font-size:13px}
 .ci .ci-home .chips{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
-.ci .ci-home .chip{background:#0f2038;border:1px solid var(--ci-line);border-radius:0;padding:4px 11px;color:var(--ci-muted);font-size:12px;cursor:pointer}
+/* Standard button for the Home page (and for any new button): dark panel fill, thin border, square corners. */
+.ci .ci-home .chip{background:#0f2038;border:1px solid var(--ci-line);border-radius:0;display:inline-flex;align-items:center;gap:6px;padding:4px 11px;color:var(--ci-muted);font-size:12px;cursor:pointer}
 .ci .ci-home .chip:hover{color:#fff;border-color:#3d6591}
 .ci .ci-home .mini{margin-top:14px;border:1px solid var(--ci-line);flex:0 0 auto}
 .ci .ci-home .mini-title{padding:6px 12px;background:#0f2038;color:var(--ci-muted);font-size:11px;letter-spacing:.6px;text-transform:uppercase;border-bottom:1px solid var(--ci-line)}
