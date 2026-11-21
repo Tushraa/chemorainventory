@@ -550,6 +550,20 @@ async function loadLocations() {
 }
 $('locationList').addEventListener('click', async e => {
   if (!isAdmin()) return;
+  const del = e.target.closest('[data-delete-location]');
+  if (del) {
+    const target = locations.find(x => x.id === del.dataset.deleteLocation);
+    if (!target) return;
+    if (target.active !== false) return status('Deactivate the location before deleting it permanently.');
+    if (!confirm(`Permanently delete the location "${target.name}"?\n\nThis cannot be undone. It is only possible when no containers (including disposed ones) and no other locations are recorded in it.`)) return;
+    del.disabled = true;
+    const { error } = await db.rpc('inventory_delete_location', { p_id: target.id });
+    if (error) { del.disabled = false; return status(isMissingFunction(error) ? 'Permanent deletion is not available yet. Ask the administrator to run sql/15_delete_location.sql.' : error.message); }
+    if (locSelectedId === target.id) { locSelectedId = null; show($('locationContents'), false); }
+    status(`Location "${target.name}" deleted.`);
+    await loadLocations();
+    return;
+  }
   const edit = e.target.closest('[data-edit-location]'), toggle = e.target.closest('[data-toggle-location]');
   const id = edit?.dataset.editLocation || toggle?.dataset.toggleLocation;
   if (!id) return;
@@ -2133,6 +2147,12 @@ function buildLocationTree(ul, { mode = 'browse', selectedId = '', onPick = null
         const tg = document.createElement('button'); tg.type = 'button'; tg.className = 'icon-btn small' + (loc.active === false ? '' : ' danger'); tg.dataset.toggleLocation = loc.id; tg.title = loc.active === false ? 'Activate' : 'Deactivate';
         tg.innerHTML = loc.active === false ? '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i>' : '<i class="fa-solid fa-ban" aria-hidden="true"></i>';
         row.append(ed, tg);
+        if (loc.active === false) {
+          // Permanent deletion is offered only for a location that has been deactivated first.
+          const del = document.createElement('button'); del.type = 'button'; del.className = 'icon-btn small danger'; del.dataset.deleteLocation = loc.id; del.title = 'Delete Permanently';
+          del.innerHTML = '<i class="fa-solid fa-trash" aria-hidden="true"></i>';
+          row.append(del);
+        }
       }
     }
     li.appendChild(row);
@@ -2144,7 +2164,7 @@ function buildLocationTree(ul, { mode = 'browse', selectedId = '', onPick = null
       li.appendChild(sub);
     }
     row.addEventListener('click', ev => {
-      if (ev.target.closest('[data-view-all],[data-edit-location],[data-toggle-location]')) return;
+      if (ev.target.closest('[data-view-all],[data-edit-location],[data-toggle-location],[data-delete-location]')) return;
       if (sub) { const hidden = sub.classList.toggle('hide'); caret.firstChild.className = hidden ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-down'; }
       ul.querySelectorAll('.loc-node.selected').forEach(n => n.classList.remove('selected'));
       row.classList.add('selected');
