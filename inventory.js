@@ -381,9 +381,9 @@ async function loadHome() {
       $('homeRecent').innerHTML = rows.length ? rows.map(x => `<div class="mini-row"><span>${esc(x.chemical?.name || 'Chemical')}${x.chemical?.cas ? ` <em>· ${esc(x.chemical.cas)}</em>` : ''}</span><em>${esc([x.location_name, x.container_size != null ? `${x.container_size} ${x.unit || ''}`.trim() : ''].filter(Boolean).join(' · '))}</em></div>`).join('') : '<div class="mini-row"><span class="empty">Nothing added yet.</span></div>';
     }),
     manager ? run(async () => {
-      const r = await db.from('inventory_activity_logs').select('created_at,description').order('created_at', { ascending: false }).limit(4);
+      const r = await db.from('inventory_activity_logs').select('created_at,table_name,action,performed_by,description').order('created_at', { ascending: false }).limit(30);
       if (!fresh()) return;
-      homeList('homeActivity', (r.data || []).filter(x => x.description).slice(0, 3).map(x => `<li><span>${esc(x.description)}</span></li>`), 'No activity yet.');
+      homeList('homeActivity', mergeHistoryRows(r.data || []).filter(x => x.description).slice(0, 3).map(x => `<li><span>${esc(x.description)}</span></li>`), 'No activity yet.');
     }) : null
   ]);
 }
@@ -1243,7 +1243,16 @@ $('testOrderEmail').addEventListener('click', async () => {
   try { await invokeNotify({ event: 'test' }); status('Test email sent to your own address. Check your inbox and spam folder.', 'orderSettingsStatus'); }
   catch (err) { status(errorText(err), 'orderSettingsStatus'); } finally { btn.disabled = false; }
 });
-const SUBJECT_LABELS = { inventory_containers: 'Container', inventory_chemicals: 'Substance', inventory_locations: 'Location', inventory_orders: 'Order' };
+const SUBJECT_LABELS = { inventory_containers: 'Container', inventory_chemicals: 'Container', inventory_locations: 'Location', inventory_orders: 'Order' };
+// A new container creates its substance in the same transaction, so the log holds two rows with the same
+// timestamp and user. Substance and Container are one thing to the user: hide the substance row that only
+// repeats a container row (the audit rows themselves stay in the database).
+function mergeHistoryRows(rows) {
+  const seen = new Set();
+  for (const x of rows) if (x.table_name === 'inventory_containers' && (x.action === 'insert' || x.action === 'delete')) seen.add(`${x.action}|${x.created_at}|${x.performed_by || ''}`);
+  if (!seen.size) return rows;
+  return rows.filter(x => !(x.table_name === 'inventory_chemicals' && (x.action === 'insert' || x.action === 'delete') && seen.has(`${x.action}|${x.created_at}|${x.performed_by || ''}`)));
+}
 const EVENT_LABELS = { insert: 'Creation', update: 'Edit', delete: 'Deletion' };
 const historySubject = x => SUBJECT_LABELS[x.table_name] || x.table_name;
 const historyEvent = x => EVENT_LABELS[x.action] || x.action;
@@ -1257,7 +1266,7 @@ function filteredHistory() {
   const who = $('historyUser').value, subject = $('historySubject').value;
   return cachedHistory.filter(x => {
     const day = String(x.created_at || '').slice(0, 10);
-    return (!from || day >= from) && (!to || day <= to) && (!who || x.performed_by === who) && (!subject || x.table_name === subject)
+    return (!from || day >= from) && (!to || day <= to) && (!who || x.performed_by === who) && (!subject || (subject === 'inventory_containers' ? (x.table_name === 'inventory_containers' || x.table_name === 'inventory_chemicals') : x.table_name === subject))
       && (!q || [historyEvent(x), historyText(x)].some(v => String(v).toLowerCase().includes(q)));
   });
 }
@@ -1285,7 +1294,7 @@ async function loadHistory() {
     if (isMissingFunction(res.error)) return loadHistoryLegacy();
     status(res.error.message); return;
   }
-  cachedHistory = res.data || [];
+  cachedHistory = mergeHistoryRows(res.data || []);
   historyNames = {};
   for (const r of cachedHistory) if (r.performed_by && r.performer_name) historyNames[r.performed_by] = r.performer_name;
   fillHistoryUsers();
@@ -1299,7 +1308,7 @@ async function loadHistoryLegacy() {
     ({ data, error } = await db.from('inventory_activity_logs').select('created_at,table_name,record_id,action,performed_by').order('created_at', { ascending: false }).limit(2000));
   }
   if (error) { status(error.message); return; }
-  cachedHistory = data || [];
+  cachedHistory = mergeHistoryRows(data || []);
   const ids = [...new Set(cachedHistory.map(x => x.performed_by).filter(Boolean))];
   historyNames = {};
   if (ids.length) {
