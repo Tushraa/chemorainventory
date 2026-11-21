@@ -1,7 +1,7 @@
 <div align="center">
 
 <a href="https://www.chemora.art/">
-  <img src="chemora_logo.svg" alt="Chemora logo" width="260">
+  <img src="logos/chemora_logo.svg" alt="Chemora logo" width="260">
 </a>
 
 <h1>Chemora Inventory</h1>
@@ -39,11 +39,11 @@ Three sponsor slots appear in the left menu, below the signed-in user and labora
 
 | Slot | Logo file |
 |---|---|
-| Building Block Sponsor | `sponsors/building-block.png` |
-| Catalyst Sponsor | `sponsors/catalyst.png` |
-| Solvent Sponsor | `sponsors/solvent.png` |
+| Building Block Sponsor | `logos/sponsors/building-block.png` |
+| Catalyst Sponsor | `logos/sponsors/catalyst.png` |
+| Solvent Sponsor | `logos/sponsors/solvent.png` |
 
-Add a logo with the file name above and it appears automatically (see [`sponsors/README.md`](sponsors/README.md)).
+Add a logo with the file name above and it appears automatically (see [`logos/sponsors/README.md`](logos/sponsors/README.md)).
 
 ## Project Structure
 
@@ -54,15 +54,16 @@ chemorainventory/
 ├── inventory.css       base styles
 ├── chemora-theme.css   Chemora interface theme
 ├── config.js           Supabase connection (public publishable key)
-├── favicon.svg ...     site icon (same as www.chemora.art), email-logo.png for emails
-├── sql/                database scripts 01 to 12, run in order
+├── logos/              logos and icons: site icon (same as www.chemora.art), Chemora logo, sponsors/
+├── favicon.ico         site icon for browsers that ask for it at the root
+├── email-logo.png      logo used in e-mails (linked by URL, so it stays at the root)
+├── sql/                database scripts 01 to 16, run in order
 ├── supabase/
 │   ├── functions/inventory-users/    account-management edge function (welcome email)
 │   ├── functions/inventory-notify/   order email edge function
 │   └── email-templates/              sign-in email templates (paste into Supabase)
 ├── EMAIL_SETUP.md      email setup (Resend + Supabase)
-├── jsme/               JSME structure editor (see JSME_SETUP.md)
-└── sponsors/           sponsor logos shown in the menu
+└── jsme/               JSME structure editor (see JSME_SETUP.md)
 ```
 
 ## Technologies
