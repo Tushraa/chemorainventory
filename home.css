@@ -193,3 +193,6 @@ html body.ci .label-preview .lbl{outline:1px solid #888}
   body.print-labels .lbl{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 @media(max-width:600px){html body.ci .label-opts{grid-template-columns:1fr}html body.ci .label-preview-wrap{padding:10px}}
+
+/* automatic hazard codes */
+html body.ci .ghs-src{margin-top:6px;font-size:12px}
