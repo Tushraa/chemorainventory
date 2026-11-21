@@ -85,3 +85,5 @@ html body.ci .mini-title{font-size:12px !important;font-weight:400 !important}
 /* data: numbers, codes, timestamps */
 html body.ci .ci-home .stats b,html body.ci .ci-sum-tiles b{font-family:var(--ci-font-mono) !important;font-weight:600;font-size:24px}
 html body.ci code,html body.ci kbd,html body.ci #historyList td:first-child,html body.ci #structureSmiles{font-family:var(--ci-font-mono) !important;font-size:12px}
+/* Logo tag ("INVENTORY") in JetBrains Mono */
+html body.ci .ci-brand-tag{font-family:var(--ci-font-mono) !important;font-weight:600 !important;font-size:9px !important;letter-spacing:.6em !important}
