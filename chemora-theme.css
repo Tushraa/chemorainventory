@@ -635,3 +635,29 @@ html body.ci .chemora-user-table th,html body.ci .chemora-user-table td{padding-
 .ci .ci-home .feed li.order span{display:flex;gap:5px;min-width:0;-webkit-line-clamp:unset}
 .ci .ci-home .feed li.order b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ci .ci-home .feed li.order i.st{flex:none;font-style:normal}
+
+/* ---------- text and spacing polish, round 2 ---------- */
+/* Inventory Tools: long checkbox descriptions wrap instead of being cut off; checkboxes stay next to their text. */
+html body.ci #view-tools label.muted{white-space:normal;display:flex;align-items:flex-start;gap:8px}
+html body.ci #view-tools label.muted input[type=checkbox]{min-width:0 !important;margin-top:2px}
+.ci .inventory-toolbar input[type=checkbox],.ci .inventory-toolbar input[type=radio]{min-width:0;width:auto;flex:none;min-height:0}
+html body.ci #toolsResult>h3.ci-bar{margin-bottom:12px}
+html body.ci #importPanel>h3.ci-bar,html body.ci #toolsResult .ci-bar{min-height:42px}
+/* Labs & All Users tables line up with their panel titles. */
+html body.ci #view-platform .inventory-data-table th,html body.ci #view-platform .inventory-data-table td{padding-left:14px}
+/* File pickers: same height as the buttons beside them and a matching Choose File button. */
+html body.ci #view-tools input[type=file]{min-height:36px;height:36px;padding:4px 8px;box-sizing:border-box;flex:1 1 220px}
+html body.ci input[type=file]::file-selector-button{background:var(--ci-btn);color:#fff;border:0;border-radius:0;padding:6px 12px;margin-right:10px;font:inherit;cursor:pointer}
+html body.ci input[type=file]::file-selector-button:hover{background:#2e639a}
+/* Notifications appear at the bottom right so they never cover the toolbar buttons. */
+html body.ci .chemora-toast-container{top:auto !important;bottom:20px;right:20px}
+/* Status chips use the dark theme (they were pale green and beige). */
+html body.ci .order-badge{background:#1f3550;color:#cfe0f0;border:1px solid #2c4a6e}
+html body.ci .order-badge.received{background:rgba(20,163,139,.18);color:#7be0cf;border-color:rgba(20,163,139,.55)}
+html body.ci .order-badge.ordered{background:rgba(224,164,58,.16);color:#f0c36e;border-color:rgba(224,164,58,.5)}
+/* Small inline links get a larger invisible tap area (no layout change). */
+html body.ci .dotted,html body.ci #auth .auth-link{position:relative}
+@media(max-width:850px){
+  html body.ci .dotted::after,html body.ci #auth .auth-link::after{content:"";position:absolute;left:-8px;right:-8px;top:-12px;bottom:-12px}
+  html body.ci .chemical-dialog-head button{min-width:44px;min-height:44px}
+}

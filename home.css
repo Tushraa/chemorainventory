@@ -60,3 +60,10 @@
 .ci-sum-list b{font-weight:500;color:#fff}
 .ci-sum-list small{display:block;color:var(--ci-muted);font-size:11.5px}
 .ci-sum-note{margin:14px 0 0;color:#6d86a1;font-size:11.5px}
+
+/* Phone: bigger tap area on the shortcut chips, and Recently Added shows name and CAS on one line with the location below (nothing cut off). */
+@media(max-width:850px){
+  .ci .ci-home .chip{min-height:36px}
+  .ci .ci-home .mini-row{flex-direction:column;gap:2px}
+  .ci .ci-home .mini-row span,.ci .ci-home .mini-row em{white-space:normal;overflow:visible;text-overflow:clip;text-align:left}
+}
