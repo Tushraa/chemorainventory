@@ -75,9 +75,9 @@ html body.ci input,html body.ci select,html body.ci textarea{font-size:13px}
 html body.ci .btn,html body.ci button.btn{font-size:14px}
 html body.ci .inventory-data-table,html body.ci .inventory-data-table td{font-size:13px}
 html body.ci .chemora-toast-message{font-size:13px;font-weight:400 !important}
-/* sidebar menu */
-html body.ci .ci-menu>button,html body.ci .ci-menu .side-group-toggle{font-family:var(--ci-font-ui) !important;font-weight:600 !important;font-size:16px !important;letter-spacing:.2px}
-html body.ci .ci-menu .side-sub button{font-family:var(--ci-font-ui) !important;font-size:14px}
+/* sidebar menu (left panel) */
+html body.ci .ci-menu>button,html body.ci .ci-menu .side-group-toggle{font-family:var(--ci-font-mono) !important;font-weight:600 !important;font-size:14px !important;letter-spacing:0}
+html body.ci .ci-menu .side-sub button{font-family:var(--ci-font-mono) !important;font-weight:400 !important;font-size:12.5px !important}
 /* headings and panel titles */
 html body.ci h1,html body.ci h2,html body.ci h3,html body.ci h4,html body.ci .ci-heading,html body.ci .panel>h2,html body.ci .panel>h3.ci-bar,html body.ci .ci-bar,html body.ci .mini-title,html body.ci dialog h2,html body.ci dialog h3{font-family:var(--ci-font-mono) !important;font-weight:600 !important;font-size:14px !important;letter-spacing:0 !important}
 html body.ci .ci-home h2{font-size:15px !important}
