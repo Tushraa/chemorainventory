@@ -52,6 +52,8 @@ const cfg = window.CHEMORA_INVENTORY_CONFIG;
 const clean = value => typeof value === 'string' ? value.trim() : value;
 // Escaped text that may break after ) ] - , / so long chemical names wrap at a sensible place, not inside a word.
 const softBreak = value => esc(value).replace(/([)\]\-,/])/g, '$1<wbr>');
+// Chemical names keep the normal text font (their digits are not shown in JetBrains Mono like other numbers).
+const cn = value => `<span class="chem-name">${esc(value)}</span>`;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 const show = (el, visible) => { if (el) el.classList.toggle('hide', !visible); };
 const errorText = e => e?.message || String(e);
@@ -373,17 +375,17 @@ async function loadHome() {
     run(async () => {
       const r = await db.from('inventory_orders').select('chemical_name,status').in('status', ['requested', 'ordered']).order('requested_at', { ascending: false }).limit(3);
       if (!fresh()) return;
-      homeList('homeOrdersList', (r.data || []).map(o => `<li class="order ${o.status === 'requested' ? 'amber' : ''}"><span><b>${esc(o.chemical_name)}</b><i class="st">· ${o.status === 'requested' ? 'requested' : 'ordered'}</i></span></li>`), 'No open orders.');
+      homeList('homeOrdersList', (r.data || []).map(o => `<li class="order ${o.status === 'requested' ? 'amber' : ''}"><span><b>${cn(o.chemical_name)}</b><i class="st">· ${o.status === 'requested' ? 'requested' : 'ordered'}</i></span></li>`), 'No open orders.');
     }),
     run(async () => {
       const rows = await getContainerRows({ recent: 3 });
       if (!fresh()) return;
-      $('homeRecent').innerHTML = rows.length ? rows.map(x => `<div class="mini-row"><span>${esc(x.chemical?.name || 'Chemical')}${x.chemical?.cas ? ` <em>· ${esc(x.chemical.cas)}</em>` : ''}</span><em>${esc([x.location_name, x.container_size != null ? `${x.container_size} ${x.unit || ''}`.trim() : ''].filter(Boolean).join(' · '))}</em></div>`).join('') : '<div class="mini-row"><span class="empty">Nothing added yet.</span></div>';
+      $('homeRecent').innerHTML = rows.length ? rows.map(x => `<div class="mini-row"><span>${cn(x.chemical?.name || 'Chemical')}${x.chemical?.cas ? ` <em>· ${esc(x.chemical.cas)}</em>` : ''}</span><em>${esc([x.location_name, x.container_size != null ? `${x.container_size} ${x.unit || ''}`.trim() : ''].filter(Boolean).join(' · '))}</em></div>`).join('') : '<div class="mini-row"><span class="empty">Nothing added yet.</span></div>';
     }),
     manager ? run(async () => {
       const r = await db.from('inventory_activity_logs').select('created_at,table_name,action,performed_by,description').order('created_at', { ascending: false }).limit(30);
       if (!fresh()) return;
-      homeList('homeActivity', mergeHistoryRows(r.data || []).filter(x => x.description).slice(0, 3).map(x => `<li><span>${esc(x.description)}</span></li>`), 'No activity yet.');
+      homeList('homeActivity', mergeHistoryRows(r.data || []).filter(x => x.description).slice(0, 3).map(x => `<li><span>${descHtml(x, x.description)}</span></li>`), 'No activity yet.');
     }) : null
   ]);
 }
@@ -726,7 +728,7 @@ function openChemical(id, containerId = null) {
     <div class="chemora-ghs-summary"><h3>GHS Safety Summary${isManager() ? ' <button type="button" class="chemora-detail-edit" data-ghs-edit>Edit</button>' : ''}</h3>${ghsSummaryHtml(c)}<a href="${esc('https://pubchem.ncbi.nlm.nih.gov/#query=' + encodeURIComponent(c.cas || c.name))}" target="_blank" rel="noopener noreferrer">View PubChem Safety Information</a></div>
    </div>
    <div class="chemora-detail-column chemora-detail-middle">
-    ${row('Container Name', display(c.name), 'name', 'chemical')}
+    ${row('Container Name', `<span class="chem-name">${display(c.name)}</span>`, 'name', 'chemical')}
     ${row('CAS Number', display(c.cas), 'cas', 'chemical')}
     ${row('Barcode', display(selected?.barcode), selected ? 'barcode' : '', 'container')}
     ${row('Location', display(loc ? locationPath(loc) : 'Unassigned'), selected ? 'location_id' : '', 'container')}
@@ -1061,7 +1063,7 @@ function renderOrders() {
   $('orderList').innerHTML = `<table class="inventory-data-table chemora-orders-table">
 <thead><tr><th>Chemical Name</th><th>CAS Number</th><th>Size</th><th>Requested By</th><th>Requested On</th><th>Ordered On</th><th>Actions</th></tr></thead>
 <tbody>${filtered.map(o => `<tr>
-<td>${esc(o.chemical_name)}${o.received_container_id ? `<div class="muted">Container: ${esc(o.received_container_id)}</div>` : ''}</td>
+<td>${cn(o.chemical_name)}${o.received_container_id ? `<div class="muted">Container: ${esc(o.received_container_id)}</div>` : ''}</td>
 <td>${esc(o.cas || '—')}</td>
 <td>${esc(o.container_size)} ${esc(o.unit)}</td>
 <td>${esc(o.requester_name || 'Name unavailable')}</td>
@@ -1257,6 +1259,13 @@ const EVENT_LABELS = { insert: 'Creation', update: 'Edit', delete: 'Deletion' };
 const historySubject = x => SUBJECT_LABELS[x.table_name] || x.table_name;
 const historyEvent = x => EVENT_LABELS[x.action] || x.action;
 const historyUser = x => historyNames[x.performed_by] || (x.performed_by ? 'Former user' : 'System');
+// Descriptions of containers, substances and orders start with a chemical name: keep the name in the normal font and the barcode and other numbers in the number font.
+function descHtml(x, text) {
+  const t = String(text ?? '');
+  if (!['inventory_containers', 'inventory_chemicals', 'inventory_orders'].includes(x.table_name)) return esc(t);
+  const m = /^(.*) \(([A-Za-z0-9._-]+)\)( [\s\S]*)?$/.exec(t);
+  return m ? `${cn(m[1])} (${esc(m[2])})${esc(m[3] || '')}` : cn(t);
+}
 const historyText = x => x.description || `${historySubject(x)} ${String(x.action || '').toLowerCase()} (record ${String(x.record_id || '').slice(0, 8)})`;
 const historyStamp = x => String(x.created_at || '').replace('T', ' ').slice(0, 19);
 // Display form of a UTC timestamp, e.g. 21 Nov 2026, 14:16:17 (the CSV export keeps the plain 2026-11-21 14:16:17).
@@ -1273,7 +1282,7 @@ function filteredHistory() {
 function renderHistory() {
   const items = filteredHistory();
   $('historyList').innerHTML = '<table class="inventory-data-table chemora-orders-table"><thead><tr><th>Timestamp (UTC)</th><th>User</th><th>Subject</th><th>Event</th><th>Description</th></tr></thead><tbody>' +
-    (items.length ? items.map(x => `<tr><td>${esc(stampLabel(historyStamp(x)))}</td><td>${esc(historyUser(x))}</td><td>${esc(historySubject(x))}</td><td>${esc(historyEvent(x))}</td><td>${esc(historyText(x))}</td></tr>`).join('') : '<tr><td colspan="5" class="muted">No activity matches these filters.</td></tr>') + '</tbody></table>';
+    (items.length ? items.map(x => `<tr><td>${esc(stampLabel(historyStamp(x)))}</td><td>${esc(historyUser(x))}</td><td>${esc(historySubject(x))}</td><td>${esc(historyEvent(x))}</td><td>${descHtml(x, historyText(x))}</td></tr>`).join('') : '<tr><td colspan="5" class="muted">No activity matches these filters.</td></tr>') + '</tbody></table>';
 }
 function fillHistoryUsers() {
   const keep = $('historyUser').value;
@@ -1354,7 +1363,7 @@ function renderCollection() {
   const q = $('collectionFilter').value.trim().toLowerCase();
   const rows = collectionRows.filter(x => !q || [x.chemical?.name, x.chemical?.cas, x.barcode, x.location_name].some(v => String(v || '').toLowerCase().includes(q)));
   $('collectionList').innerHTML = rows.length ? '<table class="inventory-data-table"><thead><tr><th>Name</th><th>CAS</th><th>Barcode</th><th>Remaining</th><th>Location</th></tr></thead><tbody>' +
-    rows.map(x => `<tr><td>${esc(x.chemical?.name)}</td><td>${esc(x.chemical?.cas || '—')}</td><td>${esc(x.barcode)}</td><td>${esc(x.remaining_amount ?? x.container_size)} / ${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td></tr>`).join('') + '</tbody></table>' : '';
+    rows.map(x => `<tr><td>${cn(x.chemical?.name)}</td><td>${esc(x.chemical?.cas || '—')}</td><td>${esc(x.barcode)}</td><td>${esc(x.remaining_amount ?? x.container_size)} / ${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td></tr>`).join('') + '</tbody></table>' : '';
 }
 $('collectionFilter').addEventListener('input', renderCollection);
 $('collectionExport').addEventListener('click', () => {
@@ -1452,7 +1461,7 @@ async function showDeletedContainers() {
     const rows = (await getContainerRows({ scope: 'disposed' })).filter(x => !isActiveContainer(x));
     rows.sort((a, b) => String(b.disposed_at || b.updated_at || '').localeCompare(String(a.disposed_at || a.updated_at || '')));
     $('toolsResult').innerHTML = '<h3 class="ci-bar">Deleted Containers</h3>' + (rows.length ? '<table class="inventory-data-table"><thead><tr><th>Chemical</th><th>Barcode</th><th>Size</th><th>Last Location</th><th>Disposed</th></tr></thead><tbody>' +
-      rows.map(x => `<tr><td>${esc(x.chemical?.name)}</td><td>${esc(x.barcode)}</td><td>${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td><td>${esc(String(x.disposed_at || x.updated_at || '').slice(0, 10))}</td></tr>`).join('') + '</tbody></table><p class="muted">Disposed containers are archived here with their history until the chemical record is deleted.</p>' : '<p class="muted">No deleted containers.</p>');
+      rows.map(x => `<tr><td>${cn(x.chemical?.name)}</td><td>${esc(x.barcode)}</td><td>${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td><td>${esc(String(x.disposed_at || x.updated_at || '').slice(0, 10))}</td></tr>`).join('') + '</tbody></table><p class="muted">Disposed containers are archived here with their history until the chemical record is deleted.</p>' : '<p class="muted">No deleted containers.</p>');
   } catch (e) { status(errorText(e)); }
 }
 async function showLabSettings() {
@@ -1735,7 +1744,7 @@ $('recentContainers').addEventListener('click', async () => {
     const rows = (await getContainerRows({ recent: 40 })).filter(isActiveContainer);
     const key = x => String(x.created_at || x.received_at || '');
     rows.sort((a, b) => key(b).localeCompare(key(a)));
-    $('toolsResult').innerHTML = '<h3 class="ci-bar">Recently Added</h3><table class="inventory-data-table"><thead><tr><th>Chemical</th><th>Barcode</th><th>Size</th><th>Location</th></tr></thead><tbody>' + rows.slice(0, 40).map(x => `<tr><td>${esc(x.chemical?.name)}</td><td>${esc(x.barcode)}</td><td>${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td></tr>`).join('') + `</tbody></table><p class="muted">Newest 40 containers, ordered by ${rows[0]?.created_at ? 'creation time' : 'date received'}.</p>`;
+    $('toolsResult').innerHTML = '<h3 class="ci-bar">Recently Added</h3><table class="inventory-data-table"><thead><tr><th>Chemical</th><th>Barcode</th><th>Size</th><th>Location</th></tr></thead><tbody>' + rows.slice(0, 40).map(x => `<tr><td>${cn(x.chemical?.name)}</td><td>${esc(x.barcode)}</td><td>${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td></tr>`).join('') + `</tbody></table><p class="muted">Newest 40 containers, ordered by ${rows[0]?.created_at ? 'creation time' : 'date received'}.</p>`;
   } catch (e) { status(errorText(e)); }
 });
 // Batch label sheet: a dedicated print area, because the global print rules hide everything else on the page.
@@ -1745,7 +1754,7 @@ function buildLabelSheet(rows) {
   sheet.replaceChildren();
   for (const x of rows) {
     const label = document.createElement('div'); label.className = 'batch-label';
-    const name = document.createElement('strong'); name.textContent = x.chemical?.name || 'Chemical';
+    const name = document.createElement('strong'); name.className = 'chem-name'; name.textContent = x.chemical?.name || 'Chemical';
     const cas = document.createElement('span'); cas.textContent = x.chemical?.cas ? 'CAS: ' + x.chemical.cas : '';
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     const code = document.createElement('strong'); code.textContent = x.barcode;
@@ -2271,12 +2280,12 @@ function renderRowsInto(target, rows, mode) {
   const manager = isManager();
   if (!rows.length) { target.innerHTML = '<p class="muted" style="padding:10px">No matching containers.</p>'; return; }
   if (mode === 'grid') {
-    target.innerHTML = '<div class="result-grid">' + rows.map(r => `<button type="button" class="grid-tile" data-act="info" data-key="${esc(rowKey(r))}"><span class="tile-img"><img src="${esc(structureUrl(r.c))}" alt="Structure of ${esc(r.c.name)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'fa-solid fa-flask-vial',style:'font-size:46px;color:#9aa3a7'}))"></span><span class="tile-name"><b>Name:</b> ${softBreak(r.c.name)}</span></button>`).join('') + '</div>';
+    target.innerHTML = '<div class="result-grid">' + rows.map(r => `<button type="button" class="grid-tile" data-act="info" data-key="${esc(rowKey(r))}"><span class="tile-img"><img src="${esc(structureUrl(r.c))}" alt="Structure of ${esc(r.c.name)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'fa-solid fa-flask-vial',style:'font-size:46px;color:#9aa3a7'}))"></span><span class="tile-name"><b>Name:</b> <span class="chem-name">${softBreak(r.c.name)}</span></span></button>`).join('') + '</div>';
     return;
   }
   const cols = tableColumns;
   target.innerHTML = '<table class="inventory-data-table ci-results"><thead><tr>' + (manager ? '<th class="check-col"><input type="checkbox" data-check-all aria-label="Select all"></th>' : '') + '<th>Container Name</th>' + cols.map(k => `<th>${COLUMN_DEFS[k]}</th>`).join('') + '<th>Actions</th></tr></thead><tbody>' +
-    rows.map(r => `<tr data-key="${esc(rowKey(r))}">${manager ? `<td class="check-col">${r.x ? `<input type="checkbox" data-check ${selectedKeys.has(rowKey(r)) ? 'checked' : ''} aria-label="Select ${esc(r.c.name)}">` : ''}</td>` : ''}<td><button type="button" class="name-link" data-act="info">${softBreak(r.c.name)}</button></td>${cols.map(k => `<td>${esc(cellText(k, r))}</td>`).join('')}<td><span class="row-actions">${iconBtn('info', 'fa-circle-info', 'Container details')}${manager && r.x ? iconBtn('move', 'fa-house', 'Move container') : ''}${iconBtn('order', 'fa-cart-shopping', 'Request an order')}${manager && r.x ? iconBtn('delete', 'fa-trash', 'Delete container', 'danger') : ''}</span></td></tr>`).join('') + '</tbody></table>';
+    rows.map(r => `<tr data-key="${esc(rowKey(r))}">${manager ? `<td class="check-col">${r.x ? `<input type="checkbox" data-check ${selectedKeys.has(rowKey(r)) ? 'checked' : ''} aria-label="Select ${esc(r.c.name)}">` : ''}</td>` : ''}<td><button type="button" class="name-link" data-act="info"><span class="chem-name">${softBreak(r.c.name)}</span></button></td>${cols.map(k => `<td>${esc(cellText(k, r))}</td>`).join('')}<td><span class="row-actions">${iconBtn('info', 'fa-circle-info', 'Container details')}${manager && r.x ? iconBtn('move', 'fa-house', 'Move container') : ''}${iconBtn('order', 'fa-cart-shopping', 'Request an order')}${manager && r.x ? iconBtn('delete', 'fa-trash', 'Delete container', 'danger') : ''}</span></td></tr>`).join('') + '</tbody></table>';
 }
 function renderList() {
   const rows = computeRows(); currentRows = rows;
@@ -2824,7 +2833,7 @@ async function showAssignedBarcodes() {
   try {
     const rows = (await getContainerRows()).filter(x => x.barcode).sort((a, b) => String(a.barcode).localeCompare(String(b.barcode), undefined, { numeric: true }));
     $('toolsResult').innerHTML = '<h3 class="ci-bar">Assigned Barcodes</h3><p class="muted">' + rows.length + ' barcode(s) are assigned in this lab. A barcode is never reused, even after a container is deleted.</p><div class="actions"><button type="button" class="btn" id="assignedDownload">Download List</button></div><table class="inventory-data-table"><thead><tr><th>Barcode</th><th>Container</th><th>Status</th><th>Location</th></tr></thead><tbody>' +
-      rows.map(x => `<tr><td>${esc(x.barcode)}</td><td>${esc(x.chemical?.name)}</td><td>${isActiveContainer(x) ? 'In inventory' : 'Deleted'}</td><td>${esc(x.location_name)}</td></tr>`).join('') + '</tbody></table>';
+      rows.map(x => `<tr><td>${esc(x.barcode)}</td><td>${cn(x.chemical?.name)}</td><td>${isActiveContainer(x) ? 'In inventory' : 'Deleted'}</td><td>${esc(x.location_name)}</td></tr>`).join('') + '</tbody></table>';
     $('assignedDownload').addEventListener('click', () => downloadCSV('assigned-barcodes.csv', [['Barcode', 'Container', 'Status', 'Location'], ...rows.map(x => [x.barcode, x.chemical?.name, isActiveContainer(x) ? 'In inventory' : 'Deleted', x.location_name])]));
   } catch (e) { status(errorText(e)); }
 }
@@ -2873,7 +2882,7 @@ $('bulkFile').addEventListener('change', async e => {
       if (Object.keys(patch).length || remaining !== null) bulkChanges.push({ x, patch, remaining });
     });
     $('bulkPreview').innerHTML = (problems.length ? '<div class="ci-box" style="border-color:#d9635d"><strong>Please fix:</strong><br>' + problems.slice(0, 20).map(esc).join('<br>') + (problems.length > 20 ? `<br>…and ${problems.length - 20} more` : '') + '</div>' : '') +
-      (bulkChanges.length ? '<table class="inventory-data-table"><thead><tr><th>Barcode</th><th>Container</th><th>Change</th></tr></thead><tbody>' + bulkChanges.map(c => `<tr><td>${esc(c.x.barcode)}</td><td>${esc(c.x.chemical?.name)}</td><td>${[...Object.entries(c.patch).map(([k, v]) => `${esc(k)}: ${esc(c.x[k] ?? '—')} → <b>${esc(v ?? '—')}</b>`), ...(c.remaining !== null ? [`remaining_amount: ${esc(c.x.remaining_amount)} → <b>${esc(c.remaining)}</b>`] : [])].join('<br>')}</td></tr>`).join('') + '</tbody></table>' : '<p class="muted">No changes found.</p>');
+      (bulkChanges.length ? '<table class="inventory-data-table"><thead><tr><th>Barcode</th><th>Container</th><th>Change</th></tr></thead><tbody>' + bulkChanges.map(c => `<tr><td>${esc(c.x.barcode)}</td><td>${cn(c.x.chemical?.name)}</td><td>${[...Object.entries(c.patch).map(([k, v]) => `${esc(k)}: ${esc(c.x[k] ?? '—')} → <b>${esc(v ?? '—')}</b>`), ...(c.remaining !== null ? [`remaining_amount: ${esc(c.x.remaining_amount)} → <b>${esc(c.remaining)}</b>`] : [])].join('<br>')}</td></tr>`).join('') + '</tbody></table>' : '<p class="muted">No changes found.</p>');
     show($('bulkApply'), bulkChanges.length > 0 && problems.length === 0);
     status(bulkChanges.length ? `${bulkChanges.length} container(s) will change.` + (problems.length ? ' Fix the listed problems to continue.' : '') : '', 'bulkStatus');
   } catch (err) { status(errorText(err), 'bulkStatus'); }
@@ -2926,7 +2935,7 @@ function stockReport() {
 function renderStock() {
   if (!stock) return $('stockResult').replaceChildren();
   const missing = [...stock.expected.values()].filter(x => !stock.found.has(x.id));
-  const list = (title, arr, cls) => arr.length ? `<h4>${title} (${arr.length})</h4><table class="inventory-data-table"><thead><tr><th>Barcode</th><th>Container</th><th>Listed Location</th></tr></thead><tbody>${arr.map(x => `<tr class="${cls}"><td>${esc(x.barcode)}</td><td>${esc(x.chemical?.name)}</td><td>${esc(x.location_name)}</td></tr>`).join('')}</tbody></table>` : '';
+  const list = (title, arr, cls) => arr.length ? `<h4>${title} (${arr.length})</h4><table class="inventory-data-table"><thead><tr><th>Barcode</th><th>Container</th><th>Listed Location</th></tr></thead><tbody>${arr.map(x => `<tr class="${cls}"><td>${esc(x.barcode)}</td><td>${cn(x.chemical?.name)}</td><td>${esc(x.location_name)}</td></tr>`).join('')}</tbody></table>` : '';
   $('stockResult').innerHTML = `<p><strong>${stock.found.size}</strong> of ${stock.expected.size} found &middot; <strong>${missing.length}</strong> missing &middot; <strong>${stock.unexpected.size}</strong> unexpected &middot; <strong>${stock.unknown.length}</strong> unknown</p>` +
     list('Missing', missing, 'is-locked') + list('Unexpected here', [...stock.unexpected.values()], '') +
     (stock.unknown.length ? `<h4>Unknown barcodes (${stock.unknown.length})</h4><p>${stock.unknown.map(esc).join(', ')}</p>` : '');
