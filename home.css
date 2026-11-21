@@ -139,3 +139,15 @@ html body.ci .ci-sponsor-logo img.sp-color{display:none}
 .ci .ci-home .art .sub{transition:opacity .35s ease}
 .ci .ci-home .art .sub.hop{opacity:0}
 @media(prefers-reduced-motion:reduce){.ci .ci-home .c-add .art .scan{animation:none}}
+
+/* Compact popups (desktop): forms and small dialogs no longer stretch to 1000px.
+   Chemical Details and the Structure editor keep their own, larger sizes. */
+@media(min-width:851px){
+  html body.ci dialog.chemical-dialog:where(:not(#chemicalDialog):not(#structureDialog)){width:min(440px,calc(100vw - 32px)) !important;max-width:none !important}
+  html body.ci dialog.chemical-dialog.ci-small{width:min(400px,calc(100vw - 32px)) !important}
+  html body.ci dialog.chemical-dialog.ci-wide{width:min(680px,calc(100vw - 32px)) !important}
+  html body.ci #receiveOrderDialog.chemical-dialog{width:min(540px,calc(100vw - 32px)) !important}
+  html body.ci #editOrderDialog.order-edit-modal{width:min(560px,calc(100vw - 32px)) !important;max-width:none !important;padding:22px !important}
+  html body.ci dialog .chemical-dialog-head{padding:10px 14px}
+  html body.ci dialog .chemical-dialog-body{padding-left:14px;padding-right:14px}
+}

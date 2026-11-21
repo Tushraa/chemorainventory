@@ -26,24 +26,13 @@ More about the company and its other tools: **https://www.chemora.art/**
 
 ## Features
 
+- **Home:** a dashboard with quick search, recently added containers, order requests, locations, containers that need attention, and recent activity.
 - **Search:** by name or synonym, CAS number or barcode; structure search (exact, substructure, similarity) with a built-in JSME editor; advanced rule-based search; GHS hazard search.
 - **Containers and locations:** two-step add form with optional pre-printed barcodes, hierarchical location tree, move, transfer, update quantity, duplicate or delete containers singly or in bulk, per-container history, and My Collection.
 - **Scanning and audits:** Scan to Move, printable barcode labels, Assigned Barcodes register, and Stocktake & Audit with a missing / unexpected / unknown report.
 - **Orders, import and export:** order requests and current orders, CSV import and export, and Bulk Container Update from a spreadsheet with a preview before saving.
 - **Administration:** Activity History & Auditing with filters and CSV export, and three account types (Member, Chemical Manager, Administrator).
 - **Multi-lab control:** lab administrators control only their own lab. The **Inventory Administrator** controls every lab and every user from the *Labs & All Users* page.
-
-## Sponsors
-
-Three sponsor slots appear in the left menu, below the signed-in user and laboratory information, from top to bottom:
-
-| Slot | Logo file |
-|---|---|
-| Building Block Sponsor | `logos/sponsors/building-block.png` |
-| Catalyst Sponsor | `logos/sponsors/catalyst.png` |
-| Solvent Sponsor | `logos/sponsors/solvent.png` |
-
-Add a logo with the file name above and it appears automatically (see [`logos/sponsors/README.md`](logos/sponsors/README.md)).
 
 ## Project Structure
 
@@ -53,8 +42,10 @@ chemorainventory/
 ├── inventory.js        application logic
 ├── inventory.css       base styles
 ├── chemora-theme.css   Chemora interface theme
+├── home.css            Home page, typefaces, tables and popups
+├── home-anim.js        small animations on the Home page cards
 ├── config.js           Supabase connection (public publishable key)
-├── logos/              logos and icons: site icon (same as www.chemora.art), Chemora logo, sponsors/
+├── logos/              logos and icons: site icon (same as www.chemora.art) and Chemora logo
 ├── favicon.ico         site icon for browsers that ask for it at the root
 ├── email-logo.png      logo used in e-mails (linked by URL, so it stays at the root)
 ├── sql/                database scripts 01 to 18, run in order
@@ -72,16 +63,20 @@ chemorainventory/
 - Supabase: PostgreSQL with row-level security, authentication and Edge Functions
 - JSME molecular editor and PubChem structure images
 - Font Awesome icons
+- Typefaces: Roboto Condensed for text and JetBrains Mono for headings, menus and numbers
 - Responsive layout for desktop, tablet and mobile
 
 ## Setup
 
 1. Create a Supabase project and enter its URL and publishable key in `config.js`.
-2. Run the scripts in `sql/` in order (`01` to `12`) in the Supabase SQL Editor. Each is safe to run more than once.
+2. Run the scripts in `sql/` in order (`01` to `18`) in the Supabase SQL Editor. Each is safe to run more than once.
    - `04_activity_descriptions.sql` adds readable descriptions to the activity log.
    - `05_platform_admin.sql` adds the Inventory Administrator role, the Labs & All Users page, GHS hazard codes, pre-printed barcodes and bulk container actions.
    - `06_structure_search.sql` stores each chemical's structure (SMILES) for substructure and similarity search.
    - `10_order_notifications.sql` to `12_order_edit_and_cancel_rules.sql` add order emails and the order edit and cancel rules.
+   - `13_performance.sql` and `14_hardening.sql` add indexes and tighten database permissions.
+   - `15_delete_location.sql` and `16_delete_location_with_disposed.sql` add safe deletion of locations.
+   - `17_my_summary.sql` and `18_merge_substance_history.sql` add the account summary and the merged Activity History.
 3. Deploy the `inventory-users` and `inventory-notify` edge functions from `supabase/functions/`, and set up email as described in `EMAIL_SETUP.md`.
 4. Copy the JSME files into `jsme/` as described in `JSME_SETUP.md`.
 5. Open `inventory.html` through a web address.
