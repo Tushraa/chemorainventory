@@ -493,7 +493,7 @@ html body.ci #refreshUsers,html body.ci #refreshPlatform{flex:0 0 38px !importan
   html body.ci #addUserButton,html body.ci #addLabButton{flex:1 1 100% !important}
   html body.ci .btn,html body.ci button.btn{font-size:14px}
 }
-html body.ci .chemora-structure-actions .btn,html body.ci .search-actions .btn,html body.ci dialog .actions .btn{font-size:14px !important;font-weight:600 !important;height:38px;min-height:0;padding:0 14px;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+html body.ci .chemora-structure-actions .btn,html body.ci .search-actions .btn,html body.ci dialog .actions .btn{font-size:14px !important;font-weight:400 !important;height:38px;min-height:0;padding:0 14px;display:inline-flex;align-items:center;justify-content:center;line-height:1}
 
 /* ---------- avatar: no border, same size as the Menu box; ACTIONS label on the left; structure buttons ---------- */
 html body.ci .ci-avatar{border:0 !important;width:40px !important;height:40px !important;box-shadow:none}
@@ -599,8 +599,8 @@ html body.ci .grid-tile .tile-name{display:block;margin-top:12px !important}
   html body.ci .search-actions>.btn,html body.ci .search-actions>.split{flex:1 1 0;min-width:max-content;width:auto;max-width:220px}
   html body.ci .search-actions .btn{padding:0 6px;font-size:13px !important;white-space:nowrap}
   html body.ci .search-actions .split>.btn{flex:1 1 auto;width:100%}
-  html body.ci .cards>.result-grid{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 20px}
-  html body.ci table.ci-results{width:100%}
+  html body.ci .cards>.result-grid,html body.ci #locationContainers>.result-grid{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 20px}
+  html body.ci table.ci-results{width:100%;min-width:0}
   html body.ci table.ci-results th:last-child,html body.ci table.ci-results td:last-child{width:1%;white-space:nowrap;text-align:right;padding-right:16px}
   html body.ci table.ci-results td:last-child .row-actions{justify-content:flex-end}
 }
@@ -675,3 +675,7 @@ html body.ci .grid-tile{align-self:start;display:block}
 @media(max-width:850px){
   html body.ci .results-scroll,html body.ci .results-scroll .cards{max-height:none !important;overflow:visible !important}
 }
+
+/* Buttons: normal weight everywhere in content and dialogs (sidebar menu keeps its own face) */
+html body.ci .btn,html body.ci button.btn,html body.ci .btn.secondary,html body.ci .btn.small,html body.ci .btn.green,html body.ci .btn.danger,html body.ci dialog .actions .btn,html body.ci dialog button.btn{font-weight:400 !important}
+html body.ci .view-toggle button,html body.ci .tool-tile strong{font-weight:400}
