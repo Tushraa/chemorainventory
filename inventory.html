@@ -19,8 +19,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Roboto+Mono:wght@400;500;600;700&family=Cuprum:wght@400;700&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="js/tailwind-config.js"></script>
-  <link rel="stylesheet" href="inventory.css?v=20261120k">
-  <link rel="stylesheet" href="chemora-theme.css?v=20261120k">
+  <link rel="stylesheet" href="inventory.css?v=20261121a">
+  <link rel="stylesheet" href="chemora-theme.css?v=20261121a">
+  <link rel="stylesheet" href="home.css?v=20261121a">
   <style>/* critical: keeps the account drawer closed even if a cached stylesheet is older than this page */
   .ci-drawer{position:fixed;top:0;right:0;bottom:0;width:340px;max-width:88vw;z-index:1000;transform:translateX(100%);visibility:hidden}
   .ci-drawer.open{transform:none;visibility:visible}
@@ -67,11 +68,12 @@
 <form id="resetForm" class="hide" novalidate><label class="field">Email<input id="resetEmail" type="email" autocomplete="username" required></label><button class="btn" type="submit">Send Reset Link</button><p class="auth-links"><button type="button" class="auth-link" data-auth-back>Back to Sign In</button></p><p id="resetStatus" class="status" role="status"></p></form>
 <form id="recoveryForm" class="hide" novalidate><label class="field">New Password<input id="newPassword" type="password" autocomplete="new-password" minlength="12" required></label><label class="field">Confirm New Password<input id="newPassword2" type="password" autocomplete="new-password" minlength="12" required></label><p class="muted auth-hint">Use at least 12 characters.</p><button class="btn" type="submit">Save New Password</button><p id="recoveryStatus" class="status" role="alert"></p></form><aside class="ci-sponsors ci-sponsors-login" aria-label="Sponsors"><a class="ci-sponsor" href="#" data-sponsor-link aria-label="Building Block Sponsor"><span class="ci-sponsor-label">Building Block Sponsor</span><span class="ci-sponsor-logo"><img src="sponsors/building-block.png" alt="Building Block Sponsor logo" loading="lazy" onerror="this.remove()"><span class="ci-sponsor-ph">Your logo here</span></span></a><a class="ci-sponsor" href="https://www.tcichemicals.com/" target="_blank" rel="noopener noreferrer" aria-label="Catalyst Sponsor: Tokyo Chemical Industry (TCI)"><span class="ci-sponsor-label">Catalyst Sponsor</span><span class="ci-sponsor-logo"><img src="sponsors/catalyst.png?v=tci1" alt="TCI logo" loading="lazy" onerror="this.remove()"><span class="ci-sponsor-name">Tokyo Chemical<br>Industry</span></span></a><a class="ci-sponsor" href="#" data-sponsor-link aria-label="Solvent Sponsor"><span class="ci-sponsor-label">Solvent Sponsor</span><span class="ci-sponsor-logo"><img src="sponsors/solvent.png" alt="Solvent Sponsor logo" loading="lazy" onerror="this.remove()"><span class="ci-sponsor-ph">Your logo here</span></span></a></aside></div></section>
 <section id="portal" class="hide">
-<div class="inventory-workspace"><div class="mobile-module-select"><label for="mobileModule">Module</label><select id="mobileModule" aria-label="Choose inventory module"><option value="chemicals">Search</option><option value="add">Add a Container</option><option value="orders">Request an Order</option><option value="requests">Current Orders</option><option value="locations">Locations</option><option value="users" data-admin>Inventory Management</option><option value="platform" data-platform>Labs &amp; All Users</option><option value="history" data-manager>Activity History &amp; Auditing</option></select></div>
+<div class="inventory-workspace"><div class="mobile-module-select"><label for="mobileModule">Module</label><select id="mobileModule" aria-label="Choose inventory module"><option value="home">Home</option><option value="chemicals">Search</option><option value="add">Add a Container</option><option value="orders">Request an Order</option><option value="requests">Current Orders</option><option value="locations">Locations</option><option value="users" data-admin>Inventory Management</option><option value="platform" data-platform>Labs &amp; All Users</option><option value="history" data-manager>Activity History &amp; Auditing</option></select></div>
 
 <nav class="nav inventory-sidebar ci-menu" id="tabs" aria-label="Inventory menu">
+<button type="button" data-tab="home" class="active"><i class="fa-solid fa-house" aria-hidden="true"></i><span>Home</span></button>
 <button type="button" data-tab="platform" class="platform-home hide"><i class="fa-solid fa-building-shield" aria-hidden="true"></i><span>Labs &amp; All Users</span></button>
-<button type="button" data-tab="chemicals" class="active"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Search</span></button>
+<button type="button" data-tab="chemicals"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Search</span></button>
 <button type="button" data-tab="add" class="manager-only hide"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Add a Container</span></button>
 <button type="button" class="side-group-toggle" data-group="orders" aria-expanded="false"><i class="fa-solid fa-flask" aria-hidden="true"></i><span>Order Requests</span><i class="fa-solid fa-chevron-down side-chevron" aria-hidden="true"></i></button>
 <div class="side-sub hide" data-group-body="orders"><button type="button" data-tab="orders"><span>Request an Order</span></button><button type="button" data-tab="requests"><span>Current Orders</span></button></div>
@@ -84,6 +86,22 @@
 <p id="globalStatus" class="status" role="status"></p>
 
 
+<section id="view-home" class="tab-view hide" aria-label="Home"><div class="ci-home" id="homeGrid">
+<div class="hc c-find"><h3><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>Find a chemical</h3><p>Search by <b>name, CAS number or barcode</b> across every cabinet and fridge.</p>
+<form class="home-search" id="homeSearch" autocomplete="off"><input id="homeSearchInput" type="search" placeholder="e.g. toluene, 108-88-3 or a barcode" aria-label="Search for a chemical"><button type="submit">Search</button></form>
+<div class="chips"><button type="button" class="chip" data-home-action="structure"><i class="fa-solid fa-hexagon-nodes" aria-hidden="true"></i> Draw a structure</button><button type="button" class="chip" data-home-action="collection">My collection</button><button type="button" class="chip manager-only hide" data-home-action="scan">Scan barcode</button></div>
+<div class="mini"><div class="mini-title">Recently added</div><div id="homeRecent"><div class="mini-row"><span class="empty">Loading…</span></div></div></div></div>
+<div class="hc c-add manager-only hide" data-home-go="add" tabindex="0" role="link" aria-label="Add a Container"><i class="fa-solid fa-arrow-up-right-from-square go" aria-hidden="true"></i><h3><i class="fa-solid fa-plus" aria-hidden="true"></i>Add a Container</h3><p>Register a new bottle and <b>print its label</b> in seconds.</p>
+<svg class="art" viewBox="0 0 280 120" aria-hidden="true"><rect x="70" y="14" width="140" height="92" fill="none" stroke="#3d5f84" stroke-width="2"/><g fill="#6f93b8"><rect x="86" y="30" width="3" height="40"/><rect x="93" y="30" width="6" height="40"/><rect x="103" y="30" width="2" height="40"/><rect x="109" y="30" width="5" height="40"/><rect x="118" y="30" width="3" height="40"/><rect x="125" y="30" width="7" height="40"/><rect x="136" y="30" width="2" height="40"/><rect x="142" y="30" width="4" height="40"/><rect x="150" y="30" width="6" height="40"/><rect x="160" y="30" width="2" height="40"/><rect x="166" y="30" width="5" height="40"/><rect x="175" y="30" width="3" height="40"/><rect x="182" y="30" width="6" height="40"/><rect x="192" y="30" width="2" height="40"/></g><rect x="60" y="48" width="160" height="2" fill="#14a38b"/><text x="140" y="92" text-anchor="middle" fill="#8fa6bd" font-size="10" font-family="monospace">DL-000124</text></svg></div>
+<div class="hc c-orders" data-home-go="requests" tabindex="0" role="link" aria-label="Order Requests"><i class="fa-solid fa-arrow-up-right-from-square go" aria-hidden="true"></i><h3><i class="fa-solid fa-flask" aria-hidden="true"></i>Order Requests</h3><p>Request a chemical and follow it until it arrives.</p>
+<div class="stats"><div class="warn"><b id="homeOrdersRequested">–</b><span>requested</span></div><div class="ok"><b id="homeOrdersOrdered">–</b><span>ordered</span></div></div><ul class="feed" id="homeOrdersList"></ul></div>
+<div class="hc q" data-home-go="locations" tabindex="0" role="link" aria-label="Locations"><i class="fa-solid fa-arrow-up-right-from-square go" aria-hidden="true"></i><h3><i class="fa-solid fa-tags" aria-hidden="true"></i>Locations</h3><p>Browse cabinets, shelves, fridges and trays.</p><ul class="loc-mini" id="homeLocations"></ul></div>
+<div class="hc q"><h3><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>Needs attention</h3><p>Containers that have expired or will soon.</p>
+<div class="stats"><div class="bad"><b id="homeExpired">–</b><span>expired</span></div><div class="warn"><b id="homeExpiring">–</b><span>expire in 30 days</span></div></div><div class="stats"><div><b id="homeTotal">–</b><span>containers in this lab</span></div></div></div>
+<div class="hc q" data-home-go="structure" tabindex="0" role="link" aria-label="Structure search"><i class="fa-solid fa-arrow-up-right-from-square go" aria-hidden="true"></i><h3><i class="fa-solid fa-hexagon-nodes" aria-hidden="true"></i>Structure search</h3><p>Draw a molecule and find matching chemicals.</p>
+<svg class="art" viewBox="0 0 280 120" aria-hidden="true"><g fill="none" stroke="#6f93b8" stroke-width="2.4" stroke-linejoin="miter"><polygon points="110,34 136,49 136,79 110,94 84,79 84,49"/><polygon points="162,34 188,49 188,79 162,94 136,79 136,49" opacity=".55"/><path d="M110 34V16M188 79l22 12"/></g><rect x="106" y="10" width="8" height="8" fill="#14a38b"/><rect x="208" y="88" width="8" height="8" fill="#d9635d"/></svg></div>
+<div class="hc q manager-only hide" data-home-go="history" tabindex="0" role="link" aria-label="Recent activity"><i class="fa-solid fa-arrow-up-right-from-square go" aria-hidden="true"></i><h3><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>Recent activity</h3><p>What changed in the lab lately.</p><ul class="feed" id="homeActivity"></ul></div>
+</div></section>
 <section id="view-chemicals" class="tab-view hide">
   <div class="chemora-search-split">
     <div class="panel chemora-search-panel">
@@ -251,6 +269,6 @@
 
 <script src="js/navigation.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="config.js?v=20261120k"></script>
-<script src="inventory.js?v=20261120k"></script>
+<script src="config.js?v=20261121a"></script>
+<script src="inventory.js?v=20261121a"></script>
 </body></html>
