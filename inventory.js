@@ -890,29 +890,6 @@ $('chemicalDialogBody').addEventListener('click', async e => {
 $('closeChemicalDialog').addEventListener('click', () => $('chemicalDialog').close());
 $('chemicalDialog').addEventListener('click', e => { if (e.target === $('chemicalDialog')) $('chemicalDialog').close(); });
 
-/* Phase 7: client-side printable Code 128 label. Never send container data to third parties. */
-async function printContainerLabel(containerId) {
-  const container = lastContainers.find(x => x.id === containerId);
-  if (!container || !container.barcode) return;
-  const chemical = lastChemicals.find(x => x.id === container.chemical_id);
-  $('phase7LabelName').textContent = chemical?.name || 'Chemical';
-  $('phase7LabelCas').textContent = chemical?.cas ? 'CAS: ' + chemical.cas : 'CAS not recorded';
-  $('phase7LabelCode').textContent = container.barcode;
-  $('phase7LabelLocation').textContent = locations.find(l => l.id === container.location_id)?.name || 'Location not assigned';
-  $('phase7LabelAmount').textContent = String(container.container_size ?? '') + ' ' + (container.unit || '');
-  const svg = $('phase7Barcode'); svg.replaceChildren();
-  await loadBarcodeLib();
-  if (typeof window.JsBarcode === 'function') {
-    try {
-      window.JsBarcode(svg, container.barcode, { format: 'CODE128', displayValue: false, width: 1.5, height: 58, margin: 5, background: '#fff', lineColor: '#000' });
-      $('phase7LabelWarning').textContent = 'Scan the barcode before attaching this label.';
-    } catch (err) { $('phase7LabelWarning').textContent = 'Barcode graphic unavailable: ' + errorText(err); }
-  } else $('phase7LabelWarning').textContent = 'Barcode library unavailable. The text identifier can still be printed.';
-  $('phase7LabelDialog').showModal();
-}
-$('phase7CloseLabel').addEventListener('click', () => $('phase7LabelDialog').close());
-$('phase7PrintLabel').addEventListener('click', () => window.print());
-
 /* Container lifecycle (quantity / move / transfer / empty / dispose) */
 function populateOwnerSelects() {
   const options = ownerProfiles.map(x => new Option(x.full_name || 'Unnamed user', x.user_id));
@@ -1043,17 +1020,70 @@ $('orderForm').addEventListener('submit', async e => {
   if (!name) return status('Chemical name is required.');
   if (cas && !validCAS(cas)) return status('Invalid CAS checksum.');
   if (!Number.isFinite(size) || size <= 0) return status('Enter a positive container size.');
+  await checkOrderDuplicates();
+  if (orderDupSame && !confirm(`${$('orderDup').querySelector('li')?.textContent || 'This lab already has this chemical.'}\n\nRequest another one anyway?`)) return;
   const submit = f.querySelector('[type="submit"]');
   submit.disabled = true;
   try {
     const { data: created, error } = await db.from('inventory_orders').insert({ chemical_name: name, cas: optional(cas), container_size: size, unit: val(f, 'unit'), supplier: optional(val(f, 'supplier')), comments: optional(val(f, 'comments')), requested_by: user.id, notify_requester: !!f.elements.namedItem('notify_requester')?.checked }).select('id').single();
     if (error) return status(/notify_requester|schema cache/.test(error.message) ? 'Run sql/11_order_email_choice.sql in Supabase to enable the email option.' : error.message);
     if (created?.id) notifyOrder(created.id, 'requested');
-    f.reset();
+    f.reset(); orderDupSame = 0; show($('orderDup'), false);
     status('Order request submitted.');
     loadOrders();
   } finally { submit.disabled = false; }
 });
+/* ---------- duplicate check: does this lab already have the chemical (or an open order for it)? ---------- */
+let orderDupSeq = 0, orderDupSame = 0, orderDupTimer = null;
+const bottlesText = n => `${n} bottle${n === 1 ? '' : 's'}`;
+async function checkOrderDuplicates() {
+  const f = $('orderForm'), box = $('orderDup'), seq = ++orderDupSeq;
+  const name = val(f, 'chemical_name').trim(), cas = val(f, 'cas').trim();
+  const casOk = !!cas && validCAS(cas), nameOk = name.length >= 3;
+  const hide = () => { orderDupSame = 0; box.replaceChildren(); show(box, false); };
+  if (!casOk && !nameOk) return hide();
+  try {
+    const found = new Map();
+    const add = r => (r.data || []).forEach(c => found.set(c.id, c));
+    const [byCas, byName] = await Promise.all([
+      casOk ? db.from('inventory_chemicals').select('id,name,cas').eq('cas', cas).limit(20) : { data: [] },
+      nameOk ? db.from('inventory_chemicals').select('id,name,cas').ilike('name', likePattern(name)).limit(20) : { data: [] }
+    ]);
+    add(byCas); add(byName);
+    const chems = [...found.values()];
+    const [conts, orders] = await Promise.all([
+      chems.length ? db.from('inventory_containers').select('id,chemical_id,location_id,remaining_amount,container_size,unit,status').in('chemical_id', chems.map(c => c.id)).eq('status', 'active').limit(200) : { data: [] },
+      db.from('inventory_orders').select('id,chemical_name,cas,container_size,unit,status').in('status', ['requested', 'ordered']).or([casOk ? `cas.eq.${cas}` : '', nameOk ? `chemical_name.ilike.${likePattern(name).replace(/[,()]/g, ' ')}` : ''].filter(Boolean).join(',')).limit(20)
+    ]);
+    if (seq !== orderDupSeq) return;
+    const lines = [];
+    let same = 0;
+    for (const c of chems) {
+      const mine = (conts.data || []).filter(x => x.chemical_id === c.id);
+      if (!mine.length) continue;
+      const exact = (casOk && c.cas === cas) || c.name.trim().toLowerCase() === name.toLowerCase();
+      if (exact) same += mine.length;
+      const where = new Map();
+      for (const x of mine) {
+        const loc = locations.find(l => l.id === x.location_id), key = loc ? locationPath(loc) : 'no location';
+        const left = x.remaining_amount ?? x.container_size, part = where.get(key) || { n: 0, amounts: [] };
+        part.n++; if (left != null) part.amounts.push(`${left} ${x.unit || ''}`.trim()); where.set(key, part);
+      }
+      const spots = [...where].map(([k, v]) => `${v.n > 1 && where.size > 1 ? v.n + ' in ' : ''}${esc(k)}${v.amounts.length ? ` (${esc(v.amounts.join(', '))} left)` : ''}`).join('; ');
+      lines.push({ exact, html: exact
+        ? `This lab already has <b>${bottlesText(mine.length)}</b> of ${cn(c.name)}${where.size === 1 ? ', in' : ':'} ${spots}.`
+        : `Similar name: ${cn(c.name)}, ${bottlesText(mine.length)}: ${spots}.` });
+    }
+    const open = orders.data || [];
+    if (open.length) lines.push({ exact: false, html: `Already on order: ${open.slice(0, 3).map(o => `${cn(o.chemical_name)} ${esc(o.container_size)} ${esc(o.unit)} (${esc(o.status)})`).join('; ')}${open.length > 3 ? `; and ${open.length - 3} more` : ''}.` });
+    lines.sort((a, b) => Number(b.exact) - Number(a.exact));
+    orderDupSame = same;
+    if (!lines.length) return hide();
+    box.className = 'order-dup notice';
+    box.innerHTML = `<b class="order-dup-title">Check before you order</b><ul>${lines.slice(0, 5).map(l => `<li>${l.html}</li>`).join('')}</ul>${lines.length > 5 ? `<p class="muted">and ${lines.length - 5} more.</p>` : ''}`;
+  } catch (_e) { if (seq === orderDupSeq) hide(); }
+}
+['chemical_name', 'cas'].forEach(n => $('orderForm').elements.namedItem(n).addEventListener('input', () => { clearTimeout(orderDupTimer); orderDupTimer = setTimeout(checkOrderDuplicates, 350); }));
 // Managers can edit any open request; the person who made a request can edit it until it is marked as ordered.
 const canEditOrder = o => o.status === 'requested' && (isManager() || (!!user && o.requested_by === user.id));
 function renderOrders() {
@@ -1747,39 +1777,13 @@ $('recentContainers').addEventListener('click', async () => {
     $('toolsResult').innerHTML = '<h3 class="ci-bar">Recently Added</h3><table class="inventory-data-table"><thead><tr><th>Chemical</th><th>Barcode</th><th>Size</th><th>Location</th></tr></thead><tbody>' + rows.slice(0, 40).map(x => `<tr><td>${cn(x.chemical?.name)}</td><td>${esc(x.barcode)}</td><td>${esc(x.container_size)} ${esc(x.unit)}</td><td>${esc(x.location_name)}</td></tr>`).join('') + `</tbody></table><p class="muted">Newest 40 containers, ordered by ${rows[0]?.created_at ? 'creation time' : 'date received'}.</p>`;
   } catch (e) { status(errorText(e)); }
 });
-// Batch label sheet: a dedicated print area, because the global print rules hide everything else on the page.
-function buildLabelSheet(rows) {
-  let sheet = $('batchLabelSheet');
-  if (!sheet) { sheet = document.createElement('div'); sheet.id = 'batchLabelSheet'; document.body.appendChild(sheet); }
-  sheet.replaceChildren();
-  for (const x of rows) {
-    const label = document.createElement('div'); label.className = 'batch-label';
-    const name = document.createElement('strong'); name.className = 'chem-name'; name.textContent = x.chemical?.name || 'Chemical';
-    const cas = document.createElement('span'); cas.textContent = x.chemical?.cas ? 'CAS: ' + x.chemical.cas : '';
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    const code = document.createElement('strong'); code.textContent = x.barcode;
-    const meta = document.createElement('span'); meta.textContent = [`${x.container_size ?? ''} ${x.unit || ''}`.trim(), x.location_name].filter(Boolean).join(' · ');
-    label.append(name, cas, svg, code, meta);
-    sheet.appendChild(label);
-    if (typeof window.JsBarcode === 'function') {
-      try { window.JsBarcode(svg, x.barcode, { format: 'CODE128', displayValue: false, width: 1.5, height: 45, margin: 4, background: '#fff', lineColor: '#000' }); } catch (_e) { /* text fallback remains */ }
-    }
-  }
-}
 $('printLabels').addEventListener('click', async () => {
   if (!isAdmin()) return;
   try {
     const all = (await getContainerRows({ scope: 'active' })).filter(x => x.barcode && isActiveContainer(x));
-    const rows = all.slice(0, 100);
-    await loadBarcodeLib(); // ready before the Print button is pressed
-    $('toolsResult').innerHTML = `<h3 class="ci-bar">Print Barcode Labels</h3><p class="muted">${rows.length} Code 128 barcode label(s) ready${all.length > rows.length ? ` (first ${rows.length} of ${all.length}; print in batches)` : ''}. Scan a printed label before attaching it to a bottle.</p><div class="tool-grid">${rows.map(x => `<div class="card"><strong>${esc(x.chemical?.name)}</strong><p class="muted">${esc(x.barcode)}</p></div>`).join('')}</div><button type="button" class="btn secondary" id="printLabelsNow" style="margin-top:14px">Print Labels</button>`;
-    $('printLabelsNow').addEventListener('click', () => {
-      buildLabelSheet(rows);
-      const cleanup = () => document.body.classList.remove('print-batch');
-      window.addEventListener('afterprint', cleanup, { once: true });
-      document.body.classList.add('print-batch');
-      window.print();
-    });
+    if (!all.length) return showToast('There are no containers with a barcode to print.', 'error');
+    if (all.length > 500 && !confirm(`Print labels for all ${all.length} containers?`)) return;
+    await openLabelDialog(all.map(x => x.id));
   } catch (e) { status(errorText(e)); }
 });
 /* ---------- bulk CSV import ---------- */
@@ -2321,7 +2325,7 @@ function downloadRows(name) {
 }
 $('downloadResults').addEventListener('click', () => { activeList = 'search'; downloadRows('chemora-search-results.csv'); });
 $('locDownload').addEventListener('click', () => { activeList = 'location'; downloadRows('chemora-location-containers.csv'); });
-function updateBulkBar() { if (activeList === 'search') show($('bulkBar'), isManager() && selectedKeys.size > 0); else { show($('locMoveAll'), isManager()); } }
+function updateBulkBar() { if (activeList === 'search') show($('bulkBar'), isManager() && selectedKeys.size > 0); else { show($('locMoveAll'), isManager()); show($('locLabels'), isManager()); } }
 async function afterBulk(msg) {
   showToast(msg, 'success'); selectedKeys.clear();
   if (activeList === 'location' && locSelectedId) await showLocationContainers(locSelectedId); else if (lastSearch) await loadChemicals(lastSearch.type, lastSearch.q); else renderList();
@@ -2385,6 +2389,7 @@ function startOrderFor(c, x) {
   f.elements.chemical_name.value = c.name || ''; f.elements.cas.value = c.cas || '';
   f.elements.container_size.value = x?.container_size || ''; if (x?.unit) f.elements.unit.value = x.unit;
   f.elements.supplier.value = x?.supplier || '';
+  checkOrderDuplicates();
 }
 
 /* ---------- location contents (Locations page: "view all") ---------- */
@@ -2406,10 +2411,20 @@ async function showLocationContainers(locId) {
     matchedContainerIds = new Set(hits.map(x => x.id)); lastSearch = null;
     status('', 'locationStatus');
     $('locationContents').dataset.locId = locId;
-    show($('locMoveAll'), isManager()); show($('locDeleteAll'), isManager());
+    show($('locMoveAll'), isManager()); show($('locLabels'), isManager()); show($('locDeleteAll'), isManager());
     renderList();
   } catch (err) { status(errorText(err), 'locationStatus'); }
 }
+$('bulkLabels').addEventListener('click', () => {
+  const ids = [...selectedKeys].filter(k => !k.startsWith('c:'));
+  if (!ids.length) return showToast('Select at least one container.', 'error');
+  openLabelDialog(ids);
+});
+$('locLabels').addEventListener('click', () => {
+  const ids = computeRows().filter(r => r.x).map(r => r.x.id);
+  if (!ids.length) return showToast('There are no containers to print.', 'error');
+  openLabelDialog(ids);
+});
 $('locMoveAll').addEventListener('click', async () => {
   const ids = computeRows().filter(r => r.x).map(r => r.x.id);
   if (!ids.length) return showToast('There are no containers to move.', 'error');
@@ -2424,6 +2439,165 @@ $('locDeleteAll').addEventListener('click', async () => {
   if (!confirm(`Delete ALL ${ids.length} container(s) in this location? They are archived as disposed and kept in the history.`)) return;
   const res = await runBulk(ids, 'dispose');
   if (res) await afterBulk(`Deleted ${res.done} container(s).`);
+});
+
+/* ---------- Labels: GHS pictograms, label sizes, batch printing ----------
+   Everything is drawn in the browser. No container data is sent to any third party. */
+const LABEL_SIZES = [
+  { id: 'r50x25', name: 'Roll: 50 × 25 mm (small bottle)', w: 50, h: 25 },
+  { id: 'r76x51', name: 'Roll: 76 × 51 mm (3 × 2 in)', w: 76, h: 51 },
+  { id: 'r100x50', name: 'Roll: 100 × 50 mm', w: 100, h: 50 },
+  { id: 'a4-3x8', name: 'A4 sheet: 24 labels (63.5 × 33.9 mm)', w: 63.5, h: 33.9, cols: 3, rows: 8, ml: 7.2, mt: 12.9, gx: 2.5, gy: 0 },
+  { id: 'a4-3x7', name: 'A4 sheet: 21 labels (63.5 × 38.1 mm)', w: 63.5, h: 38.1, cols: 3, rows: 7, ml: 7.2, mt: 15.15, gx: 2.5, gy: 0 },
+  { id: 'a4-2x7', name: 'A4 sheet: 14 labels (99.1 × 38.1 mm)', w: 99.1, h: 38.1, cols: 2, rows: 7, ml: 4.65, mt: 15.15, gx: 2.5, gy: 0 }
+];
+// GHS pictograms chosen from the stored H-codes, following the GHS rules (skull supersedes the exclamation mark for acute toxicity and irritation).
+function labelPictogramKeys(codes) {
+  const has = re => codes.some(c => re.test(String(c).toUpperCase()));
+  const keys = [];
+  if (has(/^H20[0-5]$|^H240$|^H241$/)) keys.push('explosive');
+  if (has(/^H22[0-9]$|^H24[12]$|^H25[0-2]$|^H26[01]$/)) keys.push('flame');
+  if (has(/^H27[0-2]$/)) keys.push('oxidiser');
+  if (has(/^H28[01]$/)) keys.push('gas');
+  const corrosion = has(/^H290$|^H314$|^H318$/), toxic = has(/^H30[01]$|^H31[01]$|^H33[01]$/);
+  if (corrosion) keys.push('corrosion');
+  if (toxic) keys.push('toxic');
+  const excl = codes.map(c => String(c).toUpperCase()).filter(c => /^H302$|^H312$|^H332$|^H31[579]$|^H33[56]$/.test(c)).filter(c => {
+    if (toxic && /^H302$|^H312$|^H332$|^H315$|^H319$/.test(c)) return false;
+    if (corrosion && /^H315$|^H319$/.test(c)) return false;
+    return true;
+  });
+  if (excl.length) keys.push('exclaim');
+  if (has(/^H304$|^H334$|^H34[01]$|^H35[01]$|^H36[01]$|^H37[0-3]$/)) keys.push('health');
+  if (has(/^H400$|^H410$|^H411$/)) keys.push('environment');
+  return keys;
+}
+const FLAME_PATH = 'M50 24C57 34 66 40 65 55C64 68 57 75 50 75C43 75 35 68 35 56C35 49 39 45 42 38C45 42 46 46 47 48C51 40 50 32 50 24Z';
+function starPoints(cx, cy, ro, ri) {
+  const p = [];
+  for (let k = 0; k < 10; k++) { const a = (-90 + 36 * k) * Math.PI / 180, r = k % 2 ? ri : ro; p.push((cx + r * Math.cos(a)).toFixed(1) + ',' + (cy + r * Math.sin(a)).toFixed(1)); }
+  return p.join(' ');
+}
+const PICT_GLYPHS = {
+  explosive: '<circle cx="44" cy="60" r="12"/><path d="M50 49Q56 43 62 41" fill="none" stroke="#000" stroke-width="3"/><path d="M65 27V43M57 35H73M59 29L71 41M71 29L59 41" stroke="#000" stroke-width="2.6"/><circle cx="30" cy="40" r="2.2"/><circle cx="72" cy="58" r="2.2"/>',
+  flame: `<path d="${FLAME_PATH}"/>`,
+  oxidiser: `<path d="${FLAME_PATH}" transform="translate(50 40) scale(.55) translate(-50 -50)"/><circle cx="50" cy="67" r="11"/>`,
+  gas: '<rect x="41" y="35" width="18" height="40" rx="9"/><rect x="45" y="27" width="10" height="10"/><rect x="42" y="24" width="16" height="4" rx="1"/>',
+  corrosion: '<g transform="rotate(-35 40 36)"><rect x="35" y="20" width="9" height="20"/></g><g transform="rotate(35 62 34)"><rect x="57" y="18" width="9" height="20"/></g><circle cx="33" cy="52" r="2.8"/><circle cx="31" cy="60" r="2"/><circle cx="68" cy="50" r="2.8"/><circle cx="70" cy="58" r="2"/><path d="M28 74H72V67H59V62H41V67H28Z"/>',
+  toxic: '<path d="M30 56L70 76M70 56L30 76" stroke="#000" stroke-width="5" stroke-linecap="round"/><circle cx="29" cy="55" r="3.4"/><circle cx="71" cy="55" r="3.4"/><circle cx="29" cy="77" r="3.4"/><circle cx="71" cy="77" r="3.4"/><ellipse cx="50" cy="41" rx="14" ry="13"/><rect x="44" y="50" width="12" height="9"/><circle cx="44" cy="41" r="4" fill="#fff"/><circle cx="56" cy="41" r="4" fill="#fff"/><path d="M48 49L50 45L52 49Z" fill="#fff"/>',
+  exclaim: '<rect x="45" y="23" width="10" height="33" rx="3"/><circle cx="50" cy="68" r="6"/>',
+  health: `<circle cx="50" cy="31" r="8"/><path d="M29 76C29 55 40 46 50 46C60 46 71 55 71 76Z"/><polygon points="${starPoints(50, 61, 8, 3.4)}" fill="#fff"/>`,
+  environment: '<rect x="32" y="52" width="4" height="15"/><circle cx="34" cy="43" r="10"/><circle cx="27" cy="50" r="6"/><circle cx="41" cy="50" r="6"/><ellipse cx="62" cy="62" rx="11" ry="5.5"/><polygon points="72,62 80,55 80,69"/><circle cx="56" cy="61" r="1.6" fill="#fff"/><path d="M25 73Q31 69 37 73T49 73T61 73T73 73" fill="none" stroke="#000" stroke-width="2.6"/>'
+};
+const PICT_NAMES = { explosive: 'Explosive', flame: 'Flammable', oxidiser: 'Oxidising', gas: 'Gas under pressure', corrosion: 'Corrosive', toxic: 'Acute toxicity', exclaim: 'Harmful / irritant', health: 'Health hazard', environment: 'Environmental hazard' };
+function pictogramSvg(key) {
+  return `<svg class="lbl-pict" viewBox="0 0 100 100" aria-label="${esc(PICT_NAMES[key] || '')}"><polygon points="50,4 96,50 50,96 4,50" fill="#fff" stroke="#e30000" stroke-width="7"/><g fill="#000">${PICT_GLYPHS[key] || ''}</g></svg>`;
+}
+let labelState = null;
+const labelSize = () => LABEL_SIZES.find(s => s.id === $('labelSize').value) || LABEL_SIZES[0];
+function buildLabel(item, size, opts) {
+  const cls = size.h <= 30 ? 'xs' : size.h <= 45 ? 's' : 'm';
+  const keys = opts.ghs ? labelPictogramKeys(item.codes) : [];
+  const el = document.createElement('div');
+  el.className = `lbl lbl-${cls}`;
+  el.style.setProperty('--r', keys.length <= 3 ? 1 : keys.length <= 6 ? 2 : 3); // rows of pictograms
+  el.style.width = size.w + 'mm'; el.style.height = size.h + 'mm';
+  const meta = [opts.qty ? item.qty : '', opts.loc ? item.loc : ''].filter(Boolean).join(' · ');
+  el.innerHTML = `<div class="lbl-top"><b class="lbl-name chem-name">${esc(item.name)}</b><span class="lbl-cas">${item.cas ? 'CAS ' + esc(item.cas) : ''}</span></div>` +
+    `<div class="lbl-mid"><div class="lbl-bc"><svg></svg></div>${keys.length ? `<div class="lbl-picts">${keys.map(pictogramSvg).join('')}</div>` : ''}</div>` +
+    `<div class="lbl-bot"><b class="lbl-code">${esc(item.barcode)}</b><span class="lbl-meta">${esc(meta)}</span></div>` +
+    (opts.ghs && item.codes.length && cls === 'm' ? `<div class="lbl-h">${esc(item.codes.join(' '))}</div>` : '');
+  const svg = el.querySelector('.lbl-bc svg');
+  if (typeof window.JsBarcode === 'function') {
+    try {
+      window.JsBarcode(svg, item.barcode, { format: 'CODE128', displayValue: false, width: 2, height: 40, margin: 6, background: '#fff', lineColor: '#000' });
+      svg.setAttribute('viewBox', `0 0 ${parseFloat(svg.getAttribute('width'))} ${parseFloat(svg.getAttribute('height'))}`);
+      svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%'); svg.setAttribute('preserveAspectRatio', 'none');
+    } catch (_e) { /* the printed code under the bars remains */ }
+  }
+  return el;
+}
+const labelOpts = () => ({ ghs: $('labelGhs').checked, loc: $('labelLoc').checked, qty: $('labelQty').checked });
+function labelCounts() {
+  const size = labelSize(), copies = Math.max(1, Math.min(20, parseInt($('labelCopies').value, 10) || 1));
+  const total = labelState.items.length * copies, per = size.cols ? size.cols * size.rows : 1;
+  const start = size.cols ? Math.max(1, Math.min(per, parseInt($('labelStart').value, 10) || 1)) : 1;
+  const pages = size.cols ? Math.ceil((start - 1 + total) / per) : total;
+  return { size, copies, total, per, start, pages };
+}
+function renderLabelPreview() {
+  if (!labelState) return;
+  const { size, total, pages } = labelCounts();
+  show($('labelStartWrap'), !!size.cols);
+  if (size.cols) $('labelStart').max = String(size.cols * size.rows);
+  const prev = $('labelPreview'); prev.replaceChildren(buildLabel(labelState.items[0], size, labelOpts()));
+  $('labelPrint').textContent = `Print ${total} Label${total === 1 ? '' : 's'}`;
+  $('labelNote').textContent = (size.cols ? `${pages} A4 sheet${pages === 1 ? '' : 's'}. ` : `${pages} label${pages === 1 ? '' : 's'}, one per page. `) +
+    'Print at 100% scale with no margins. Pictograms follow the stored hazard codes and do not replace the supplier’s label.' +
+    (labelState.skipped ? ` ${labelState.skipped} container(s) without a barcode were left out.` : '');
+  try { localStorage.setItem('chemora.label', JSON.stringify({ size: size.id, copies: $('labelCopies').value, ...labelOpts() })); } catch (_e) { /* private mode */ }
+}
+async function openLabelDialog(containerIds) {
+  try {
+    const conts = await fetchIn('inventory_containers', 'id', containerIds);
+    const withCode = conts.filter(x => x.barcode);
+    if (!withCode.length) return showToast('None of these containers has a barcode to print.', 'error');
+    const chemIds = [...new Set(withCode.map(x => x.chemical_id))];
+    let chems;
+    try { chems = await fetchIn('inventory_chemicals', 'id', chemIds, { select: 'id,name,cas,ghs_codes' }); }
+    catch (_e) { chems = await fetchIn('inventory_chemicals', 'id', chemIds, { select: 'id,name,cas' }); }
+    const byId = new Map(chems.map(c => [c.id, c]));
+    await loadBarcodeLib();
+    const items = withCode.map(x => {
+      const c = byId.get(x.chemical_id) || {}, loc = locations.find(l => l.id === x.location_id);
+      return { name: c.name || 'Chemical', cas: c.cas || '', barcode: x.barcode, qty: x.container_size != null ? `${x.container_size} ${x.unit || ''}`.trim() : '', loc: loc ? loc.name : '', codes: ghsList(c) };
+    });
+    labelState = { items, skipped: conts.length - withCode.length };
+    $('labelSize').innerHTML = LABEL_SIZES.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    let saved = {}; try { saved = JSON.parse(localStorage.getItem('chemora.label') || '{}'); } catch (_e) { saved = {}; }
+    if (LABEL_SIZES.some(s => s.id === saved.size)) $('labelSize').value = saved.size;
+    $('labelCopies').value = saved.copies || 1; $('labelStart').value = 1;
+    $('labelGhs').checked = saved.ghs !== false; $('labelLoc').checked = saved.loc !== false; $('labelQty').checked = saved.qty !== false;
+    $('labelSummary').textContent = `${items.length} container${items.length === 1 ? '' : 's'} selected.`;
+    renderLabelPreview();
+    $('labelDialog').showModal();
+  } catch (err) { showToast(errorText(err), 'error'); }
+}
+const printContainerLabel = id => openLabelDialog([id]);
+['labelSize', 'labelCopies', 'labelStart', 'labelGhs', 'labelLoc', 'labelQty'].forEach(id => $(id).addEventListener('input', renderLabelPreview));
+$('labelClose').addEventListener('click', () => $('labelDialog').close());
+$('labelCancel').addEventListener('click', () => $('labelDialog').close());
+$('labelPrint').addEventListener('click', async () => {
+  if (!labelState) return;
+  await loadBarcodeLib();
+  const { size, copies, per, start, pages } = labelCounts(), opts = labelOpts();
+  const cells = [];
+  for (let i = 0; i < start - 1; i++) cells.push(null);
+  for (const item of labelState.items) for (let k = 0; k < copies; k++) cells.push(item);
+  let area = $('labelPrintArea');
+  if (!area) { area = document.createElement('div'); area.id = 'labelPrintArea'; document.body.appendChild(area); }
+  area.replaceChildren();
+  for (let p = 0; p < pages; p++) {
+    const page = document.createElement('div');
+    if (size.cols) {
+      page.className = 'lbl-sheet';
+      page.style.cssText = `padding:${size.mt}mm ${size.ml}mm 0;grid-template-columns:repeat(${size.cols},${size.w}mm);grid-auto-rows:${size.h}mm;column-gap:${size.gx}mm;row-gap:${size.gy}mm`;
+      cells.slice(p * per, (p + 1) * per).forEach(item => {
+        if (item) page.appendChild(buildLabel(item, size, opts)); else page.appendChild(document.createElement('div'));
+      });
+    } else {
+      page.className = 'lbl-roll'; page.style.cssText = `width:${size.w}mm;height:${size.h}mm`;
+      page.appendChild(buildLabel(cells[p], size, opts));
+    }
+    area.appendChild(page);
+  }
+  const pageStyle = document.createElement('style'); pageStyle.id = 'labelPageStyle';
+  pageStyle.textContent = `@page{size:${size.cols ? 'A4' : size.w + 'mm ' + size.h + 'mm'};margin:0}`;
+  document.head.appendChild(pageStyle);
+  document.body.classList.add('print-labels');
+  const cleanup = () => { document.body.classList.remove('print-labels'); pageStyle.remove(); area.replaceChildren(); };
+  window.addEventListener('afterprint', cleanup, { once: true });
+  window.print();
 });
 
 /* ---------- GHS hazard statements ---------- */
