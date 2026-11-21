@@ -2925,13 +2925,43 @@ $('stockMove').addEventListener('click', async () => {
 });
 
 /* Account drawer: the initials circle at the top right opens a panel from the right with account details and Sign Out. */
+/* My summary inside the drawer: the user's own order counts and last three actions (RPC inventory_my_summary, SQL 17). Hidden until SQL 17 is run and for the platform administrator. */
+let summarySeq = 0;
+function formatSummaryTime(iso) {
+  const d = new Date(iso); if (Number.isNaN(d.getTime())) return '';
+  const now = new Date(), day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 86400000), hm = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  if (diff === 0) return 'Today, ' + hm;
+  if (diff === 1) return 'Yesterday, ' + hm;
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ', ' + hm;
+}
+async function loadMySummary() {
+  const box = $('mySummary'); if (!box) return;
+  if (!user || labContext?.platform_admin || !labContext?.lab_id) { show(box, false); return; }
+  const seq = ++summarySeq;
+  const { data, error } = await db.rpc('inventory_my_summary');
+  if (seq !== summarySeq) return;
+  if (error || !data) { show(box, false); return; }
+  $('sumRequested').textContent = Number(data.requested) || 0;
+  $('sumOrdered').textContent = Number(data.ordered) || 0;
+  $('sumActive').textContent = Number(data.active_containers) || 0;
+  const list = $('sumRecent'); list.textContent = '';
+  const rows = Array.isArray(data.recent) ? data.recent : [];
+  if (!rows.length) { const li = document.createElement('li'); li.className = 'empty'; li.textContent = 'No activity yet.'; list.append(li); }
+  rows.forEach(r => {
+    const li = document.createElement('li'), wrap = document.createElement('span'), b = document.createElement('b'), small = document.createElement('small');
+    b.textContent = r.description || ''; small.textContent = formatSummaryTime(r.created_at);
+    wrap.append(b, small); li.append(wrap); list.append(li);
+  });
+  show(box, true);
+}
 function setAccountDrawer(open) {
   const drawer = $('accountDrawer'), backdrop = $('accountBackdrop'), btn = $('accountButton');
   if (!drawer) return;
   drawer.classList.toggle('open', open); drawer.setAttribute('aria-hidden', String(!open));
   backdrop.hidden = !open; btn.setAttribute('aria-expanded', String(open));
   document.body.classList.toggle('ci-drawer-open', open);
-  if (open) $('accountClose').focus(); else if (drawer.contains(document.activeElement)) btn.focus();
+  if (open) { $('accountClose').focus(); loadMySummary(); } else if (drawer.contains(document.activeElement)) btn.focus();
 }
 function closeAccountDrawer() { setAccountDrawer(false); }
 $('accountButton')?.addEventListener('click', () => setAccountDrawer(!$('accountDrawer').classList.contains('open')));
