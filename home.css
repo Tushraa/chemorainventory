@@ -104,7 +104,7 @@ html body.ci .chem-name{display:inline !important;overflow:visible !important;-w
 }
 
 /* Sponsor panel (desktop sidebar) and real-colour logos on hover */
-html body.ci .ci-sponsors-title,html body.ci .ci-sponsors-thanks{display:none}
+html body.ci .ci-sponsors-title{display:none}
 html body.ci .ci-sponsor-logo img.sp-color{display:none}
 @supports selector(:has(a)){
   html body.ci .ci-sponsor:is(:hover,:focus-visible) .ci-sponsor-logo:has(img.sp-color) img.sp-grey{display:none}
@@ -123,7 +123,6 @@ html body.ci .ci-sponsor-logo img.sp-color{display:none}
   html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsor-logo img{height:28px !important;width:auto !important;max-width:80% !important;max-height:28px !important;object-position:center}
   html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsor-ph{border:0;margin:0;font-size:11px;color:#8fa6bd}
   html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsor:is(:hover,:focus-visible) .ci-sponsor-logo{border-color:#14a38b !important}
-  html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsors-thanks{display:block;margin:0;padding:9px 12px;text-align:center;font-size:12px;color:#8fa6bd}
 }
 @supports selector(:has(a)){
   @media(min-width:851px){
@@ -133,3 +132,10 @@ html body.ci .ci-sponsor-logo img.sp-color{display:none}
 @media(min-width:851px){
   html body.ci .ci-sponsors:not(.ci-sponsors-login) .ci-sponsor-logo img.sp-tall{height:38px !important;max-height:38px !important}
 }
+
+/* Home card animations */
+.ci .ci-home .c-add .art .scan{animation:ci-scan 2.2s ease-in-out infinite alternate}
+@keyframes ci-scan{from{transform:translateY(-17px)}to{transform:translateY(21px)}}
+.ci .ci-home .art .sub{transition:opacity .35s ease}
+.ci .ci-home .art .sub.hop{opacity:0}
+@media(prefers-reduced-motion:reduce){.ci .ci-home .c-add .art .scan{animation:none}}
