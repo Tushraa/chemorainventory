@@ -682,3 +682,7 @@ html body.ci .btn,html body.ci button.btn,html body.ci .btn.secondary,html body.
 html body.ci .view-toggle button,html body.ci .tool-tile strong{font-weight:400}
 /* Link-style buttons (PubChem safety link) also use normal weight */
 html body.ci #chemicalDialog .chemora-ghs-summary a{font-weight:400 !important}
+/* Search and Locations use the same left panel width (290px) and the same 30px gap on desktop */
+@media(min-width:851px){
+  html body.ci #view-chemicals .chemora-search-split{grid-template-columns:290px minmax(0,1fr);gap:30px}
+}
