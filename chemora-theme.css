@@ -36,7 +36,7 @@ body.ci{
 .ci .ci-menu>button,.ci .ci-menu .side-group-toggle{display:flex;align-items:center;gap:10px;width:100%;height:40px;padding:0 12px;background:var(--ci-bar);color:#fff;border:0;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.45);font-family:Cuprum,Arial,sans-serif;font-size:16px;font-weight:700;text-align:left;cursor:pointer}
 .ci .ci-menu>button i:first-child{width:18px;text-align:center;font-size:14px}
 .ci .ci-menu>button:hover{background:#2e639a}
-.ci .ci-menu>button.active,.ci .ci-menu>button.open{background:var(--ci-green)}
+.ci .ci-menu>button.active{background:var(--ci-green)}
 .ci .ci-menu .side-group-toggle .side-chevron{margin-left:auto;font-size:11px}
 .ci .ci-menu .side-sub{display:flex;flex-direction:column;margin:0 0 3px;background:var(--ci-panel);border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.45);overflow:hidden}
 .ci .ci-menu .side-sub.hide{display:none !important}
@@ -163,7 +163,7 @@ html body.ci .ci-brand-name{font-family:Montserrat,"Helvetica Neue",Arial,sans-s
 html body.ci .inventory-topbar.ci-topbar{height:auto !important;min-height:94px !important;background:transparent !important;border:0 !important;box-shadow:none !important;padding:22px 30px 14px !important}
 html body.ci .shell{margin-top:6px !important}
 html body.ci .ci-menu>button,html body.ci .ci-menu .side-group-toggle{min-height:40px !important;height:40px;padding:0 12px !important;background:var(--ci-bar) !important;color:#fff !important;border:0 !important;border-radius:3px !important;font-size:16px}
-html body.ci .ci-menu>button.active,html body.ci .ci-menu>button.open{background:var(--ci-green) !important}
+html body.ci .ci-menu>button.active{background:var(--ci-green) !important}
 html body.ci .ci-menu>button:hover:not(.active){background:#2e639a !important}
 html body.ci .ci-menu .side-sub button{min-height:38px !important;height:38px;padding:0 12px !important;background:transparent !important;border:0 !important;color:#fff !important;font-size:12px}
 html body.ci .ci-menu .side-sub button.active{background:var(--ci-blue) !important}
@@ -613,3 +613,25 @@ html body.ci #auth .auth-hint{margin:-4px 0 14px;font-size:12px}
 html body.ci #auth form.hide{display:none}
 html body.ci .order-settings-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 html body.ci .order-settings-actions .btn{width:auto;min-width:0}
+
+/* ---------- text and spacing polish ---------- */
+/* Active menu item: icon is white on the green bar (it was dark green and nearly invisible). */
+html body.ci .ci-menu>button.active i{color:#fff !important}
+/* Activity History filters: labels on one line, every control the same height, aligned at the bottom. */
+html body.ci .history-filters .field{display:flex;flex-direction:column;justify-content:flex-end;line-height:1.3}
+html body.ci .history-filters .field input,html body.ci .history-filters .field select{flex:none;height:38px;min-height:38px;box-sizing:border-box;margin-top:6px}
+html body.ci .history-filters .btn{height:38px;min-height:38px;box-sizing:border-box}
+/* Location picker is as tall as the inputs around it, even with a single location. */
+html body.ci .loc-picker{padding:7px 0;box-sizing:border-box}
+/* User Accounts table text lines up with the panel title. */
+html body.ci .chemora-user-table th,html body.ci .chemora-user-table td{padding-left:14px}
+/* Sub-menu: the highlight starts at the vertical line and the text stays where it was. */
+@media(min-width:851px){
+  html body.ci .ci-menu .side-sub{padding-left:0 !important}
+  html body.ci .ci-menu .side-sub button{padding-left:22px !important}
+}
+/* Home: the chemical name shortens with an ellipsis and its status always stays on the same line. */
+.ci .ci-home .feed li.order{align-items:baseline}
+.ci .ci-home .feed li.order span{display:flex;gap:5px;min-width:0;-webkit-line-clamp:unset}
+.ci .ci-home .feed li.order b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ci .ci-home .feed li.order i.st{flex:none;font-style:normal}

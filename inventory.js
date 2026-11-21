@@ -321,6 +321,8 @@ function setTab(name) {
   const menuName = name === 'tools' ? 'users' : name;
   document.querySelectorAll('#tabs button[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === menuName));
   for (const [group, tabs] of Object.entries(TAB_GROUPS)) if (tabs.includes(name)) setGroup(group, true);
+  // A group button is green only while the page being viewed is inside it, so one menu item is green at a time.
+  document.querySelectorAll('.side-group-toggle').forEach(b => b.classList.toggle('active', Boolean(TAB_GROUPS[b.dataset.group]?.includes(name))));
   if (name === 'home') loadHome();
   if (name === 'requests') loadOrders();
   if (name === 'locations') { show($('locationContents'), false); locEditMode = false; $('locationEditToggle').textContent = 'Edit'; show($('locationForm'), false); loadLocations(); }
@@ -369,7 +371,7 @@ async function loadHome() {
     run(async () => {
       const r = await db.from('inventory_orders').select('chemical_name,status').in('status', ['requested', 'ordered']).order('requested_at', { ascending: false }).limit(3);
       if (!fresh()) return;
-      homeList('homeOrdersList', (r.data || []).map(o => `<li class="${o.status === 'requested' ? 'amber' : ''}"><span><b>${esc(o.chemical_name)}</b> · ${o.status === 'requested' ? 'requested' : 'ordered'}</span></li>`), 'No open orders.');
+      homeList('homeOrdersList', (r.data || []).map(o => `<li class="order ${o.status === 'requested' ? 'amber' : ''}"><span><b>${esc(o.chemical_name)}</b><i class="st">· ${o.status === 'requested' ? 'requested' : 'ordered'}</i></span></li>`), 'No open orders.');
     }),
     run(async () => {
       const rows = await getContainerRows({ recent: 3 });
@@ -1241,6 +1243,8 @@ const historyEvent = x => EVENT_LABELS[x.action] || x.action;
 const historyUser = x => historyNames[x.performed_by] || (x.performed_by ? 'Former user' : 'System');
 const historyText = x => x.description || `${historySubject(x)} ${String(x.action || '').toLowerCase()} (record ${String(x.record_id || '').slice(0, 8)})`;
 const historyStamp = x => String(x.created_at || '').replace('T', ' ').slice(0, 19);
+// Display form of a UTC timestamp, e.g. 21 Nov 2026, 14:16:17 (the CSV export keeps the plain 2026-11-21 14:16:17).
+const stampLabel = s => { const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2}:\d{2})/.exec(s); return m ? `${Number(m[3])} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(m[2]) - 1]} ${m[1]}, ${m[4]}` : s; };
 function filteredHistory() {
   const q = $('historyFilter').value.trim().toLowerCase(), from = $('historyFrom').value, to = $('historyTo').value;
   const who = $('historyUser').value, subject = $('historySubject').value;
@@ -1253,7 +1257,7 @@ function filteredHistory() {
 function renderHistory() {
   const items = filteredHistory();
   $('historyList').innerHTML = '<table class="inventory-data-table chemora-orders-table"><thead><tr><th>Timestamp (UTC)</th><th>User</th><th>Subject</th><th>Event</th><th>Description</th></tr></thead><tbody>' +
-    (items.length ? items.map(x => `<tr><td>${esc(historyStamp(x))}</td><td>${esc(historyUser(x))}</td><td>${esc(historySubject(x))}</td><td>${esc(historyEvent(x))}</td><td>${esc(historyText(x))}</td></tr>`).join('') : '<tr><td colspan="5" class="muted">No activity matches these filters.</td></tr>') + '</tbody></table>';
+    (items.length ? items.map(x => `<tr><td>${esc(stampLabel(historyStamp(x)))}</td><td>${esc(historyUser(x))}</td><td>${esc(historySubject(x))}</td><td>${esc(historyEvent(x))}</td><td>${esc(historyText(x))}</td></tr>`).join('') : '<tr><td colspan="5" class="muted">No activity matches these filters.</td></tr>') + '</tbody></table>';
 }
 function fillHistoryUsers() {
   const keep = $('historyUser').value;
@@ -2608,12 +2612,12 @@ function setAddStep(step) { show($('addStep1'), step === 1); show($('addStep2'),
 $('noCasToggle').addEventListener('click', () => {
   const f = $('addChemical').elements.cas, off = !f.disabled;
   f.disabled = off; f.value = ''; f.placeholder = off ? 'No CAS number' : 'CAS Registry Number';
-  $('noCasToggle').textContent = off ? '[enter a CAS number]' : '[no CAS number?]';
+  $('noCasToggle').textContent = off ? '[Enter a CAS Number]' : '[No CAS Number?]';
 });
 $('noBarcodeToggle').addEventListener('click', () => {
   const f = $('addChemical').elements.barcode, off = !f.disabled;
   f.disabled = off; f.value = ''; f.placeholder = off ? 'A barcode will be generated automatically' : 'Barcode Number (leave empty to generate)';
-  $('noBarcodeToggle').textContent = off ? '[enter a barcode]' : '[no barcode?]';
+  $('noBarcodeToggle').textContent = off ? '[Enter a Barcode]' : '[No Barcode?]';
 });
 $('addCommentButton').addEventListener('click', () => { show($('addCommentField'), true); $('addChemical').elements.notes.focus(); });
 $('addNext').addEventListener('click', () => {
@@ -2656,14 +2660,14 @@ async function showContainerHistory(containerId) {
   if (error && /description/i.test(error.message)) ({ data, error } = await db.from('inventory_activity_logs').select('created_at,action,performed_by').eq('record_id', containerId).order('created_at', { ascending: false }).limit(200));
   if (error) { $('historyDialogList').textContent = error.message; return; }
   $('historyDialogList').innerHTML = (data || []).length ? '<table class="inventory-data-table chemora-orders-table"><thead><tr><th>Timestamp (UTC)</th><th>User</th><th>Event</th><th>Description</th></tr></thead><tbody>' +
-    data.map(h => `<tr><td>${esc(String(h.created_at).replace('T', ' ').slice(0, 19))}</td><td>${esc(ownerName(h.performed_by) || '—')}</td><td>${esc(EVENT_LABELS[h.action] || h.action)}</td><td>${esc(h.description || '')}</td></tr>`).join('') + '</tbody></table>' : '<p class="muted">No history recorded for this container.</p>';
+    data.map(h => `<tr><td>${esc(stampLabel(String(h.created_at).replace('T', ' ').slice(0, 19)))}</td><td>${esc(ownerName(h.performed_by) || '—')}</td><td>${esc(EVENT_LABELS[h.action] || h.action)}</td><td>${esc(h.description || '')}</td></tr>`).join('') + '</tbody></table>' : '<p class="muted">No history recorded for this container.</p>';
 }
 
 /* ---------- orders: no-CAS toggle ---------- */
 $('orderNoCas')?.addEventListener('click', () => {
   const f = $('orderForm').elements.cas, on = !f.disabled;
   f.disabled = on; if (on) f.value = '';
-  $('orderNoCas').textContent = on ? '[has a CAS number?]' : '[no CAS number?]';
+  $('orderNoCas').textContent = on ? '[Has a CAS Number?]' : '[No CAS Number?]';
 });
 
 /* ---------- Labs & All Users (Inventory Administrator only) ---------- */
@@ -2933,7 +2937,7 @@ function formatSummaryTime(iso) {
   const diff = Math.round((day(now) - day(d)) / 86400000), hm = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   if (diff === 0) return 'Today, ' + hm;
   if (diff === 1) return 'Yesterday, ' + hm;
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ', ' + hm;
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + hm;
 }
 async function loadMySummary() {
   const box = $('mySummary'); if (!box) return;
