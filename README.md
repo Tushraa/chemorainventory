@@ -57,7 +57,7 @@ chemorainventory/
 ├── logos/              logos and icons: site icon (same as www.chemora.art), Chemora logo, sponsors/
 ├── favicon.ico         site icon for browsers that ask for it at the root
 ├── email-logo.png      logo used in e-mails (linked by URL, so it stays at the root)
-├── sql/                database scripts 01 to 16, run in order
+├── sql/                database scripts 01 to 17, run in order
 ├── supabase/
 │   ├── functions/inventory-users/    account-management edge function (welcome email)
 │   ├── functions/inventory-notify/   order email edge function

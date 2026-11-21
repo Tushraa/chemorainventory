@@ -19,9 +19,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Roboto+Mono:wght@400;500;600;700&family=Cuprum:wght@400;700&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="js/tailwind-config.js"></script>
-  <link rel="stylesheet" href="inventory.css?v=20261121e">
-  <link rel="stylesheet" href="chemora-theme.css?v=20261121e">
-  <link rel="stylesheet" href="home.css?v=20261121e">
+  <link rel="stylesheet" href="inventory.css?v=20261121f">
+  <link rel="stylesheet" href="chemora-theme.css?v=20261121f">
+  <link rel="stylesheet" href="home.css?v=20261121f">
   <style>/* critical: keeps the account drawer closed even if a cached stylesheet is older than this page */
   .ci-drawer{position:fixed;top:0;right:0;bottom:0;width:340px;max-width:88vw;z-index:1000;transform:translateX(100%);visibility:hidden}
   .ci-drawer.open{transform:none;visibility:visible}
@@ -54,6 +54,13 @@
   <div class="ci-drawer-head"><h2 id="accountDrawerTitle">Account</h2><button id="accountClose" type="button" class="ci-drawer-close" aria-label="Close account panel">×</button></div>
   <div id="profileCard" class="ci-drawer-body hide" aria-label="Signed-in user">
     <div class="ci-drawer-user"><span id="drawerAvatar" class="ci-avatar-lg" aria-hidden="true">HG</span><div><div class="ci-drawer-name">Signed in as <strong id="who"></strong></div><div id="profileRole" class="ci-role">Member</div><div id="drawerEmail" class="ci-role"></div></div></div>
+    <section id="mySummary" class="ci-sum hide" aria-label="My activity summary">
+      <h3>My Orders</h3>
+      <div class="ci-sum-tiles"><div><b id="sumRequested">0</b><span>Chemicals Requested</span></div><div class="g"><b id="sumOrdered">0</b><span>Ordered</span></div><div class="a"><b id="sumActive">0</b><span>Active Containers</span></div></div>
+      <h3>Last Three Activities</h3>
+      <ul id="sumRecent" class="ci-sum-list"></ul>
+      <p class="ci-sum-note">Active Containers: containers from your orders that are still in the database (not disposed).</p>
+    </section>
     <label id="labSwitchLabel" class="ci-drawer-field hide">Laboratory<select id="labSwitcher" class="hide" aria-label="Switch lab" title="Switch lab"></select></label>
   </div>
   <div class="ci-drawer-foot"><button id="logout" class="btn ci-signout" type="button" title="Sign Out" aria-label="Sign Out"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sign Out</button></div>
@@ -269,6 +276,6 @@
 
 <script src="js/navigation.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="config.js?v=20261121e"></script>
-<script src="inventory.js?v=20261121e"></script>
+<script src="config.js?v=20261121f"></script>
+<script src="inventory.js?v=20261121f"></script>
 </body></html>
