@@ -92,3 +92,13 @@ html body.ci .ci-brand-tag{font-family:var(--ci-font-mono) !important;font-weigh
 html body.ci .chem-name,html body.ci input[name=chemical_name],html body.ci input[name=name],html body.ci #searchChemicalName{font-family:var(--ci-font-name) !important}
 /* The name wrapper must never pick up layout rules meant for the outer span of a list row */
 html body.ci .chem-name{display:inline !important;overflow:visible !important;-webkit-line-clamp:unset !important;min-width:0;white-space:inherit;text-overflow:inherit}
+
+/* ---- One table style everywhere (desktop): the Activity History table. Headers bold and a little bigger than the values. Phones keep their card layout. ---- */
+@media(min-width:851px){
+  html body.ci .inventory-data-table{border:1px solid #475569 !important;border-collapse:collapse !important}
+  html body.ci .inventory-data-table th,html body.ci .inventory-data-table td{border:1px solid #475569 !important;padding:8px 14px !important;vertical-align:middle !important}
+  html body.ci .inventory-data-table thead th{font-size:14px !important;font-weight:700 !important;text-align:left}
+  html body.ci .inventory-data-table th[scope=row]{font-size:14px !important;font-weight:700 !important}
+  html body.ci .inventory-data-table tbody td{font-size:13px;font-weight:400}
+  html body.ci .inventory-data-table tbody td strong,html body.ci .inventory-data-table tbody td .order-name{font-weight:400}
+}
