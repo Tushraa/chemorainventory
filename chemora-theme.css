@@ -682,3 +682,11 @@ html body.ci .btn,html body.ci button.btn,html body.ci .btn.secondary,html body.
 html body.ci .view-toggle button,html body.ci .tool-tile strong{font-weight:400}
 /* Link-style buttons (PubChem safety link) also use normal weight */
 html body.ci #chemicalDialog .chemora-ghs-summary a{font-weight:400 !important}
+/* Locations uses the Search page layout on desktop: narrow left panel (1fr / 3fr), 18px gap, stacked below 1050px */
+@media(min-width:1051px){
+  html body.ci #view-locations .ci-loc-split{grid-template-columns:minmax(0,1fr) minmax(0,3fr);gap:18px}
+}
+@media(min-width:851px) and (max-width:1050px){
+  html body.ci #view-locations .ci-loc-split{grid-template-columns:minmax(0,1fr);gap:18px}
+}
+html body.ci #view-locations .view-all{white-space:nowrap;flex:0 0 auto}
