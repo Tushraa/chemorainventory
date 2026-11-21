@@ -27,7 +27,7 @@ More about the company and its other tools: **https://www.chemora.art/**
 ## Features
 
 - **Home:** a dashboard with quick search, recently added containers, order requests, locations, containers that need attention, and recent activity.
-- **Search:** by name or synonym, CAS number or barcode; structure search (exact, substructure, similarity) with a built-in JSME editor; advanced rule-based search; GHS hazard search.
+- **Search:** by name or synonym, CAS number or barcode; structure search (exact, substructure, similarity) with a built-in JSME editor; advanced rule-based search; GHS hazard search. Hazard codes (GHS H-statements) are filled in automatically from PubChem for every chemical, with no manual entry.
 - **Containers and locations:** two-step add form with optional pre-printed barcodes, hierarchical location tree, move, transfer, update quantity, duplicate or delete containers singly or in bulk, per-container history, and My Collection.
 - **Scanning and audits:** Scan to Move, printable labels with GHS pictograms (roll and A4 sheet sizes, batch printing), Assigned Barcodes register, and Stocktake & Audit with a missing / unexpected / unknown report.
 - **Orders, import and export:** order requests with a duplicate check ("this lab already has 2 bottles in Fridge 1") and current orders, CSV import and export, and Bulk Container Update from a spreadsheet with a preview before saving.

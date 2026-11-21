@@ -260,6 +260,7 @@ async function initSession() {
   $('profileAvatar').textContent = initials; $('drawerAvatar').textContent = initials; $('drawerEmail').textContent = user.email || '';
   $('accountButton').title = displayName;
   applyRoleVisibility();
+  setTimeout(() => { if (typeof ghsBackfill === 'function') ghsBackfill(); }, 5000); // fill missing hazard codes in the background
   renderLabControls();
   setTab('home');
   $('chemicalCards').replaceChildren();
@@ -725,7 +726,7 @@ function openChemical(id, containerId = null) {
   $('chemicalDialogBody').innerHTML = `<div class="chemora-detail-grid">
    <div class="chemora-detail-column chemora-detail-left">
     <div class="chemora-detail-structure"><img src="${esc(structureUrl(c))}" alt="Structure of ${esc(c.name)}" onerror="this.style.display='none'"></div>
-    <div class="chemora-ghs-summary"><h3>GHS Safety Summary${isManager() ? ' <button type="button" class="chemora-detail-edit" data-ghs-edit>Edit</button>' : ''}</h3>${ghsSummaryHtml(c)}<a href="${esc('https://pubchem.ncbi.nlm.nih.gov/#query=' + encodeURIComponent(c.cas || c.name))}" target="_blank" rel="noopener noreferrer">View PubChem Safety Information</a></div>
+    <div class="chemora-ghs-summary"><h3>GHS Safety Summary${isManager() ? ' <button type="button" class="chemora-detail-edit" data-ghs-edit>Edit</button>' : ''}</h3><div data-ghs-body>${ghsSummaryHtml(c)}</div><a href="${esc('https://pubchem.ncbi.nlm.nih.gov/#query=' + encodeURIComponent(c.cas || c.name))}" target="_blank" rel="noopener noreferrer">View PubChem Safety Information</a></div>
    </div>
    <div class="chemora-detail-column chemora-detail-middle">
     ${row('Container Name', `<span class="chem-name">${display(c.name)}</span>`, 'name', 'chemical')}
@@ -745,6 +746,7 @@ function openChemical(id, containerId = null) {
   </div>
   ${allItems.length > 1 ? `<details class="chemora-all-containers"><summary>All Registered Containers (${allItems.length})</summary><div class="chemora-all-containers-list">${containerRows}</div></details>` : allItems.length === 0 ? '<p class="muted">No containers registered.</p>' : ''}`;
   if (!$('chemicalDialog').open) $('chemicalDialog').showModal();
+  ghsAutoForDialog(c);
 
   const orderedByElement = $('chemicalDialogBody').querySelector('[data-ordered-by]');
   if (orderedByElement) {
@@ -997,6 +999,11 @@ $('addChemical').addEventListener('submit', async e => {
   try { payload.ghs_codes = JSON.parse(val(f, 'ghs_codes') || '[]'); } catch (_e) { payload.ghs_codes = []; }
   const submit = f.querySelector('[type="submit"]');
   submit.disabled = true;
+  if (!payload.ghs_codes.length) { // hazard codes are filled in automatically from PubChem when none were chosen
+    msg('Looking up hazard codes on PubChem…');
+    const found = await Promise.race([pubchemGhs({ cas: payload.cas, name }), wait(8000).then(() => null)]);
+    if (found?.length) { payload.ghs_codes = found; addGhs = new Set(found); drawAddGhs(); }
+  }
   msg('Registering container…');
   try {
     const { data, error } = await db.rpc('inventory_register_container_phase3', { p: payload });
@@ -2546,6 +2553,11 @@ async function openLabelDialog(containerIds) {
     let chems;
     try { chems = await fetchIn('inventory_chemicals', 'id', chemIds, { select: 'id,name,cas,ghs_codes' }); }
     catch (_e) { chems = await fetchIn('inventory_chemicals', 'id', chemIds, { select: 'id,name,cas' }); }
+    const missing = chems.filter(c => !ghsList(c).length);
+    if (missing.length) { // a label must never go out without its hazard codes if PubChem has them
+      showToast('Looking up hazard codes for the label…');
+      await Promise.race([Promise.all(missing.map(c => autoFillGhs(c))), wait(15000)]);
+    }
     const byId = new Map(chems.map(c => [c.id, c]));
     await loadBarcodeLib();
     const items = withCode.map(x => {
@@ -2626,8 +2638,95 @@ function pictogramsFor(codes) {
 }
 function ghsSummaryHtml(c) {
   const codes = ghsList(c);
-  if (!codes.length) return '<p class="muted">No hazard codes recorded for this chemical.</p>';
+  if (!codes.length) return '<p class="muted">No GHS hazard codes found for this chemical. That does not mean it is safe: check the supplier SDS.</p>';
   return `<div class="ghs-picts">${pictogramsFor(codes)}</div><p>Hazard Codes: ${codes.map(k => `<span class="dotted" title="${esc(GHS.find(g => g[0] === k)?.[1] || '')}">${esc(k)}</span>`).join(' ')}</p>`;
+}
+/* ---------- Automatic GHS hazard codes from PubChem ----------
+   Every chemical without stored hazard codes is looked up on PubChem (CAS number first, then name) and the
+   H-statements are saved straight away, with no confirmation step. Codes already stored are never overwritten.
+   "PubChem has no GHS data" is NOT the same as "not hazardous", so the app says so and points to the supplier SDS. */
+const GHS_NONE_KEY = 'chemora-ghs-none', GHS_NONE_DAYS = 7;
+const ghsNoneMap = () => { try { return JSON.parse(localStorage.getItem(GHS_NONE_KEY) || '{}') || {}; } catch (_e) { return {}; } };
+const ghsNoneRecent = id => { const t = ghsNoneMap()[id]; return Boolean(t) && Date.now() - t < GHS_NONE_DAYS * 864e5; };
+const ghsNoneMark = id => { try { const m = ghsNoneMap(); m[id] = Date.now(); localStorage.setItem(GHS_NONE_KEY, JSON.stringify(m)); } catch (_e) { /* private mode */ } };
+const ghsInflight = new Map();
+let ghsLastCall = 0;
+async function ghsFetchJson(url) {
+  const gap = 260 - (Date.now() - ghsLastCall); ghsLastCall = Date.now() + Math.max(0, gap);
+  if (gap > 0) await wait(gap);
+  const r = await fetch(url);
+  if (r.status === 404) return null;
+  if (!r.ok) throw Error('PubChem ' + r.status);
+  return r.json();
+}
+// Pulls every H/EUH statement out of PubChem's "GHS Hazard Statements" entries (all notifying sources).
+function ghsCodesFromRecord(node, out = new Set()) {
+  if (!node || typeof node !== 'object') return out;
+  if (Array.isArray(node)) { node.forEach(n => ghsCodesFromRecord(n, out)); return out; }
+  if (node.Name === 'GHS Hazard Statements' && Array.isArray(node.Value?.StringWithMarkup)) {
+    node.Value.StringWithMarkup.forEach(v => { const m = /^\s*((?:EUH|H)\d{3}[A-Za-z]{0,3})\b/.exec(v.String || ''); if (m) out.add(m[1].toUpperCase()); });
+  }
+  Object.values(node).forEach(v => { if (v && typeof v === 'object') ghsCodesFromRecord(v, out); });
+  return out;
+}
+// Resolves to an array of codes (empty when PubChem has no GHS data), or null when the lookup failed (try again later).
+async function pubchemGhs(c) {
+  const keys = [c.cas && validCAS(c.cas) ? c.cas : '', String(c.name || '').trim()].filter(Boolean);
+  try {
+    for (const key of [...new Set(keys)]) {
+      const ids = await ghsFetchJson(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(key)}/cids/JSON`);
+      const cid = ids?.IdentifierList?.CID?.[0];
+      if (!cid) continue;
+      const rec = await ghsFetchJson(`https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/${cid}/JSON?heading=GHS+Classification`);
+      const codes = [...ghsCodesFromRecord(rec)].filter(k => /^(H|EUH)\d{3}[A-Za-z]{0,3}$/.test(k)).sort();
+      if (codes.length) return codes;
+    }
+    return [];
+  } catch (_e) { return null; }
+}
+async function saveAutoGhs(c, codes) {
+  const rpc = await db.rpc('inventory_autofill_ghs', { p_chemical_id: c.id, p_codes: codes });
+  if (!rpc.error) return Array.isArray(rpc.data) && rpc.data.length ? rpc.data : codes;
+  if (isManager()) { const { error } = await updateRow('inventory_chemicals', c.id, { ghs_codes: codes }); if (!error) return codes; }
+  return codes; // shown for this session; saved once sql/19_ghs_autofill.sql has been run
+}
+// Fills one chemical (object with id, name, cas, ghs_codes). Resolves to its codes. Never rejects.
+function autoFillGhs(c, { force = false } = {}) {
+  if (!c?.id) return Promise.resolve([]);
+  if (ghsList(c).length) return Promise.resolve(ghsList(c));
+  if (!force && ghsNoneRecent(c.id)) return Promise.resolve([]);
+  if (ghsInflight.has(c.id)) return ghsInflight.get(c.id);
+  const job = (async () => {
+    const codes = await pubchemGhs(c);
+    if (codes === null) return [];
+    if (!codes.length) { ghsNoneMark(c.id); return []; }
+    try { c.ghs_codes = await saveAutoGhs(c, codes); } catch (_e) { c.ghs_codes = codes; }
+    const live = lastChemicals.find(x => x.id === c.id); if (live && live !== c) live.ghs_codes = c.ghs_codes;
+    return c.ghs_codes;
+  })().finally(() => ghsInflight.delete(c.id));
+  ghsInflight.set(c.id, job);
+  return job;
+}
+// Chemical Details: show what is stored now and fill it in if it is empty.
+async function ghsAutoForDialog(c) {
+  if (ghsList(c).length) return;
+  const box = $('chemicalDialogBody').querySelector('.chemora-ghs-summary [data-ghs-body]');
+  if (box) box.innerHTML = '<p class="muted">Looking up hazard codes on PubChem…</p>';
+  const codes = await autoFillGhs(c, { force: true });
+  if (activeChemicalId !== c.id || !$('chemicalDialog').open) return;
+  const now = $('chemicalDialogBody').querySelector('.chemora-ghs-summary [data-ghs-body]');
+  if (now) now.innerHTML = ghsSummaryHtml(c) + (codes.length ? '<p class="muted ghs-src">Filled automatically from PubChem. Check the supplier SDS for this bottle.</p>' : '');
+}
+// Quiet background pass: fills every chemical of the lab that still has no codes, a few per second, once per sign-in.
+let ghsBackfillLab = null;
+async function ghsBackfill() {
+  const lab = labContext?.lab_id; if (!lab || ghsBackfillLab === lab || labContext?.platform_admin) return;
+  ghsBackfillLab = lab;
+  try {
+    const { data, error } = await db.from('inventory_chemicals').select('id,name,cas,ghs_codes').eq('ghs_codes', '{}').limit(2000);
+    if (error || !data) return;
+    for (const c of data) { if (labContext?.lab_id !== lab) return; if (!ghsNoneRecent(c.id)) await autoFillGhs(c); }
+  } catch (_e) { /* background only */ }
 }
 function renderGhsPicker(listEl, filterEl, selected, onChange) {
   const draw = () => {
