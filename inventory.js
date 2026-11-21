@@ -555,10 +555,13 @@ $('locationList').addEventListener('click', async e => {
     const target = locations.find(x => x.id === del.dataset.deleteLocation);
     if (!target) return;
     if (target.active !== false) return status('Deactivate the location before deleting it permanently.');
-    if (!confirm(`Permanently delete the location "${target.name}"?\n\nThis cannot be undone. It is only possible when no containers (including disposed ones) and no other locations are recorded in it.`)) return;
+    // Disposed containers are hidden in the app but still recorded in the location; they are removed together with it.
+    const { count: disposedCount } = await db.from('inventory_containers').select('id', { count: 'exact', head: true }).eq('location_id', target.id).eq('status', 'disposed');
+    const extra = disposedCount ? `\n\nThis also permanently deletes ${disposedCount} disposed container record(s) stored here.` : '';
+    if (!confirm(`Permanently delete the location "${target.name}"?${extra}\n\nThis cannot be undone. It is only possible when no containers are still in use here and no other locations are inside it.`)) return;
     del.disabled = true;
     const { error } = await db.rpc('inventory_delete_location', { p_id: target.id });
-    if (error) { del.disabled = false; return status(isMissingFunction(error) ? 'Permanent deletion is not available yet. Ask the administrator to run sql/15_delete_location.sql.' : error.message); }
+    if (error) { del.disabled = false; return status(isMissingFunction(error) ? 'Permanent deletion is not available yet. Ask the administrator to run sql/15_delete_location.sql and sql/16_delete_location_with_disposed.sql.' : error.message); }
     if (locSelectedId === target.id) { locSelectedId = null; show($('locationContents'), false); }
     status(`Location "${target.name}" deleted.`);
     await loadLocations();
