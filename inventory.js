@@ -257,7 +257,7 @@ async function initSession() {
   $('accountButton').title = displayName;
   applyRoleVisibility();
   renderLabControls();
-  setTab('chemicals');
+  setTab('home');
   $('chemicalCards').replaceChildren();
   show($('chemoraResultsPanel'), false);
   $('chemoraResultsCount').textContent = '';
@@ -321,6 +321,7 @@ function setTab(name) {
   const menuName = name === 'tools' ? 'users' : name;
   document.querySelectorAll('#tabs button[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === menuName));
   for (const [group, tabs] of Object.entries(TAB_GROUPS)) if (tabs.includes(name)) setGroup(group, true);
+  if (name === 'home') loadHome();
   if (name === 'requests') loadOrders();
   if (name === 'locations') { show($('locationContents'), false); locEditMode = false; $('locationEditToggle').textContent = 'Edit'; show($('locationForm'), false); loadLocations(); }
   if (name === 'history') loadHistory();
@@ -330,6 +331,85 @@ function setTab(name) {
   if (name === 'collection') loadCollection();
   if (name === 'scan') initScan();
 }
+/* ---------- Home page: shortcuts and a few live numbers. Every card fills in on its own, so the page appears at once. ---------- */
+let homeSeq = 0;
+async function homeCount(query) { const { count, error } = await query; return error ? null : count; }
+function homeSet(id, value) { const el = $(id); if (el) el.textContent = value === null || value === undefined ? '–' : String(value); }
+function homeList(id, items, empty) {
+  const el = $(id); if (!el) return;
+  el.innerHTML = items.length ? items.join('') : `<li class="empty">${esc(empty)}</li>`;
+}
+function renderHomeLocations() {
+  // Top-level locations first, each followed by what is directly inside it; only the first few are shown.
+  const active = activeLocations().filter(l => l.active !== false);
+  const byParent = new Map();
+  for (const l of active) { const k = l.parent_id || ''; if (!byParent.has(k)) byParent.set(k, []); byParent.get(k).push(l); }
+  const out = [];
+  const walk = (parent, depth) => { for (const l of (byParent.get(parent) || []).sort((a, b) => a.name.localeCompare(b.name))) { if (out.length >= 6) return; out.push(`<li style="padding-left:${depth * 16}px">${esc(l.name)}</li>`); if (depth < 1) walk(l.id, depth + 1); } };
+  walk('', 0);
+  homeList('homeLocations', out, 'No locations yet.');
+}
+async function loadHome() {
+  if (labContext?.platform_admin) return;
+  const seq = ++homeSeq, fresh = () => seq === homeSeq;
+  const manager = isManager();
+  $('homeGrid').classList.toggle('is-member', !manager);
+  renderHomeLocations();
+  const today = isoDay(new Date()), in30 = isoDay(new Date(Date.now() + 30 * 864e5));
+  const live = q => q.or('status.is.null,status.neq.disposed');
+  const containers = () => db.from('inventory_containers').select('id', { count: 'exact', head: true });
+  const orders = () => db.from('inventory_orders').select('id', { count: 'exact', head: true });
+  const run = async (fn) => { try { await fn(); } catch (_e) { /* a card that cannot load simply keeps its dashes */ } };
+  await Promise.all([
+    run(async () => { const v = await homeCount(live(containers()).lt('expires_at', today)); if (fresh()) homeSet('homeExpired', v); }),
+    run(async () => { const v = await homeCount(live(containers()).gte('expires_at', today).lte('expires_at', in30)); if (fresh()) homeSet('homeExpiring', v); }),
+    run(async () => { const v = await homeCount(live(containers())); if (fresh()) homeSet('homeTotal', v); }),
+    run(async () => { const v = await homeCount(orders().eq('status', 'requested')); if (fresh()) homeSet('homeOrdersRequested', v); }),
+    run(async () => { const v = await homeCount(orders().eq('status', 'ordered')); if (fresh()) homeSet('homeOrdersOrdered', v); }),
+    run(async () => {
+      const r = await db.from('inventory_orders').select('chemical_name,status').in('status', ['requested', 'ordered']).order('requested_at', { ascending: false }).limit(3);
+      if (!fresh()) return;
+      homeList('homeOrdersList', (r.data || []).map(o => `<li class="${o.status === 'requested' ? 'amber' : ''}"><span><b>${esc(o.chemical_name)}</b> · ${o.status === 'requested' ? 'requested' : 'ordered'}</span></li>`), 'No open orders.');
+    }),
+    run(async () => {
+      const rows = await getContainerRows({ recent: 3 });
+      if (!fresh()) return;
+      $('homeRecent').innerHTML = rows.length ? rows.map(x => `<div class="mini-row"><span>${esc(x.chemical?.name || 'Chemical')}${x.chemical?.cas ? ` <em>· ${esc(x.chemical.cas)}</em>` : ''}</span><em>${esc([x.location_name, x.container_size != null ? `${x.container_size} ${x.unit || ''}`.trim() : ''].filter(Boolean).join(' · '))}</em></div>`).join('') : '<div class="mini-row"><span class="empty">Nothing added yet.</span></div>';
+    }),
+    manager ? run(async () => {
+      const r = await db.from('inventory_activity_logs').select('created_at,description').order('created_at', { ascending: false }).limit(4);
+      if (!fresh()) return;
+      homeList('homeActivity', (r.data || []).filter(x => x.description).slice(0, 3).map(x => `<li><span>${esc(x.description)}</span></li>`), 'No activity yet.');
+    }) : null
+  ]);
+}
+function goHome(action) {
+  if (action === 'structure') { setTab('chemicals'); $('structureSearchButton').click(); }
+  else if (action === 'collection') setTab('collection');
+  else if (action === 'scan') setTab('scan');
+  else setTab(action);
+}
+$('homeSearch').addEventListener('submit', e => {
+  e.preventDefault();
+  const q = $('homeSearchInput').value.trim();
+  if (!q) return showToast('Type a chemical name, CAS number or barcode.', 'error');
+  setTab('chemicals');
+  for (const id of ['searchChemicalName', 'searchChemicalCas', 'searchChemicalBarcode']) $(id).value = '';
+  const field = /^\d{2,7}-\d{2}-\d$/.test(q) ? 'searchChemicalCas' : /^[A-Za-z]{1,8}-?\d{3,}$/.test(q) ? 'searchChemicalBarcode' : 'searchChemicalName';
+  $(field).value = q;
+  $('search').requestSubmit();
+});
+$('view-home').addEventListener('click', e => {
+  const chip = e.target.closest('[data-home-action]');
+  if (chip) return goHome(chip.dataset.homeAction);
+  const card = e.target.closest('[data-home-go]');
+  if (card) goHome(card.dataset.homeGo);
+});
+$('view-home').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const card = e.target.closest('[data-home-go]');
+  if (card && e.target === card) { e.preventDefault(); goHome(card.dataset.homeGo); }
+});
 /* Phone menu (like ChemInventory's "Show Menu"): the Menu button drops the module list down; picking a page closes it. */
 function setMenuOpen(open) {
   document.body.classList.toggle('ci-menu-open', open);
@@ -466,6 +546,7 @@ async function loadLocations() {
   $('searchLocation').value = prevSearch;
   refreshLocationParent();
   renderLocationUi();
+  renderHomeLocations(); // keeps the Home card in step with the list
 }
 $('locationList').addEventListener('click', async e => {
   if (!isAdmin()) return;
